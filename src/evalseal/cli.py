@@ -1,0 +1,121 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import typer
+from rich.console import Console
+from rich.markdown import Markdown
+
+from .adapters.dataset import Dataset
+from .adapters.recording import Cassette
+from .adapters.scorer import ExactMatchScorer, LLMJudgeScorer, RegexScorer
+from .adapters.target import OpenAICompatibleTarget
+from .executor import run_eval
+from .ledger import LEDGER_PATH, last_hash, load_all, seal_and_append, verify_chain
+from .report import to_markdown, write_json, write_markdown
+
+# Distinct from 1 (uncaught error) and 2 (usage error) so CI can tell
+# "the eval is unstable" apart from "the tool broke".
+EXIT_UNSTABLE = 3
+
+app = typer.Typer(add_completion=False, help="Reproducibility receipts for LLM evals.")
+console = Console()
+
+LedgerOpt = typer.Option(LEDGER_PATH, "--ledger", help="Path to the ledger JSONL file.")
+
+
+def _build_target(cfg: dict, cassette: Cassette) -> OpenAICompatibleTarget:
+    return OpenAICompatibleTarget(
+        model=cfg["model"],
+        cassette=cassette,
+        base_url=cfg.get("base_url", "https://api.openai.com/v1"),
+        temperature=cfg.get("temperature"),   # omit in config to surface the "unset" warning
+        seed=cfg.get("seed"),
+    )
+
+
+def _build_scorer(cfg: dict, cassette: Cassette):
+    if cfg["type"] == "exact":
+        return ExactMatchScorer()
+    if cfg["type"] == "regex":
+        return RegexScorer(pattern=cfg["pattern"])
+    if cfg["type"] == "llm_judge":
+        judge = OpenAICompatibleTarget(
+            model=cfg["judge_model"],
+            cassette=cassette,
+            base_url=cfg.get("base_url", "https://api.openai.com/v1"),
+            temperature=cfg.get("judge_temperature"),  # leave unset to demonstrate flips
+            seed=cfg.get("judge_seed"),
+        )
+        return LLMJudgeScorer(judge=judge, rubric=cfg["rubric"])
+    raise typer.BadParameter(f"unknown scorer type {cfg['type']!r}")
+
+
+@app.command()
+def run(
+    dataset: Path = typer.Option(..., exists=True, dir_okay=False),
+    target_config: Path = typer.Option(..., exists=True, dir_okay=False),
+    scorer_config: Path = typer.Option(..., exists=True, dir_okay=False),
+    n: int = typer.Option(5, min=1, help="Repeats per case (flip rate needs N>=5)."),
+    cassette: Path = typer.Option(Path("tests/cassettes/run.json")),
+    ledger: Path = LedgerOpt,
+):
+    """Run an eval N times, seal the result, emit report.json + report.md."""
+    ds = Dataset.from_jsonl(dataset)
+    cass = Cassette(cassette)
+    target = _build_target(json.loads(target_config.read_text()), cass)
+    scorer = _build_scorer(json.loads(scorer_config.read_text()), cass)
+
+    try:
+        record = run_eval(ds, target, scorer, n_repeats=n, prev_hash=last_hash(ledger))
+    except RuntimeError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
+    record = seal_and_append(record, ledger)
+    write_json(record)
+    write_markdown(record)
+    console.print(Markdown(to_markdown(record)))
+
+    # CI gate: dedicated non-zero exit if any case is UNSTABLE.
+    if record.aggregate.n_unstable > 0:
+        console.print(f"[red]{record.aggregate.n_unstable} unstable case(s) — failing.[/red]")
+        raise typer.Exit(code=EXIT_UNSTABLE)
+
+
+@app.command()
+def verify(ledger: Path = LedgerOpt):
+    """Check the ledger chain integrity (tamper detection)."""
+    ok, msg = verify_chain(ledger)
+    color = "green" if ok else "red"
+    console.print(f"[{color}]{msg}[/{color}]")
+    raise typer.Exit(code=0 if ok else 1)
+
+
+@app.command()
+def diff(
+    a: int = typer.Argument(..., help="Ledger index of the baseline run (negative ok)."),
+    b: int = typer.Argument(..., help="Ledger index of the candidate run (negative ok)."),
+    ledger: Path = LedgerOpt,
+):
+    """Compare two runs; state whether a score change exceeds the noise floor."""
+    recs = load_all(ledger)
+    for i in (a, b):
+        if not -len(recs) <= i < len(recs):
+            raise typer.BadParameter(f"index {i} out of range; ledger has {len(recs)} record(s)")
+    ra, rb = recs[a], recs[b]
+    ma, mb = ra.aggregate.mean_score, rb.aggregate.mean_score
+
+    # Noise floor: widest per-case CI half-width across both runs. Deliberately
+    # conservative — "REAL CHANGE" is only claimed when no single case's noise explains it.
+    def halfwidth(r):
+        return max(((c.ci95[1] - c.ci95[0]) / 2 for c in r.results), default=0.0)
+
+    noise = max(halfwidth(ra), halfwidth(rb))
+    delta = mb - ma
+    verdict = "within noise" if abs(delta) <= noise else "REAL CHANGE"
+    console.print(
+        f"mean {ma:.3f} -> {mb:.3f}  (delta {delta:+.3f}, noise floor ±{noise:.3f}) => {verdict}"
+    )
+    if ra.manifest.dataset.hash != rb.manifest.dataset.hash:
+        console.print("[yellow]Warning: runs used different datasets.[/yellow]")

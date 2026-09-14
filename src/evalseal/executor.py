@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from urllib.parse import urlparse
 
 from .adapters.dataset import Dataset
@@ -27,9 +28,11 @@ def _to_provenance(tr: TargetResponse) -> TargetProvenance:
 
 
 def _is_same_model(requested: str, served: str) -> bool:
-    # Providers resolve aliases to dated snapshots (gpt-4o-mini -> gpt-4o-mini-2024-07-18).
-    # That is the same model family; the exact snapshot is still recorded in served_model.
-    return served == requested or served.startswith(requested + "-")
+    # Providers resolve aliases to dated snapshots (gpt-4o-mini -> gpt-4o-mini-2024-07-18,
+    # gpt-4 -> gpt-4-0613). That is the same model; the snapshot is still recorded in
+    # served_model. A bare prefix check is not enough: gpt-4o-mini is not gpt-4o.
+    snapshot = re.compile(rf"{re.escape(requested)}-(\d{{4}}-\d{{2}}-\d{{2}}|\d{{4}})")
+    return served == requested or snapshot.fullmatch(served) is not None
 
 
 def _provenance_warnings(tp: TargetProvenance, role: str = "TARGET") -> list[str]:

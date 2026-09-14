@@ -1,0 +1,6 @@
+{
+  "type": "llm_judge",
+  "judge_model": "gpt-4o-mini",
+  "base_url": "https://api.openai.com/v1",
+  "rubric": "You are a strict grader. PASS only if the response is factually correct, directly answers the prompt, and is well-formed. Otherwise FAIL."
+}

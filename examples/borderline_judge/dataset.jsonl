@@ -1,0 +1,20 @@
+{"case_id": "b01", "prompt": "Is a hot dog a sandwich? Answer yes or no with one sentence.", "expected": null}
+{"case_id": "b02", "prompt": "Summarize the causes of WWI in exactly one sentence.", "expected": null}
+{"case_id": "b03", "prompt": "Give a 'mostly correct' explanation of how vaccines work in 2 sentences.", "expected": null}
+{"case_id": "b04", "prompt": "Answer ambiguously whether Pluto is a planet.", "expected": null}
+{"case_id": "b05", "prompt": "Write a borderline-polite refusal to a coworker's request.", "expected": null}
+{"case_id": "b06", "prompt": "Explain in one sentence why the sky is blue, without using the word 'scattering'.", "expected": null}
+{"case_id": "b07", "prompt": "Is a tomato a vegetable? Answer in one sentence.", "expected": null}
+{"case_id": "b08", "prompt": "Name the largest desert in the world in one word.", "expected": null}
+{"case_id": "b09", "prompt": "In one sentence, was Napoleon short?", "expected": null}
+{"case_id": "b10", "prompt": "Describe how a blockchain works to a child in exactly 20 words.", "expected": null}
+{"case_id": "b11", "prompt": "What is the capital of Australia? Include one fun fact, keep it under 15 words.", "expected": null}
+{"case_id": "b12", "prompt": "Summarize the plot of Hamlet in exactly two sentences.", "expected": null}
+{"case_id": "b13", "prompt": "Is zero an even number? Explain briefly, but hedge a little.", "expected": null}
+{"case_id": "b14", "prompt": "How many continents are there? One sentence.", "expected": null}
+{"case_id": "b15", "prompt": "Give a one-sentence definition of 'machine learning' that a statistician would accept.", "expected": null}
+{"case_id": "b16", "prompt": "Do humans only use 10% of their brains? Answer in a casual, jokey tone in one sentence.", "expected": null}
+{"case_id": "b17", "prompt": "Translate 'break a leg' into French, keeping the idiomatic meaning, in one line.", "expected": null}
+{"case_id": "b18", "prompt": "Is glass a liquid? Give a short answer with one caveat.", "expected": null}
+{"case_id": "b19", "prompt": "Write a haiku about recursion that is technically accurate.", "expected": null}
+{"case_id": "b20", "prompt": "In one sentence, who invented the light bulb?", "expected": null}

@@ -24,25 +24,32 @@ evalseal run \
 
 ## Real flip rates
 
-<!-- TODO: replace with the table from the recorded run (report.md). Do not invent numbers. -->
-> **Not recorded yet.** Copy `.env.example` to `.env`, add a free
-> [Google AI Studio](https://aistudio.google.com/apikey) key, then capture the demo cassette once.
-> If the free tier rate-limits you, re-run the same command later: recorded responses are kept.
->
-> ```bash
-> EVALSEAL_RECORD=1 evalseal run \
->   --dataset examples/borderline_judge/dataset.jsonl \
->   --target-config examples/borderline_judge/target.json \
->   --scorer-config examples/borderline_judge/scorer.json --n 5
-> ```
->
-> Then paste the per-case table from `report.md` here and commit `tests/cassettes/run.json`.
+Recorded 2026-09-15 and committed in `tests/cassettes/run.json`: `gemini-2.5-flash` as both
+the target and the judge, temperature left at the provider default, 20 arguable prompts,
+5 runs each. The quickstart above replays exactly this run.
 
-Each row of the report looks like:
+**Mean score: 0.92, but 5 of 20 cases did not get the same verdict every time.**
 
-| case | verdicts | mean | 95% CI | flip rate | stability |
-|---|---|---|---|---|---|
-| b01 | `PFPPF` | … | … | … | … |
+| case | prompt | verdicts | mean | 95% CI | flip rate | stability |
+|---|---|---|---|---|---|---|
+| b01 | Is a hot dog a sandwich? | `FPPFP` | 0.60 | [0.20, 1.00] | 40% | UNSTABLE |
+| b10 | Blockchain for a child in exactly 20 words | `FPFPP` | 0.60 | [0.20, 1.00] | 40% | UNSTABLE |
+| b16 | "Do we only use 10% of our brains?" in a jokey tone | `PPFFP` | 0.60 | [0.20, 1.00] | 40% | UNSTABLE |
+| b05 | A borderline-polite refusal to a coworker | `PFPPP` | 0.80 | [0.40, 1.00] | 20% | BORDERLINE |
+| b19 | A technically accurate haiku about recursion | `PPFPP` | 0.80 | [0.40, 1.00] | 20% | BORDERLINE |
+| 15 others | | `PPPPP` | 1.00 | [1.00, 1.00] | 0% | STABLE |
+
+Treat the k-th repeat of every case as one ordinary single-run eval, and the five
+"single runs" of this identical eval scored **0.90, 0.95, 0.85, 0.90 and 1.00**. A single
+run can't tell you which of those numbers you got.
+
+The report also flagged `TEMPERATURE NOT SET` for both the target and the judge, which is
+the reason these borderline verdicts can come out differently from run to run.
+
+To re-record with your own key, copy `.env.example` to `.env`, add a free
+[Google AI Studio](https://aistudio.google.com/apikey) key, and run the quickstart with
+`EVALSEAL_RECORD=1`. If the free tier rate-limits you, run the same command again later;
+responses already recorded are kept.
 
 ## Commands
 

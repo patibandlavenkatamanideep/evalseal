@@ -1,0 +1,4424 @@
+{
+  "0262d1b07b7d16532568931e1c538be9656c27451d47a19bd7ef5292e5e77619": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463027,
+      "id": "8AmpatWjMPyl1MkPga230Q4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 131,
+        "total_tokens": 442
+      }
+    }
+  ],
+  "07029e21046172fffaab4614f9cdc4044699b17278f7a7a90bd4a8ff4862d982": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462879,
+      "id": "WAmpaqbqMdHajMcPmYzeqQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 82,
+        "total_tokens": 1271
+      }
+    }
+  ],
+  "072be6d46e34818c541c37f65bbf93f2ea4502ca9c89c1d63311a2ccf3fda1cb": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462758,
+      "id": "4wipav3kPJHSjMcPjKL26AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 314,
+        "total_tokens": 838
+      }
+    }
+  ],
+  "0b345bec17a6a6bbb9a815bd7d6718f9ad8ddb91f6e510f2f2e81e4995d88db3": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463195,
+      "id": "mQqpavX-BZzUjMcPuY6noQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 421
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463198,
+      "id": "nQqpasT0DqzSjMcPy7ySsQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 317
+      }
+    }
+  ],
+  "0b638ef6e68ce5726ecf8a1932103989898bf9e45e6ebd7f529a66ae0301214c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463290,
+      "id": "9wqpaujvCpOp1MkP9KSw6Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 80,
+        "total_tokens": 775
+      }
+    }
+  ],
+  "0cad1e0de4553b66f9bd35587d4a70fc47f83b2d082572548c5ad5f249ebc439": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463001,
+      "id": "1wmpasepKYe9jrEP457roQk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 374
+      }
+    }
+  ],
+  "0e1ca3360c32bfac117b92fead41b70503a7e0936ef5e1056bcf0b0afd1e06da": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463282,
+      "id": "7gqpavThMrOOjMcP8IzGqAQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 85,
+        "total_tokens": 694
+      }
+    }
+  ],
+  "13bb54a1f55073d808a239393d70eb820618f461d8fa51bbaed3fb1d73ccb757": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462982,
+      "id": "wwmpapbXNNe-jrEP3bLa-QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 96,
+        "total_tokens": 642
+      }
+    }
+  ],
+  "147fb70f0963bbcae0d1f443c93446064db57f2406802340f0751717cc868bdb": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "There are seven continents.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463086,
+      "id": "LQqpapjSKv-xqtsPv-bR2Qs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 138
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "There are seven continents.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463088,
+      "id": "MAqpaojsFpyGjrEPso3m0Q0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 48
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "There are generally considered to be seven continents: Asia, Africa, North America, South America, Antarctica, Europe, and Australia.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463092,
+      "id": "MgqpasnNGOPdjMcPgsvYqAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 26,
+        "prompt_tokens": 10,
+        "total_tokens": 300
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "There are seven continents.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463095,
+      "id": "NgqpauSII4rcjMcPwIvYuQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 128
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "There are seven continents.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463099,
+      "id": "OQqpaoCnDdTSjMcP1oawsAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 465
+      }
+    }
+  ],
+  "164300d8d59ac81e60da9f6132e1733373bd14d62266268cc040825c136dffde": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462828,
+      "id": "KAmpar-VJODTjrEPzO_NmAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 539,
+        "total_tokens": 1230
+      }
+    }
+  ],
+  "19ce9043832bb03855cc847f93cfbbc607a687a6f693530b377051d7b417be28": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462691,
+      "id": "oQipauDDMLCy_PUP8qKsuAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 114,
+        "total_tokens": 495
+      }
+    }
+  ],
+  "1b577c1b5d22815538815c80e20adcb6f74a7841ac91c84a545ff0548c0bfbd6": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463185,
+      "id": "jQqpavTJIa7_jrEP47ujyAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 115,
+        "total_tokens": 849
+      }
+    }
+  ],
+  "1db73cb6ca04da8d8f79821ed9e7cb4a8405bbdb4e853b4cde33da6831ceee2c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463244,
+      "id": "ygqpaoXeAaPg-sAPq6G4yAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 102,
+        "total_tokens": 546
+      }
+    }
+  ],
+  "2013f9af69af7b19ba33c4ebbace2935575294445b0cfe2739a6d80a34cefdd7": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463316,
+      "id": "EguparPiKsqr_PUPpPyA2QU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 94,
+        "total_tokens": 408
+      }
+    }
+  ],
+  "223903d4576cae19174d45a674db34e0a2378b2d53f16a4f9d5aba77594b7e38": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462884,
+      "id": "YAmpasr5KtSd-8YPmfiyeA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 85,
+        "total_tokens": 698
+      }
+    }
+  ],
+  "22be5e2139cf62ce1ba178c10f9d9f0d9e2d2554e57201136e42893089a6024e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462861,
+      "id": "TAmpaqjPE4-L-sAPoM-CqQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 92,
+        "total_tokens": 374
+      }
+    }
+  ],
+  "23eccf02a19048c132bf400997eccb74f80608ec19261396b0a8057d95ad9ac7": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462797,
+      "id": "CgmpavqHKfqK-sAP2PiWmQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 880,
+        "total_tokens": 1463
+      }
+    }
+  ],
+  "25a34c8d9d4fba84148c50ec1f304f3d43da8355855c70acc6929a269fded461": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463224,
+      "id": "tQqpauzVCeyb9MoPlduWEA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 124,
+        "total_tokens": 772
+      }
+    }
+  ],
+  "267706508cece5b8460e5befecf2317778e6489af9a1f41314d40073b73b3816": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No single person invented the light bulb; its development involved contributions from many inventors over a long period, though Thomas Edison is widely credited for creating the first commercially practical and long-lasting incandescent light bulb.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463303,
+      "id": "BQupapPjNpzUjMcP6eed0Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 40,
+        "prompt_tokens": 11,
+        "total_tokens": 329
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No single person invented the light bulb, but Thomas Edison is widely credited with developing the first commercially practical and long-lasting incandescent bulb.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463308,
+      "id": "CgupaqD6CNTRjMcPoYe_4QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 27,
+        "prompt_tokens": 11,
+        "total_tokens": 396
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "While many inventors contributed to the development of electric illumination, Thomas Edison is widely credited with inventing the first commercially practical and long-lasting incandescent light bulb.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463314,
+      "id": "DwupasysIObe-sAPtp-_2AI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 11,
+        "total_tokens": 507
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "While many contributed to its development, Thomas Edison is most commonly credited with inventing a practical, long-lasting incandescent light bulb.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463319,
+      "id": "FAupaqaQOPqK-sAP2PiWmQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 25,
+        "prompt_tokens": 11,
+        "total_tokens": 507
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "While many individuals contributed to its development over decades, Thomas Edison is most widely credited with inventing the first commercially practical and long-lasting incandescent light bulb.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463325,
+      "id": "GgupavqVH9zR1MkPyYLuqAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 11,
+        "total_tokens": 470
+      }
+    }
+  ],
+  "2c1fcad77f0412c89de21158a9ca09d19bc546bbec519fc52d948631f9bd3d15": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Here are a few options, playing with slightly different nuances of \"borderline-polite\":\n\n**Option 1 (Subtle Implication of Overload/Not My Problem):**\n\n> \"Thanks for thinking of me, but I'm really stretched thin with my own deadlines right now. I just don't have the capacity to take anything else on.\"\n\n**Option 2 (Slight Exasperation/Not My Role):**\n\n> \"Hmm, I appreciate you asking, but that's a bit outside my usual responsibilities/area of expertise. You'd probably have better luck with [Team/Person X].\"\n\n**Option 3 (Time/Priority Based - Firm but not Apologetic):**\n\n> \"I'm afraid my priorities are pretty locked in for the rest of the day/week, so I genuinely can't carve out the time for that. Good luck with it, though.\"\n\n**Option 4 (The \"I'm not going to bend over backward\" one):**\n\n> \"I hear your request, but unfortunately, that's not something I'm going to be able to assist with. My current workload just doesn't allow for it.\"\n\nChoose the one that best fits your relationship with the coworker and the specific request!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462767,
+      "id": "5gipatG6LLqY1MkP5bfCyAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 269,
+        "prompt_tokens": 15,
+        "total_tokens": 1702
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Okay, here are a few options, depending on the nuance you want to convey and the specific request. The key is to be firm without being outright rude, and to avoid over-apologizing or over-explaining.\n\n**Option 1: The \"My Plate is Full\" Classic**\n*Good for: When you genuinely don't have time, or don't want to make time.*\n\n> \"Thanks for thinking of me for that, [Coworker's Name]. Unfortunately, my bandwidth is completely maxed out with [my current priority/deadline] right now, so I won't be able to take that on.\"\n\n**Option 2: The \"Not My Lane\" (With a hint of suggestion)**\n*Good for: When it's clearly not your responsibility, or you want to redirect them.*\n\n> \"I appreciate you reaching out, but I'm not really the best person for that. You might have better luck if you tried [another team member/department/resource].\"\n\n**Option 3: The \"Strict Priorities\"**\n*Good for: When you're making a conscious choice to prioritize your own work, and you don't need to elaborate.*\n\n> \"I've had to really focus my efforts on [Project X] this week, so I won't be able to assist with that. I hope you find the help you need.\"\n\n**Option 4: The \"Subtly Unavailable\"**\n*Good for: When you want to imply you're too busy without explicitly saying it or giving details.*\n\n> \"I won't be able to make that work on my end, [Coworker's Name]. Sorry about that.\" (The \"sorry about that\" is just a softener, not a deep apology.)\n\n**Option 5: The \"No Explanation Necessary\"**\n*Good for: When you really don't want to do it and don't feel a reason is owed.*\n\n> \"I'm afraid I won't be able to help with that. My apologies.\"\n\n**Key elements that make these \"borderline polite\":**\n\n*   **Acknowledgement:** \"Thanks for thinking of me,\" \"I appreciate you reaching out.\"\n*   **Softened Refusal:** \"Unfortunately, I won't be able to,\" \"I'm not in a position to,\" \"I'm afraid I won't be able.\"\n*   **Brief, Vague Reason (optional):** \"Bandwidth maxed out,\" \"focus my efforts,\" \"not the best person.\" Avoid giving too much detail as it can invite negotiation.\n*   **Concise:** Don't drag it out.\n*   **Professional Tone:** Even when being firm.\n\nChoose the one that best fits the situation and your relationship with the coworker!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462778,
+      "id": "8QipapSIDL7djMcP_ZCk-Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 595,
+        "prompt_tokens": 15,
+        "total_tokens": 1930
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Here are a few options, depending on the specific request and your relationship with the coworker. The key is to be polite enough that they can't accuse you of rudeness, but firm enough that there's no room for negotiation or further prodding.\n\n**General Template Elements:**\n*   Acknowledge the request (polite).\n*   State your inability to help (firm).\n*   Offer a brief, non-negotiable reason (borderline, as it's not an elaborate apology).\n*   No offer to reconsider or help find an alternative (firm).\n*   A mild, non-committal well-wish (polite).\n\n---\n\n**Scenario 1: Someone asks you to take on an extra task or project.**\n\n> \"Thanks for thinking of me, but my plate is completely full with [Project X] this week. I just don't have the bandwidth to take anything else on right now. Hope you find someone who can help!\"\n\n**Why it's borderline:** \"Plate is full\" and \"don't have the bandwidth\" are common, unassailable corporate excuses. There's no apology for not helping, just a statement of fact. The \"hope you find someone\" is polite but offers no assistance.\n\n---\n\n**Scenario 2: Someone asks you to cover a shift or attend an optional meeting/event you don't want to.**\n\n> \"I appreciate you asking, but I'm afraid I'm already fully committed for that day/time. It's just not something I can shift around right now. Good luck with it.\"\n\n**Why it's borderline:** \"Fully committed\" implies a pre-existing, immovable obligation without detailing it. \"Not something I can shift around\" makes it clear you're not even considering it. \"Good luck with it\" is a polite dismissal.\n\n---\n\n**Scenario 3: Someone asks for a favor (e.g., help with something slightly outside your usual scope, or a personal favor at work).**\n\n> \"I'm afraid I won't be able to help with that. My focus is entirely on [current priority] today, and I really can't divert my attention. Hope you manage to sort it out.\"\n\n**Why it's borderline:** \"I'm afraid I won't be able to help\" is direct. \"My focus is entirely on X\" asserts your priorities without diminishing theirs. \"Really can't divert my attention\" implies a serious personal boundary. \"Hope you manage to sort it out\" politely passes the buck.\n\n---\n\n**Scenario 4: Someone asks for your input/review on something when you're busy.**\n\n> \"Thanks for sending this over. Unfortunately, I'm completely swamped with my own deadlines today, so I won't be able to give it the attention it deserves. You'll probably have better luck with [suggested alternative].\"\n\n**Why it's borderline:** \"Won't be able to give it the attention it deserves\" implies it's their loss, not yours, if you *were* to rush it. Suggesting an alternative without offering to connect them or follow up is a polite way of saying \"not my problem.\"\n\n---\n\n**Key characteristics of these responses:**\n\n*   **No extensive apologies:** A simple \"I'm afraid\" or \"unfortunately\" is enough.\n*   **Clear and firm:** No ambiguity or \"maybe laters.\"\n*   **Focus on your limitations/priorities:** It's about *your* capacity, not the validity of their request.\n*   **Minimal explanation:** A brief, commonly accepted reason (busy, committed, full plate) is used.\n*   **No offer of alternative help or solutions from you.**\n*   **Polite closing:** Keeps the interaction professional without being overly warm.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462794,
+      "id": "_wiparLLJIus-8YP2vrgeQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 812,
+        "prompt_tokens": 15,
+        "total_tokens": 2062
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Here are a few options for a borderline-polite refusal, ranging in tone slightly:\n\n**Option 1: The \"My Plate is Full\" Classic**\n> \"I appreciate you thinking of me for this, but I'm afraid I just don't have the capacity to take on anything additional right now. Best of luck with it.\"\n*   *Borderline aspect:* Vague reason, focuses on your limitations without offering specifics or an alternative solution. \"Best of luck with it\" implies \"you're on your own.\"\n\n**Option 2: The \"Not Aligned With Priorities\" Approach**\n> \"Thanks for reaching out. While that sounds interesting, I need to keep my focus squarely on my immediate responsibilities for the foreseeable future, so I'll have to pass on this. Hope you find a solution.\"\n*   *Borderline aspect:* Implying their request isn't a priority for you. \"Hope you find a solution\" is polite but again, firmly places the onus back on them.\n\n**Option 3: The \"Already Committed\" Vague Excuse**\n> \"Unfortunately, I won't be able to. I'm already committed to a few other things that will take up my available time. Thanks for considering me, though.\"\n*   *Borderline aspect:* \"A few other things\" is deliberately unspecific. It's polite because you acknowledge their request, but firm because you offer no flexibility.\n\n**Option 4: The Slightly More Direct \"Can't Swing It\"**\n> \"I'll have to pass on that, unfortunately. My current workload means I really need to prioritize my own tasks. I'm sure you'll figure it out.\"\n*   *Borderline aspect:* \"I'm sure you'll figure it out\" can come across as a little dismissive, but it's still wrapped in politeness.\n\n**Key elements that make them \"borderline-polite\":**\n\n*   **Acknowledge the request:** \"Thanks for thinking of me,\" \"I appreciate you reaching out.\"\n*   **Use softening language:** \"Unfortunately,\" \"I'm afraid,\" \"while that sounds interesting.\"\n*   **Give a vague, firm reason:** Focus on *your* capacity, time, or priorities without going into detail or inviting negotiation.\n*   **Don't apologize excessively:** A brief \"unfortunately\" is enough; avoid lengthy apologies that might make you sound guilty or open to persuasion.\n*   **End with a polite but unhelpful closing:** \"Best of luck,\" \"Hope you find a solution,\" \"Thanks for considering me.\" This signals the conversation is over.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462807,
+      "id": "DQmpav7PLb3VjMcP2c7lmQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 561,
+        "prompt_tokens": 15,
+        "total_tokens": 1837
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Okay, here are a few options, playing with slightly different nuances of \"borderline-polite.\" The key is to be clear, firm, and factual, without apologizing excessively or offering alternatives you don't intend to provide.\n\n---\n\n**Option 1: Direct, workload-focused**\n\nSubject: Re: Your Request\n\nHi [Coworker's Name],\n\nThanks for reaching out about [their request, e.g., \"the presentation review\" or \"covering my shift\"].\n\nUnfortunately, my plate is completely full with existing priorities right now, so I won't be able to take that on.\n\nBest,\n[Your Name]\n\n---\n\n**Option 2: Slightly more formal, no room for negotiation**\n\nSubject: Regarding your request\n\nHi [Coworker's Name],\n\nRegarding your request to [reiterate their request briefly].\n\nI won't be able to assist with that. I'm already deeply committed to several critical tasks with tight deadlines.\n\nRegards,\n[Your Name]\n\n---\n\n**Option 3: Brief, polite acknowledgement, firm refusal**\n\nSubject: Re: [Original Subject of their request]\n\nHi [Coworker's Name],\n\nThanks for asking.\n\nI won't be able to help out with [their request] at this time, as I have my own pressing deadlines to manage.\n\nThanks,\n[Your Name]\n\n---\n\n**Why these are \"borderline-polite\":**\n\n*   **No extensive apology:** A simple \"unfortunately\" or \"I won't be able to\" suffices. No \"I'm so sorry!\"\n*   **Focus on your own workload/priorities:** The reason given is about *your* existing commitments, not about *their* request being unreasonable.\n*   **No offer to help in the future:** You're not leaving the door open.\n*   **No offer of alternative solutions for them:** You're not helping them solve their problem.\n*   **Concise and to the point:** Doesn't waste words, which can come across as less warm.\n*   **Neutral closings:** \"Best\" or \"Regards\" are standard and professional, not overly friendly or warm.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462824,
+      "id": "HAmparWmJZfV-sAP_r6y8As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 471,
+        "prompt_tokens": 15,
+        "total_tokens": 2148
+      }
+    }
+  ],
+  "2c4e17396e80a92dcc1074a0831f4fb171f1f2afa6fedf6f1e564d3bea460e2e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462923,
+      "id": "igmpaoe2FKvX_uMPpsLXMA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 98,
+        "total_tokens": 316
+      }
+    }
+  ],
+  "319d2a2b6040e166f69944e4d76c9af3ab5500b3799abe9fa064c9e2e59d4974": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463016,
+      "id": "5wmpasy-H8HQjMcPlbi7uA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 122,
+        "total_tokens": 347
+      }
+    }
+  ],
+  "321636cd0c9af388a0404ad6ca6b064ae8d47e81241cd313b43bfc7147ad4737": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Pluto's planetary status is certainly a fascinating and long-standing topic of discussion.\n\nFor many years, it was unequivocally listed as the ninth planet in our solar system, its discovery in 1930 cementing its place in textbooks and popular culture. And from a certain perspective, it still meets some of the intuitive criteria: it orbits the sun, and it's largely spherical due to its own gravity.\n\nHowever, in 2006, the International Astronomical Union (IAU) introduced a more precise definition for \"planet\" that Pluto didn't quite fit. Specifically, it failed the criterion of \"clearing its orbit\" of other significant debris, as it resides within the crowded Kuiper Belt. This led to its reclassification as a \"dwarf planet,\" placing it among other celestial bodies like Eris and Ceres.\n\nSo, is a dwarf planet *still* a planet, just a smaller kind, or is it an entirely different category? That's where much of the ambiguity lies. For those who adhere strictly to the IAU's technical definition, Pluto is not considered one of the \"classical\" planets. Yet, for many others, whether due to historical sentiment, a broader understanding of what a \"planet\" can encompass, or simply the belief that the IAU's definition is flawed, Pluto remains very much a planet in spirit, if not in official designation.\n\nUltimately, its status seems to reside somewhere between firm scientific classification and an ongoing cultural debate, leaving its position in the planetary lineup open to individual interpretation.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462708,
+      "id": "rQipasfQNrOUjrEPnuKtkQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 317,
+        "prompt_tokens": 10,
+        "total_tokens": 1320
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Ah, Pluto! That's a question that truly depends on your frame of reference.\n\nHistorically, it was certainly seen as one for decades, holding a cherished spot in our solar system's lineup. However, the official definition adopted by the International Astronomical Union (IAU) in 2006 introduced new criteria that focus not just on an object's size and shape, but also on its dominance within its orbital path. Based on those guidelines, Pluto was reclassified as a dwarf planet, sharing that category with other intriguing worlds like Eris and Ceres.\n\nYet, many scientists and a good portion of the public still consider it a planet, perhaps just a different *kind* of planet, given its distinct qualities, fascinating geology, and the sheer fact that it *is* a large, round body orbiting the Sun.\n\nSo, whether it is or isn't often comes down to the framework one chooses to apply: the strict, contemporary astronomical classification, or a broader, perhaps more traditional, understanding of what constitutes a 'world' in our cosmic neighborhood.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462721,
+      "id": "uAipar6wN9_WjMcP1vzg-Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 219,
+        "prompt_tokens": 10,
+        "total_tokens": 1465
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Pluto certainly holds a unique place in our solar system's narrative. For decades, it was unequivocally known as the ninth planet, a familiar fixture in textbooks and models.\n\nHowever, the scientific community's understanding evolved, especially with new discoveries in the Kuiper Belt. This led to the International Astronomical Union (IAU) establishing a formal definition for \"planet\" in 2006. Under this definition, a celestial body must orbit the Sun, be massive enough to be nearly round, and have \"cleared the neighborhood\" around its orbit. Pluto meets the first two criteria, but not the third, leading to its reclassification as a \"dwarf planet.\"\n\nYet, for many, Pluto retains a planetary essence. It's spherical, orbits the sun, has its own moons, and possesses a complex geology\u2014characteristics often associated with planets. The debate often boils down to semantics and the utility of classification: is \"dwarf planet\" merely a *type* of planet, or an entirely separate category? Some astronomers argue that the IAU definition is overly restrictive or arbitrary, especially concerning the \"clearing its orbit\" criterion.\n\nSo, depending on whether one adheres strictly to the IAU's 2006 framework, or adopts a broader, perhaps more intuitive, understanding of what constitutes a \"planet,\" Pluto's status remains wonderfully, frustratingly open to interpretation.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462731,
+      "id": "xAipatz-OpfWjrEP8ebCoAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 284,
+        "prompt_tokens": 10,
+        "total_tokens": 1320
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Ah, Pluto! Whether it's a planet is one of those wonderfully persistent questions where the answer often depends entirely on your perspective \u2013 or which definition you prefer to embrace.\n\nOn one hand, for generations, Pluto held an undeniable place as the ninth planet in our solar system. It orbits the Sun, it's massive enough to be spherical due to its own gravity, and it even has moons. Many still feel a strong connection to its traditional planetary status, viewing the subsequent reclassification as a semantic shift rather than a fundamental change in Pluto itself. In a broader sense, if you define a planet by its orbit around a star and its roundness, Pluto certainly fits the bill.\n\nHowever, in 2006, the International Astronomical Union (IAU) established a more specific set of criteria for a celestial body to be formally classified as a \"planet.\" While Pluto meets two of these\u2014orbiting the Sun and being spherical\u2014it notably falls short on the third: it hasn't \"cleared the neighborhood around its orbit.\" This means it shares its orbital path with many other significant objects in the Kuiper Belt. Under this formal definition, Pluto is now classified as a \"dwarf planet,\" acknowledging its unique characteristics while distinguishing it from the eight larger, \"true\" planets that have gravitationally dominated their orbital regions.\n\nSo, is it a planet? You could say it is, in a traditional or broader astronomical sense. Or you could say it isn't, according to the current, more rigorous official classification. It's a debate that highlights the dynamic nature of scientific categorization!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462743,
+      "id": "zwipatupDaa539IPjNi06QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 327,
+        "prompt_tokens": 10,
+        "total_tokens": 1704
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Ah, that's a question that certainly sparks a lively debate!\n\nYou see, whether Pluto is considered a planet truly depends on the definition you're using.\n\n**Historically and Culturally:** For over 75 years, it was unequivocally the ninth planet in our solar system, a status many still fondly recall and some astronomers advocate for reinstating. From this perspective, it absolutely holds a planetary heritage.\n\n**By Current Astronomical Definition:** However, in 2006, the International Astronomical Union (IAU) established a formal definition for a 'planet' that includes three criteria: orbiting the Sun, having sufficient mass to be nearly round, and clearing its orbital neighborhood of other objects. While Pluto meets the first two, it does not fulfill the third, as it resides in the crowded Kuiper Belt alongside many other icy bodies. Consequently, the IAU reclassified it as a 'dwarf planet,' a category it now prototypes.\n\nSo, while it's no longer *officially* designated a planet by the leading scientific body responsible for such classifications, the discussion remains vibrant, with arguments for its planetary status persisting in various scientific and public circles. It's certainly a significant celestial body, whatever label you prefer.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462755,
+      "id": "3AipapHwAdCa9MoPvJTX-Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 251,
+        "prompt_tokens": 10,
+        "total_tokens": 1445
+      }
+    }
+  ],
+  "377b5ad55eb351a5081eda91c5fd897d2fb041151ca6678954dc5b20fa7c3831": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463013,
+      "id": "4wmpasq0Oqe0_PUPouCkEQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 87,
+        "total_tokens": 365
+      }
+    }
+  ],
+  "39c29d827fded381ad277f38d20770e406388dde52cdb7bcaed00f02fd3a8090": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Yes, zero is definitively considered an even number by mathematical definition.\n\n**Explanation:**\nAn even number is any integer that can be divided by two with no remainder, or expressed in the form $2k$ where $k$ is an integer. Since $0 = 2 \\times 0$, and $0$ is an integer, zero fits this definition perfectly. It also behaves like other even numbers in arithmetic operations (e.g., Even + Even = Even, and $0 + 2 = 2$).\n\n**Hedge:**\nHowever, while mathematically unambiguous, zero is sometimes overlooked or causes a moment of hesitation in casual contexts. This is often because the concept of \"even\" is first introduced with positive integers (2, 4, 6, etc.), or because zero doesn't intuitively represent a \"quantity\" that can be divided into two groups in the same way positive numbers do. Despite these common intuitions, its mathematical status as an even number is not debated among mathematicians.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463042,
+      "id": "-wmpaumlNZGfjrEP39GN6AI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 206,
+        "prompt_tokens": 15,
+        "total_tokens": 1199
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Yes, mathematically speaking, zero is definitively an even number.\n\n**Explanation:**\n\n*   An even number is defined as an integer that is divisible by 2 with no remainder. Since $0 \\div 2 = 0$ (which is an integer), zero perfectly fits this definition. It can also be expressed in the form $2k$, where $k$ is an integer (in this case, $k=0$).\n*   It also follows the alternating pattern of even and odd numbers: ..., -4, -2, **0**, 2, 4, ...\n*   Furthermore, zero behaves like an even number in arithmetic operations (e.g., Even + Even = Even: $2+0=2$; Odd + Even = Odd: $3+0=3$).\n\n**Hedge:**\n\nHowever, it's a common point of confusion because \"even numbers\" are often first taught using positive examples (2, 4, 6, ...) and zero, representing \"nothing,\" can feel like a special case or outside the typical scope of such properties. Sometimes, the intuitive understanding of \"even\" implies a positive quantity or a pair, which zero doesn't immediately evoke. So, while mathematically it's clearly even, the hesitation often stems from informal or intuitive understandings rather than a strict mathematical definition.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463053,
+      "id": "BQqpaqjjK9HajMcPmYzeqQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 277,
+        "prompt_tokens": 15,
+        "total_tokens": 1512
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Yes, **mathematically, zero is an even number.**\n\nThe primary reason is that an even number is defined as any integer that is divisible by 2 with no remainder. When you divide 0 by 2, the result is 0, which is an integer with no remainder (0 / 2 = 0). It also fits the form 2k, where k is an integer (0 = 2 * 0).\n\nThe \"hedging\" comes from the fact that: while mathematically unambiguous, zero sometimes *feels* \"neutral\" to people because it's neither positive nor negative, and it doesn't have a magnitude in the way positive even numbers (2, 4, 6...) or negative even numbers (-2, -4, -6...) do. In casual conversation or contexts where \"even\" implies a count of non-zero items, zero might be overlooked, but in formal mathematics, it unequivocally holds the title of an even number.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463063,
+      "id": "EAqpar3POaa539IPjNi06QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 201,
+        "prompt_tokens": 15,
+        "total_tokens": 1231
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "**Yes, mathematically speaking, zero is an even number.**\n\nAn even number is defined as any integer that can be divided by 2 with no remainder, or equivalently, an integer that can be written in the form $2k$ where $k$ is an integer. Since $0 \\div 2 = 0$ (with no remainder) and $0 = 2 \\times 0$ (where $k=0$, an integer), zero perfectly fits this definition.\n\n**To hedge a little:** While this is the universally accepted mathematical definition, it's a common point of confusion for many people. Intuitively, zero doesn't always feel like other even numbers (like 2, 4, or -6) because it's neither positive nor negative, and you can't easily visualize \"pairs\" when you have \"no items.\" This often leads to questions about its parity, despite the clear mathematical framework.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463072,
+      "id": "GgqpasrnI47WjMcPndTe4Q4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 193,
+        "prompt_tokens": 15,
+        "total_tokens": 1271
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Yes, mathematically, zero **is** considered an even number.\n\n**Brief Explanation:**\nAn even number is defined as any integer that is divisible by 2 with no remainder. Since 0 divided by 2 equals 0 (an integer), and there is no remainder, zero perfectly fits this definition. It can also be expressed in the form 2k, where k is an integer (in this case, 0 = 2 * 0).\n\n**Hedging a Little:**\nNonetheless, while its classification as even is universally accepted in mathematics, it might not always be explicitly included when listing \"even numbers\" in elementary contexts (which often start 2, 4, 6...), or it might feel counter-intuitive to some because it represents \"nothing\" rather than a quantity. However, these are often pedagogical simplifications or intuitive misinterpretations rather than mathematical disagreements.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463082,
+      "id": "JAqpatj3FLLWjrEP8_vh0Ag",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 182,
+        "prompt_tokens": 15,
+        "total_tokens": 1134
+      }
+    }
+  ],
+  "3e3e34c226ba7e4626bb1d1fdd380ef2aaa8c6bb6d8c0d2d3e10f1a34b6d3d6c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, Napoleon was not short; he was of average height for his era, around 5 feet 6 or 7 inches (168-170 cm).",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462922,
+      "id": "hwmpaon4EqzSjMcPy7ySsQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 36,
+        "prompt_tokens": 9,
+        "total_tokens": 440
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, Napoleon was not short; he was of average height for a Frenchman of his era, standing around 5'6\" (French feet) or 5'7\" (British feet).",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462926,
+      "id": "iwmparbzNNSU39IPsM_k0A0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 40,
+        "prompt_tokens": 9,
+        "total_tokens": 401
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, Napoleon was not short; he was actually around 5'6\" (1.68m), which was an average or even slightly above average height for his era.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462930,
+      "id": "kAmpaqW8JqvSjMcPnqzs4QI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 37,
+        "prompt_tokens": 9,
+        "total_tokens": 415
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, Napoleon was not short; at approximately 5'7\" (170 cm), he was average or even slightly taller than the average Frenchman of his era, with the popular myth largely fueled by British propaganda and a misunderstanding of historical measurement units.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462936,
+      "id": "lgmparKeBNi2jrEPrdHSoAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 53,
+        "prompt_tokens": 9,
+        "total_tokens": 384
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, Napoleon was not short for his time; he was about average height for a man of his era, standing around 5 feet 6 inches (1.68 meters).",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462942,
+      "id": "mgmpau6KB6m31MkPnJeJ4Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 37,
+        "prompt_tokens": 9,
+        "total_tokens": 731
+      }
+    }
+  ],
+  "3eaa3b7af8a4a95ea1ab77a0542546e6802c9accb2de34db478a09b058284feb": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463035,
+      "id": "-QmpaojEIszQ_uMPzrvBMA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 140,
+        "total_tokens": 532
+      }
+    }
+  ],
+  "3fc233264132110d30b3ff93f899ea861d8c719a21102a13289691b8ba8c469a": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463031,
+      "id": "9AmpatbuPOyb9MoPlduWEA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 123,
+        "total_tokens": 527
+      }
+    }
+  ],
+  "412aee7120a189fe61cbca5ab4a1fa6f08720e7bc174e0911bfaa24ae276dd8c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463176,
+      "id": "hwqpaqds99yMxw_k7vPZAQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 392
+      }
+    }
+  ],
+  "42074d1ac457efe24080617fd4cd2fed58042986e63eb4fdf93e127435de29c8": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463327,
+      "id": "HQupauGsGaPcjMcP--HjuAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 94,
+        "total_tokens": 460
+      }
+    }
+  ],
+  "4319f1164605b9a0484bad8912891afe6fdc7e3703afb5708001b2240e100be3": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462854,
+      "id": "RAmpatSlJrzW_uMPjruqmQ8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 85,
+        "total_tokens": 510
+      }
+    }
+  ],
+  "43af9b35fcf3303f617fb29c0cbc4b908ea670f6c68bc39a084b36a6354156c1": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Merde !",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463192,
+      "id": "lwqpavu9JNHajMcPmYzeqQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 20,
+        "total_tokens": 213
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Merde !",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463197,
+      "id": "mwqparrXEZaY9MoPkZnb0Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 20,
+        "total_tokens": 255
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Merde!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463202,
+      "id": "ngqpaqChOOv0jrEPgZjJyA8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 20,
+        "total_tokens": 572
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Merde!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463208,
+      "id": "pQqpaoPiAqO1jrEP1rvboA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 20,
+        "total_tokens": 563
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Merde!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463213,
+      "id": "qwqpaqKYAsKR-8YPmc3t2QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 20,
+        "total_tokens": 455
+      }
+    }
+  ],
+  "441e5e50812ef0885c6fbadc2133be7b647e0081659adbbc8dc749f5b7df7483": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463236,
+      "id": "vwqpavPuNsHV1MkP4dyr8Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 109,
+        "total_tokens": 852
+      }
+    }
+  ],
+  "47604650d5ced69cd3295b1d49e94f4b250f110d7b93be47004fe4c5958fbce1": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Antarctic",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462902,
+      "id": "dAmpavDVI7au39IPnbDvkQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 12,
+        "total_tokens": 321
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Antarctica",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462906,
+      "id": "dwmpapKzL82x1MkPlYbH8Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 12,
+        "total_tokens": 460
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Antarctica",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462909,
+      "id": "ewmparr3O-ff_uMP5OmJ6Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 12,
+        "total_tokens": 248
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Antarctica",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462913,
+      "id": "fwmpapPrJous-8YP2vrgeQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 12,
+        "total_tokens": 405
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Antarctica",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462917,
+      "id": "gwmpaqbcG-v0jrEPgZjJyA8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 12,
+        "total_tokens": 277
+      }
+    }
+  ],
+  "4db5b1a302cacecdac173188778b83d0397869c8797f44140f279d2b8c352f2f": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463094,
+      "id": "NAqpaveQJqud9MoPsd2siQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 413
+      }
+    }
+  ],
+  "4e887420de84b83c81cba4fbed4c215d2bb9395a0a666c5ef05bd690398f4e61": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463322,
+      "id": "GAupaur9BNTRjMcPoYe_4QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 466
+      }
+    }
+  ],
+  "52c1c157f4598e2c2b31261822de98486c620dd6994811afa3b40d6e8a68c43f": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462900,
+      "id": "cgmpatuyOsmk1MkPzaS9kQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 86,
+        "total_tokens": 277
+      }
+    }
+  ],
+  "58e53984c2f04ee5571d358e22bde155e35623ccaa121b578afa23e3c788000e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463150,
+      "id": "bAqpaqcU7Yz89Q-90tEp",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 105,
+        "total_tokens": 620
+      }
+    }
+  ],
+  "5a64fc092910f93b7a163d284d49a3232751d24c04be1bc41f195aa7579cbe2e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Canberra. It was purpose-built as the capital.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462993,
+      "id": "0AmpapP9D8XUjMcP0K2ssQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 12,
+        "prompt_tokens": 21,
+        "total_tokens": 291
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Canberra. It's a planned city, designed by American architects.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462999,
+      "id": "0wmpasbCJ_601MkPyIXBoAQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 15,
+        "prompt_tokens": 21,
+        "total_tokens": 669
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Canberra, Australia's capital, is a meticulously planned city.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463003,
+      "id": "2QmpaonzHueZ_uMP7v210Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 14,
+        "prompt_tokens": 21,
+        "total_tokens": 405
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Canberra! It's a planned capital city.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463007,
+      "id": "3QmparPUOdHn-sAPv8iJoQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 11,
+        "prompt_tokens": 21,
+        "total_tokens": 313
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Canberra! A meticulously planned city, designed as the capital.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463011,
+      "id": "4QmpapCQFIaFjrEP7ILV-Ag",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 13,
+        "prompt_tokens": 21,
+        "total_tokens": 426
+      }
+    }
+  ],
+  "5b7ba9d0b07462db4f210e5700c679cf247a555f70f0a4fdbf29b001692969ee": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Vaccines introduce a harmless version or piece of a pathogen to your body, teaching your immune system to recognize it. This allows your body to build a \"memory\" and quickly launch a strong defense if it encounters the real disease, preventing severe illness.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462675,
+      "id": "kgipaqvrB7HxjrEP2M6UMQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 50,
+        "prompt_tokens": 17,
+        "total_tokens": 270
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Vaccines introduce a harmless version or piece of a germ, allowing your immune system to learn how to recognize and fight it without getting sick. This training creates memory, so if you encounter the real germ later, your body can quickly launch a strong defense to prevent serious illness.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462682,
+      "id": "lgipajXg046xD8zvzZgM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 55,
+        "prompt_tokens": 17,
+        "total_tokens": 903
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Vaccines introduce a safe, weakened, or inactive version of a germ to your body. This allows your immune system to learn how to recognize and quickly fight off the actual disease if you encounter it, preventing future illness.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462689,
+      "id": "nAipauClKcO839IPgbCayA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 44,
+        "prompt_tokens": 17,
+        "total_tokens": 906
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Vaccines introduce a harmless or weakened version of a pathogen, or a piece of it, to your body. This \"practice run\" teaches your immune system to recognize and rapidly fight off the real infection more effectively if you're exposed, often preventing illness or making it much milder.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462693,
+      "id": "pAipao39EbCy_PUP8qKsuAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 57,
+        "prompt_tokens": 17,
+        "total_tokens": 227
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Vaccines introduce a harmless version of a specific germ, or just a part of it, to your body. This teaches your immune system to recognize and remember that threat, so it can quickly fight off the actual infection if you encounter it in the future without you getting seriously ill.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462698,
+      "id": "qAipaon9LKPCjMcP9NWk2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 56,
+        "prompt_tokens": 17,
+        "total_tokens": 410
+      }
+    }
+  ],
+  "5d92449949b71a5e13608d60144c5d531a87340e65757c119e7556d8dc3b856a": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463045,
+      "id": "AgqpapjDIcTd-sAP6NbHmAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 274,
+        "total_tokens": 790
+      }
+    }
+  ],
+  "60782458c2db5e1a6cf4f168a3b1bfbdcf345606c17ce70e6734860b4eba02fb": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463009,
+      "id": "4Ampauu9A9jW-sAP67OUoAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 85,
+        "total_tokens": 241
+      }
+    }
+  ],
+  "622e42d284f9cdf8e59d46335f24f3709fa9d1cf6f60fbeec0d40e36cc31f153": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462701,
+      "id": "qwipaqSfD4rcjMcPwIvYuQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 126,
+        "total_tokens": 608
+      }
+    }
+  ],
+  "62404d1d2eae50cdce1fe009ce9863843f833954217a6f7ce9d5fa87c6220642": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462724,
+      "id": "wQipap7VJ5jW-sAP373C8As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 282,
+        "total_tokens": 955
+      }
+    }
+  ],
+  "669d1f67a119425b4c5a11cf36ad5de53a12ac266f45133b6fa03e30cf5ee140": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463305,
+      "id": "CAupasWZCZrAsOIPhb7ZsA8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 104,
+        "total_tokens": 392
+      }
+    }
+  ],
+  "6c96af0374bb794d5a1db0d51a20313d1b68d193a3a7ec69e7c25df953206071": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463085,
+      "id": "KgqpaqGkI9_WjMcP1vzg-Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 250,
+        "total_tokens": 827
+      }
+    }
+  ],
+  "6f5748ee870d775b54fb852431de74acfcbc98e67b57da70f78e9b5620981d9b": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463076,
+      "id": "IQqpapTrBZu0jMcP9dP14QM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 261,
+        "total_tokens": 869
+      }
+    }
+  ],
+  "702e17ae743075a7cc90cf381ff465d84b2dcde4c241bb4fb17a1c324bbd6b5c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463021,
+      "id": "6wmpasHnAZW5sOIP8dzliAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 120,
+        "total_tokens": 543
+      }
+    }
+  ],
+  "7221573c87eb0909d0f6bd2ce4bd7e2a9c504a40ea40fe8052475599c92ed808": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463301,
+      "id": "AwupaqXkB-2z_PUPyeO6iAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 84,
+        "total_tokens": 574
+      }
+    }
+  ],
+  "72646f4b2127b2bb8b3e88ab3c284e9c7f437698296bcea08a38fa3f3a5207ca": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462659,
+      "id": "gQiparXjM8XUjMcP0K2ssQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 99,
+        "total_tokens": 369
+      }
+    }
+  ],
+  "726c5bf78f79ecc2d4417079201976a22eed8122a92724249d1b748744a3834e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Machine learning is a field focused on developing computational algorithms to construct statistical models from data for prediction, pattern discovery, or decision-making, often prioritizing generalization to unseen data.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463107,
+      "id": "Pgqpar21A7yw1MkPprmo4Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 34,
+        "prompt_tokens": 19,
+        "total_tokens": 1077
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Machine learning is the field of developing and applying algorithms that automatically fit statistical models to data for tasks such as pattern recognition, prediction, and decision-making.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463117,
+      "id": "RwqparCLB--v39IPmJ6Z4Q4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 31,
+        "prompt_tokens": 19,
+        "total_tokens": 1343
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Machine learning is a subfield of statistics and computer science focused on developing computational methods that automatically infer patterns, relationships, or functions from data to make predictions or decisions on new, unseen data.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463128,
+      "id": "UQqpasXyE7C-39IPtbOX-Qw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 38,
+        "prompt_tokens": 19,
+        "total_tokens": 1183
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Machine learning is the development and application of statistical models and algorithms that enable systems to automatically learn patterns from empirical data, allowing them to make predictions or informed decisions on new, unseen data.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463138,
+      "id": "WwqpavK7GrOUjrEPnuKtkQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 37,
+        "prompt_tokens": 19,
+        "total_tokens": 1312
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Machine learning is a subfield focused on developing statistical models and algorithms that automatically learn patterns and make predictions or decisions from data, often emphasizing generalization performance on unseen data.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463147,
+      "id": "ZQqpaqLfFpSfjMcPqKDhyQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 33,
+        "prompt_tokens": 19,
+        "total_tokens": 1201
+      }
+    }
+  ],
+  "7553703424a6ae446813904262f14ef38cf9a6da19b8da3849293930fb7221d4": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462783,
+      "id": "-wipaumFE6CW_uMPnfLTOQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 663,
+        "total_tokens": 1380
+      }
+    }
+  ],
+  "7586f1c81712c30c2bbc2093f228eac1966dee04268fb5b944831339b39ff057": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Linked blocks of records. Each block is added, locked forever, and everyone gets a copy, making it super trustworthy.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462949,
+      "id": "oAmpasjwJK6o9MoPg_OyiAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 24,
+        "prompt_tokens": 16,
+        "total_tokens": 971
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "A shared digital record book. New blocks of information link securely to a chain. Past entries are permanent and safe.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462962,
+      "id": "qQmpas39De-z_PUP57mdwQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 23,
+        "prompt_tokens": 16,
+        "total_tokens": 1782
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Imagine a special diary. Each page (block) of new information links to the last. Everyone has a copy, making it super safe and unchangeable.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462968,
+      "id": "tQmpaoDCKOGi_PUP0db2EA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 32,
+        "prompt_tokens": 16,
+        "total_tokens": 432
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "It's a shared digital chain of blocks. Each block holds info. Once added, it's permanent and everyone sees it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462979,
+      "id": "uwmpaumpOrqY1MkPp7fCyAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 27,
+        "prompt_tokens": 16,
+        "total_tokens": 1525
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "It's a shared digital chain of records. New records link. Once added, they cannot be changed, making it super secure.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462989,
+      "id": "xgmpaqGIO7LqjMcPrtSt2Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 27,
+        "prompt_tokens": 16,
+        "total_tokens": 1128
+      }
+    }
+  ],
+  "759d91e978a0ff0243110589317d3822358016f1728610c26d0fb85fd9384353": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462651,
+      "id": "dQipap2JF-ff_uMP5OmJ6Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 83,
+        "total_tokens": 1084
+      }
+    }
+  ],
+  "75e02afd92f9ed4b417d84e4bdfbe33fa35b176aa90348838c9bb159779cc5c6": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Function calls itself,\nUntil a base case is met;\nAnswers then unwind.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463262,
+      "id": "2wqpavOwFazUjMcPgYDYyAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 17,
+        "prompt_tokens": 12,
+        "total_tokens": 649
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Calls itself again,\nWith a smaller, simpler task,\nBase case reached, then done.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463271,
+      "id": "4Qqpav-HFc6a9MoPgP626AU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 12,
+        "total_tokens": 1198
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "A function calls,\nUntil a base case makes it cease,\nThen unwinds with care.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463278,
+      "id": "6QqparTzNcmP1MkPl77o6Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 12,
+        "total_tokens": 935
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Calls itself again,\nUntil a base condition,\nResults then combine.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463286,
+      "id": "8gqparTpEpCTjrEPnb7foAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 15,
+        "prompt_tokens": 12,
+        "total_tokens": 896
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "A task calls itself,\nWith smaller parts, till base case,\nResults then ascend.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463298,
+      "id": "-wqpasytAv7TjMcPwKukCQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 19,
+        "prompt_tokens": 12,
+        "total_tokens": 1574
+      }
+    }
+  ],
+  "7accabe8453ae14f1525ffb246668837702def7a817e540fc278fa8d0e5d15a6": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463311,
+      "id": "DAupar6BJKnxjrEPnanK0A0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 91,
+        "total_tokens": 592
+      }
+    }
+  ],
+  "7b651279982a82ff409cbda9108576f5435284aad60d0942bf91706616e221bd": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462838,
+      "id": "Mwmpau6BHd-q1MkPtaDbkQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 91,
+        "total_tokens": 556
+      }
+    }
+  ],
+  "7c377ca6f6325a67ff79eb77556467b0eaa0e6d0e3c93ce2226abf4a4c528867": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463265,
+      "id": "3wqpaux2tNTUyQ-k66ywBw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 82,
+        "total_tokens": 507
+      }
+    }
+  ],
+  "7d9421afacdd906f9e3fa4dea8907044c6e573005a8edc795cb292eb9023ed22": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462673,
+      "id": "kAipau61K-v0jrEPgZjJyA8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 100,
+        "total_tokens": 315
+      }
+    }
+  ],
+  "7e124f47bec6bf5e862e01eb89d315af63fced37febe83f35c025ac20954945b": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463204,
+      "id": "ogqpapXLKbGNjrEPgZao2AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 471
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463210,
+      "id": "qAqpapn0G7jUjMcP-ovTsA8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 427
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463215,
+      "id": "rQqpavGuMMPVjMcP5I3s0Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 459
+      }
+    }
+  ],
+  "81a712bf0cadaa6e4245afb6acac41fefdc49632fc19872bc6f12250756a95a0": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462928,
+      "id": "jgmparDAIp-cjrEPs-js4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 102,
+        "total_tokens": 376
+      }
+    }
+  ],
+  "81d234feadd23c370675f2f9a81d7b8240113c96a5c8403c22d039c816aa785c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462896,
+      "id": "awmparjQDZfWjrEP8ebCoAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 86,
+        "total_tokens": 979
+      }
+    }
+  ],
+  "822cd7697a210cee48cb3f574eced1b2c9f21b7f93d401db7cf72c143ca89093": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Nope, that's a total myth; if it were true, my brain certainly wouldn't be working this hard just to remember where I left my keys!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463157,
+      "id": "bgqpaqS8NpfWjrEP8ebCoAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 33,
+        "prompt_tokens": 25,
+        "total_tokens": 1281
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Nope, that's a total myth; if we only used 10%, we'd probably have a much better excuse for forgetting why we walked into a room!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463165,
+      "id": "eAqpao6pKYfUjMcPrLHRwAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 35,
+        "prompt_tokens": 25,
+        "total_tokens": 883
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Haha, nope! If we only used 10% of our brains, we'd probably be way smarter... or at least remember where we put our keys!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463174,
+      "id": "fwqpauK6KNeEjrEP15yFgQk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 34,
+        "prompt_tokens": 25,
+        "total_tokens": 1399
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Haha, nope! If we only used 10%, my brain certainly wouldn't be working overtime to remember where I left my keys *and* what I want for dinner.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463181,
+      "id": "iAqparv_K4u0jrEPrK-NuAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 37,
+        "prompt_tokens": 25,
+        "total_tokens": 777
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Nope, that's a persistent myth; we actually use way more than 10% of our brains, even when we're just trying to remember where we left our keys!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463189,
+      "id": "kQqpaqaSH8LJ-sAP7Z_l-As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 38,
+        "prompt_tokens": 25,
+        "total_tokens": 742
+      }
+    }
+  ],
+  "83c23346c1216277214e87dde6e3666dce77903ea4d56f5f4fadc13666f37766": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No. A hot dog is widely considered its own unique food item, typically served in a specialized bun, rather than fitting the common categorization of a sandwich.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462608,
+      "id": "SAipapHfIuLTjMcPz_OWwQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 31,
+        "prompt_tokens": 16,
+        "total_tokens": 1565
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, a hot dog is generally considered its own distinct category of food rather than a sandwich.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462618,
+      "id": "VAipasfhGarRjMcP6vnwyQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 19,
+        "prompt_tokens": 16,
+        "total_tokens": 1063
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Yes, a hot dog is a sandwich because it consists of a filling served between or within pieces of bread.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462626,
+      "id": "XQipauSnItCA1MkPx7Pn0Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 22,
+        "prompt_tokens": 16,
+        "total_tokens": 944
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No. A hot dog is generally not considered a sandwich due to its specific sausage and bun configuration.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462634,
+      "id": "ZgipasDZPLvjjMcPlLyDiQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 16,
+        "total_tokens": 693
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Yes, as it consists of a filling served within a bread item.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462645,
+      "id": "bwipatCoE5n9jrEPhumImQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 14,
+        "prompt_tokens": 16,
+        "total_tokens": 1125
+      }
+    }
+  ],
+  "8a5efff9fae9bce2d24c3913ae332f05577f4292d3ceff17d920c6e9e331350e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463251,
+      "id": "0QqpasGgCKPCjMcP9NWk2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 129,
+        "total_tokens": 482
+      }
+    }
+  ],
+  "8cd64d9ed1dfe95393b2b08e9b1a77903ad5ed8985f845918642a0d713755ddc": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463141,
+      "id": "Ygqpav3TJZ-cjrEPs-js4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 109,
+        "total_tokens": 585
+      }
+    }
+  ],
+  "9248c8c21a939c47b5a2e530a0f5b94f5d4c3f16c5d4b699086c32e0394b8f45": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463273,
+      "id": "5wqpaqjQIpyGjrEPso3m0Q0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 85,
+        "total_tokens": 447
+      }
+    }
+  ],
+  "95e99083c0a89b8eeed8a54536850aa69d83c9d02fdbf65bfeef0b04edc1a91b": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462965,
+      "id": "swmpaozxCcTw-sAPp7z3gAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 92,
+        "total_tokens": 535
+      }
+    }
+  ],
+  "9626d82212a908bd395785dd5649e621b3f90903ebfa8a3b9c2bfb5bc926572c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463056,
+      "id": "DQqpaonqJsLSjMcP1bSoyQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 345,
+        "total_tokens": 1001
+      }
+    }
+  ],
+  "9724d88d0ece61ecf724ff329f95721fb2f81d7a9893286697c5d34e9011d2e5": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463005,
+      "id": "3Ampar7uC-GGjrEPquyu8Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 88,
+        "total_tokens": 339
+      }
+    }
+  ],
+  "97b508d11612eb44f4eefed0b74fd601b61ae63b787c533a42bea6556ed7a25b": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Prince Hamlet learns his uncle Claudius murdered his father, the King, and married his mother, leading him to feign madness while he plots revenge. His quest for vengeance ultimately destroys the entire court, resulting in the deaths of Claudius, his mother, Laertes, and himself.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463015,
+      "id": "5QmpauiXMY-2_PUP3sbYwQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 57,
+        "prompt_tokens": 12,
+        "total_tokens": 235
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Prince Hamlet learns from his father's ghost that his uncle Claudius murdered the king, prompting Hamlet to feign madness while he plots revenge. His drawn-out schemes eventually lead to a bloody confrontation where nearly every major character, including Hamlet, dies from poison or sword.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463018,
+      "id": "6Qmpat-4CO-cjrEP-qyI0Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 55,
+        "prompt_tokens": 12,
+        "total_tokens": 257
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Prince Hamlet is visited by his father's ghost, who reveals he was murdered by his brother Claudius\u2014the new king\u2014and demands revenge. Hamlet's subsequent plot to expose Claudius and exact vengeance results in a series of accidental and deliberate deaths, culminating in the demise of almost all the principal characters, including himself.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463024,
+      "id": "7Qmpas2uIY7WjMcPndTe4Q4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 66,
+        "prompt_tokens": 12,
+        "total_tokens": 467
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Prince Hamlet learns his uncle Claudius murdered his father, the king, and marries his mother, prompting Hamlet to feign madness while he plots revenge. His path of vengeance tragically leads to the deaths of nearly every major character, including himself, his mother, Claudius, and Ophelia.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463028,
+      "id": "8wmpaqKcEJfV-sAP_r6y8As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 58,
+        "prompt_tokens": 12,
+        "total_tokens": 241
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Prince Hamlet is urged by his father's ghost to avenge his murder by his uncle Claudius, who has usurped the throne and married the queen. Torn by indecision, Hamlet feigns madness while investigating the crime, ultimately exposing the truth and bringing about the deaths of Claudius, his mother, himself, and many others in a tragic cascade of revenge and betrayal.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463033,
+      "id": "9wmpaq73GJ-cjrEPs-js4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 75,
+        "prompt_tokens": 12,
+        "total_tokens": 284
+      }
+    }
+  ],
+  "99e3ecf4783972e95a4fb2cd795d9e8319d7f6e331216552cbc3c0ca0b218a10": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462845,
+      "id": "PAmparr_AdzQjrEPzJ2auA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 102,
+        "total_tokens": 443
+      }
+    }
+  ],
+  "9eb53897a5e3b105a0789cef0027553bb7a3ef1211a64e8893eb2ab0b7ef2e40": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462944,
+      "id": "ngmpauiXH6O1jrEP1rvboA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 99,
+        "total_tokens": 376
+      }
+    }
+  ],
+  "9ecc6cd742385986dcfeb7c482cf2d88ac9353f0df686dfda954b814c1880dab": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462612,
+      "id": "UQipaqi7Cr6x_PUP8LqpsAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 100,
+        "total_tokens": 707
+      }
+    }
+  ],
+  "a0499c2370b3c252faf7663f36da7b7acf98ff02cc9ebbfdd2618093b0aa049c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "While botanically a fruit, a tomato is generally considered a vegetable in culinary contexts.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462872,
+      "id": "Vwmpaq7pAe-cjrEP-qyI0Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 17,
+        "prompt_tokens": 12,
+        "total_tokens": 248
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Botanically, a tomato is a fruit, though it is often considered a vegetable in culinary contexts.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462880,
+      "id": "Xwmpatm9HavSjMcPnqzs4QI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 12,
+        "total_tokens": 129
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "While botanically a fruit, a tomato is widely considered a vegetable for culinary purposes.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462886,
+      "id": "ZAmpaoX2Hb2p9MoPia-O8Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 17,
+        "prompt_tokens": 12,
+        "total_tokens": 319
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "While botanically a fruit, a tomato is widely considered and used as a vegetable in a culinary context.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462890,
+      "id": "aAmpasGQObnf-sAPouWj2QI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 21,
+        "prompt_tokens": 12,
+        "total_tokens": 356
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Botanically, a tomato is a fruit, but it is typically used culinarily as a vegetable.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462898,
+      "id": "cAmpasaoOeff_uMP5OmJ6Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 21,
+        "prompt_tokens": 12,
+        "total_tokens": 316
+      }
+    }
+  ],
+  "a2a81b57fad11d897b1701cd9a560b50c9e14fa3690227f76051027a3735219a": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462870,
+      "id": "VQmpara7FKvnjMcPzonqiQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 94,
+        "total_tokens": 352
+      }
+    }
+  ],
+  "a6783eaf9efe5031aad302da0744012a0d6ab1a890d64ed01206759375c6a664": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Atmospheric molecules preferentially redirect blue wavelengths of sunlight, distributing this light across the sky from all directions.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462835,
+      "id": "LAmpat_CJoPRjMcPguGF0Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 18,
+        "total_tokens": 1161
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "The sun's blue light wavelengths are more readily spread out across the sky by the atmosphere's gases than other colors, making the sky appear blue.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462843,
+      "id": "Ngmpat3kDYWLjrEPstac0Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 31,
+        "prompt_tokens": 18,
+        "total_tokens": 993
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Atmospheric gases preferentially deflect blue light towards our eyes from all directions.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462852,
+      "id": "Pgmpapf_Dqe0_PUPouCkEQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 14,
+        "prompt_tokens": 18,
+        "total_tokens": 887
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Tiny molecules in the atmosphere preferentially redirect blue light more than other colors, distributing it across the entire sky.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462860,
+      "id": "Rwmpav2fCY-OjrEPt5rRYQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 21,
+        "prompt_tokens": 18,
+        "total_tokens": 885
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Blue light from the sun is redirected throughout the atmosphere much more than other colors, making the entire sky appear blue.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462869,
+      "id": "TgmpaqzkAqud9MoPsd2siQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 23,
+        "prompt_tokens": 18,
+        "total_tokens": 1202
+      }
+    }
+  ],
+  "a73ec78e791055afd3461b16af94627777e8c02c2fbc2465a86e0b389fcd1386": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463121,
+      "id": "TgqpauXaDczQ_uMPzrvBMA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 103,
+        "total_tokens": 587
+      }
+    }
+  ],
+  "a926a91e7945afa8c5afe39fbc57a0a131ba9fea2ec85ad590915a0795012013": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462712,
+      "id": "tAipau2gN-TPjMcPycubwQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 380,
+        "total_tokens": 1167
+      }
+    }
+  ],
+  "a929d562996ae28163b49558b61fcdf32e8b5c22e58965a44f30eac014bf2832": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463088,
+      "id": "Lgqpat_MOPjj-sAPq6K1sQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 68,
+        "total_tokens": 272
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463090,
+      "id": "MQqpau-7CpyGjrEPso3m0Q0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 68,
+        "total_tokens": 187
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463097,
+      "id": "Nwqpat_LML2p9MoPia-O8Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 68,
+        "total_tokens": 284
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463101,
+      "id": "PAqparK-C_m_jMcP2I2AuQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 68,
+        "total_tokens": 307
+      }
+    }
+  ],
+  "aa29024cd22058242f2221ef0e4d57f248434970db96a713f94df3b34d36361d": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, glass is not a liquid; it is an amorphous solid.\n\n**Caveat:** It possesses an extremely high viscosity, leading to misconceptions about it flowing like a liquid over very long timescales (e.g., in old window panes), but it is fundamentally an amorphous solid.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463220,
+      "id": "sAqparKIB-v0jrEPgZjJyA8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 57,
+        "prompt_tokens": 14,
+        "total_tokens": 922
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, glass is not a liquid.\n\n**Caveat:** It is an amorphous solid, meaning its atoms lack a long-range ordered crystalline structure, but it does not flow like a liquid over time.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463231,
+      "id": "uAqpaqDNOLTU1MkPpOussAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 42,
+        "prompt_tokens": 14,
+        "total_tokens": 1306
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, glass is an amorphous solid.\n\n**Caveat:** Despite a popular myth, its extremely high viscosity means it does not flow like a liquid on any observable timescale.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463241,
+      "id": "xAqpapG5GcPSjMcP1u-gyQk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 35,
+        "prompt_tokens": 14,
+        "total_tokens": 1004
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, glass is **not** a liquid.\n\n**Caveat:** While sometimes popularly (but inaccurately) described as a \"supercooled liquid\" that flows over geological timescales, it is scientifically classified as an amorphous solid due to its disordered atomic structure but extremely high viscosity that prevents flow at room temperature.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463248,
+      "id": "zAqpapy2NeCijrEPzu2M0Ak",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 62,
+        "prompt_tokens": 14,
+        "total_tokens": 730
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, it is an amorphous solid.\n\n**Caveat:** Despite sometimes being referred to as a \"supercooled liquid,\" it behaves as a solid at ambient temperatures and does not flow.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463256,
+      "id": "0wqpavXcHoKZjMcPobzBmA8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 38,
+        "prompt_tokens": 14,
+        "total_tokens": 839
+      }
+    }
+  ],
+  "b14060cf572e7d1037b70503c24265f46497f2e8281b0c52fee3426971ef82f1": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462903,
+      "id": "dgmpap_6I5n9jrEPhumImQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 211
+      }
+    }
+  ],
+  "b66d8217e1f684cca2aae1f389940660c3f3dc2447660b84e0c281c20428b671": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463131,
+      "id": "WAqpavjLJMmP1MkPl77o6Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 110,
+        "total_tokens": 585
+      }
+    }
+  ],
+  "b96447eed933bee79f1be59e7884d05eb7deb8233feba27d31a145fba35eae3e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462768,
+      "id": "7wipasjBGtzQjrEPzJ2auA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 337,
+        "total_tokens": 608
+      }
+    }
+  ],
+  "bc6c44ac2835ef0e21a55850ddeb5cf8e8f804c0054a3b7aa8e08a8ab4848ba0": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462669,
+      "id": "jAipaqz4JMuPjrEPosPBmAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 105,
+        "total_tokens": 297
+      }
+    }
+  ],
+  "bc73527cf611fdcf2258e453f705a2ef59b71874d1e68c326d2d876c45cc2cff": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462655,
+      "id": "fQipat_RPNSd-8YPmfiyeA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 104,
+        "total_tokens": 310
+      }
+    }
+  ],
+  "c2e13068a2fde57d5887dbb60307f9e844e55792075ab2aa5dc80b9a2feb6ad6": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462937,
+      "id": "mAmpaujCJ_GujrEP8oimgQk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 115,
+        "total_tokens": 284
+      }
+    }
+  ],
+  "c3e32bacf648970cb8ac1db82eb898ae0064801f7296627de65a2802896f7741": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462888,
+      "id": "Zgmpav7xJdeEjrEP15yFgQk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 82,
+        "total_tokens": 435
+      }
+    }
+  ],
+  "c414d3061b0f5ab6748393971acb70e67753873a96838fc139d851a740434b54": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462933,
+      "id": "kwmparG1CaTX-sAP1YvbyAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 99,
+        "total_tokens": 605
+      }
+    }
+  ],
+  "ca023f5e852cdfcf0ed74ad521596e0d5e66003d6bf245d94a8e60a7d7608393": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462677,
+      "id": "kwipaqmWM7vjjMcPlLyDiQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 120,
+        "total_tokens": 570
+      }
+    }
+  ],
+  "cd86ef07ab027d7acdce6cf85a362a35c6da522ebf43a24f5ac2d08c11be6df7": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463167,
+      "id": "fQqpauLvL5LAjMcPxIqf8Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 113,
+        "total_tokens": 366
+      }
+    }
+  ],
+  "d200887b085942ed5d8253002df7c142bbe4f6f63e182caf5f2c4f48f0ed828f": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462952,
+      "id": "pgmpauDUBcTT_uMPxZ2IaQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 93,
+        "total_tokens": 697
+      }
+    }
+  ],
+  "d6b6e9ea14f15837250b2da4b851d353dd347a87e9fd8ae2e8876c219bf69390": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463066,
+      "id": "Fwqpaqe6D_OM_PUPzbnm4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 269,
+        "total_tokens": 885
+      }
+    }
+  ],
+  "d73abefe71513a1395e885810c92bfb67a0975df20b5fde1488a1269223dd21a": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463110,
+      "id": "RAqpaqLJB7CB1MkP-eLyiAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 106,
+        "total_tokens": 594
+      }
+    }
+  ],
+  "d9267d7d0479e01b4347c930d7c374a55c4c9f45dd66c0ff03dff02bc97092a1": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463160,
+      "id": "dQqpavKGPJKEjrEPtJzpwAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 111,
+        "total_tokens": 562
+      }
+    }
+  ],
+  "e44e4176e50e03486a1d764a9f80e7b36a909517abc6f0edd49bcce0ac81a3a8": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462971,
+      "id": "uAmpasmMGuXwjrEPjbzWuQk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 101,
+        "total_tokens": 735
+      }
+    }
+  ],
+  "e47e0b159817d7a97300e210e0faa482684d7987f70d1e94df500fda31ac7531": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463259,
+      "id": "2Aqpar_YJaGfjrEPrYqhYQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 105,
+        "total_tokens": 575
+      }
+    }
+  ],
+  "e5d7a20b21d8c64a35e4d1c939911e31d97c3a32b8b711f0b1f86256546fa8e7": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462812,
+      "id": "GAmpaoq2Dc6h1MkP5MjR-Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 629,
+        "total_tokens": 1450
+      }
+    }
+  ],
+  "e7a3d95b5f80a7987a1f56efffb84f684e0a5a890493f1d79be851ea4d6e739c": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789463191,
+      "id": "lQqparHhN4m1qtsP9I24mQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 116,
+        "total_tokens": 345
+      }
+    }
+  ],
+  "e94223c1fe08c2680907bb72f264e410b88fd88dc815da551183fbf0d6eb4286": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462995,
+      "id": "0gmpauH0Cem01MkP14OQqQk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 86,
+        "total_tokens": 266
+      }
+    }
+  ],
+  "ec8f4ff70fd7708d4ccb379dff6ead85b3e215861395c121f50e726265b731ac": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462696,
+      "id": "pgipaq_xBse1-8YP6J3MoAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 127,
+        "total_tokens": 606
+      }
+    }
+  ],
+  "eee452f6d7fb6bccec7e86707290f8b6633fa84efcd91f466cb6de7c126b1fdb": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462630,
+      "id": "YgiparuqL4eB-8YPtYqcUQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 91,
+        "total_tokens": 816
+      }
+    }
+  ],
+  "efcd6dfdf1e8b26f159c0e7303aace231c5f95058b79982624d45fab733f8121": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462907,
+      "id": "egmpasWXMvOM_PUPzbnm4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 203
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462911,
+      "id": "fQmpatP2Maa539IPjNi06QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 338
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462915,
+      "id": "ggmpat_zCumz_PUPt56SsQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 236
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462919,
+      "id": "hQmpau-wHN_WjMcP1vzg-Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 357
+      }
+    }
+  ],
+  "f15a38252294f4800608a850ffe879820c0528f5f3a5b55b4991424f5a19f610": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462735,
+      "id": "zAipapDWAcLJ-sAP7Z_l-As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 347,
+        "total_tokens": 937
+      }
+    }
+  ],
+  "f280f8a87cb5b224b668ca8f712f11c04ab9c8ae69456eb4dee8d7a1b8b9cf6f": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462665,
+      "id": "hwipavz_Op-cjrEPs-js4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 96,
+        "total_tokens": 389
+      }
+    }
+  ],
+  "f64928b81ac49d38c1bc87028964a009dd6abd5cf46ba01152e6ef26ccf626a9": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "World War I erupted due to a volatile mix of escalating militarism, rigid alliance systems, imperialistic competition, and fervent nationalism across Europe, culminating in the assassination of Archduke Franz Ferdinand.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462653,
+      "id": "ewipaqbdF6mSjrEPtfKCiQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 38,
+        "prompt_tokens": 13,
+        "total_tokens": 435
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "World War I was caused by a complex interplay of militarism, entangled alliances, imperialism, and fervent nationalism, all ignited by the assassination of Archduke Franz Ferdinand.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462657,
+      "id": "fwipau22HLG9_PUP9MyouAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 33,
+        "prompt_tokens": 13,
+        "total_tokens": 398
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "World War I erupted from a complex web of militarism, alliances, imperialism, and nationalism, immediately sparked by the assassination of Archduke Franz Ferdinand.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462663,
+      "id": "gwipaozFIJe4jrEPqJOZyAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 13,
+        "total_tokens": 739
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "WWI was caused by a complex interplay of intense nationalism, imperial rivalries, an escalating arms race, and a rigid system of alliances, all ignited by the assassination of Archduke Franz Ferdinand.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462668,
+      "id": "iQipau2DOOHfjrEPkaLFEA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 39,
+        "prompt_tokens": 13,
+        "total_tokens": 472
+      }
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Entangled alliances, aggressive nationalism, imperial rivalries, and an escalating arms race among European powers converged with the assassination of Archduke Franz Ferdinand to ignite World War I.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462672,
+      "id": "jgipapSOCarj_uMP7qbXaA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 34,
+        "prompt_tokens": 13,
+        "total_tokens": 435
+      }
+    }
+  ],
+  "f7a589f94d12edab30aae0151d340a2594c30c1c5b0fd78d441a35a232b5bd8e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462747,
+      "id": "2AiparOcBczQ_uMPzrvBMA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 390,
+        "total_tokens": 1160
+      }
+    }
+  ],
+  "f9da4e65e0e42153d7a7e22211caa286e20ef8dc9aed51cc70303a351e23e27e": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462992,
+      "id": "zQmpaseWHKvSjMcPnqzs4QI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 96,
+        "total_tokens": 607
+      }
+    }
+  ],
+  "fa0391abc6c99046001489ac5d60e5f7de83d490371bfe82164b012ab9b71751": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462621,
+      "id": "WgipaqWsFMTw-sAPp7z3gAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 88,
+        "total_tokens": 619
+      }
+    }
+  ],
+  "fa3783610766ae8c7fa547d2368a55cc0fee6023b0d2bda461169b6e79a079f7": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462639,
+      "id": "awipav2LCqPcjMcP--HjuAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 803
+      }
+    }
+  ],
+  "fa46c6795b803925c0e7d7b6534a02aeeecb09dc5635ca5fb5e25750b172b642": [
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789462684,
+      "id": "mgiparWJHuTPjMcPycubwQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 125,
+        "total_tokens": 465
+      }
+    }
+  ]
+}

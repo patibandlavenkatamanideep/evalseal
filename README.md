@@ -12,7 +12,10 @@ measures the flips, records the real provenance, and seals both into a tamper-ev
 ## Quickstart
 
 ```bash
-pip install -e ".[dev]"          # from source until the PyPI release
+pip install evalseal
+
+# The recorded demo (examples + cassette) lives in the repo.
+git clone https://github.com/patibandlavenkatamanideep/evalseal && cd evalseal
 
 # Replays the committed cassette: no API key, no network.
 evalseal run \
@@ -80,4 +83,4 @@ served model, fingerprint, parameters and whether they were set explicitly, rubr
 dataset hash) plus its results. The record is hashed and linked to the previous record's
 hash in an append-only JSONL ledger, so editing any past score breaks `verify`.
 
-See [DESIGN.md](DESIGN.md) for what this does and does not prove.
+See [DESIGN.md](https://github.com/patibandlavenkatamanideep/evalseal/blob/main/DESIGN.md) for what this does and does not prove.

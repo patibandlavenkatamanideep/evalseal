@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 from pathlib import Path
 
 import httpx
 import pytest
 from typer.testing import CliRunner
 
-from evalseal.cli import EXIT_UNSTABLE, app
+from evalseal.cli import EXIT_UNSTABLE, app, load_dotenv
 from evalseal.ledger import load_all, verify_chain
 
 runner = CliRunner()
@@ -40,7 +41,7 @@ def _fake_provider(monkeypatch):
     calls = []
 
     def fake_post(self, url, headers=None, json=None):
-        calls.append(json)
+        calls.append({"headers": headers, "body": json})
         content = json["messages"][0]["content"]
         if "RESPONSE TO GRADE" in content:
             text = next(hotdog) if "hot dog" in content else "PASS"
@@ -84,6 +85,36 @@ def test_record_then_keyless_replay_reproduces_the_flip(example, monkeypatch):
     assert second.prev_hash == first.hash
     assert verify_chain() == (True, "Chain intact: 2 record(s).")
     assert Path("report.json").exists() and Path("report.md").exists()
+
+
+def test_dotenv_supplies_api_key_for_recording(example, monkeypatch):
+    calls = _fake_provider(monkeypatch)
+    monkeypatch.setenv("EVALSEAL_RECORD", "1")
+    Path(".env").write_text('# comment\nexport EVALSEAL_API_KEY="sk-from-dotenv"\n')
+    try:
+        result = runner.invoke(app, _args(example))
+        assert result.exit_code == EXIT_UNSTABLE, result.output
+        assert calls[0]["headers"]["Authorization"] == "Bearer sk-from-dotenv"
+    finally:
+        os.environ.pop("EVALSEAL_API_KEY", None)
+
+
+def test_real_environment_wins_over_dotenv(monkeypatch):
+    monkeypatch.setenv("EVALSEAL_API_KEY", "from-shell")
+    Path(".env").write_text("EVALSEAL_API_KEY=from-file\n")
+    load_dotenv()
+    assert os.environ["EVALSEAL_API_KEY"] == "from-shell"
+
+
+def test_rate_limit_is_reported_and_progress_kept(example, monkeypatch):
+    monkeypatch.setenv("EVALSEAL_RECORD", "1")
+    monkeypatch.setenv("EVALSEAL_API_KEY", "k")
+    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+        429, text="quota exceeded", request=httpx.Request("POST", url)))
+    result = runner.invoke(app, _args(example))
+    assert result.exit_code == 1
+    assert "HTTP 429" in result.output and "re-run" in result.output
+    assert load_all() == []
 
 
 def test_replay_without_cassette_fails_loudly(example):

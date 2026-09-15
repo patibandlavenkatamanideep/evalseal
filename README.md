@@ -25,10 +25,12 @@ evalseal run \
 ## Real flip rates
 
 <!-- TODO: replace with the table from the recorded run (report.md). Do not invent numbers. -->
-> **Not recorded yet.** Capture the demo cassette once with a real key:
+> **Not recorded yet.** Copy `.env.example` to `.env`, add a free
+> [Google AI Studio](https://aistudio.google.com/apikey) key, then capture the demo cassette once.
+> If the free tier rate-limits you, re-run the same command later: recorded responses are kept.
 >
 > ```bash
-> EVALSEAL_RECORD=1 EVALSEAL_API_KEY=... evalseal run \
+> EVALSEAL_RECORD=1 evalseal run \
 >   --dataset examples/borderline_judge/dataset.jsonl \
 >   --target-config examples/borderline_judge/target.json \
 >   --scorer-config examples/borderline_judge/scorer.json --n 5

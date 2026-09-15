@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
+import httpx
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
@@ -23,6 +25,26 @@ app = typer.Typer(add_completion=False, help="Reproducibility receipts for LLM e
 console = Console()
 
 LedgerOpt = typer.Option(LEDGER_PATH, "--ledger", help="Path to the ledger JSONL file.")
+
+
+def load_dotenv(path: Path = Path(".env")) -> None:
+    """Load KEY=VALUE lines from ./.env. Variables already in the environment win."""
+    if not path.is_file():
+        return
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip().removeprefix("export ").strip()
+        value = value.strip().strip("\"'")
+        if key and value:
+            os.environ.setdefault(key, value)
+
+
+@app.callback()
+def _main() -> None:
+    load_dotenv()
 
 
 def _build_target(cfg: dict, cassette: Cassette) -> OpenAICompatibleTarget:
@@ -71,6 +93,15 @@ def run(
         record = run_eval(ds, target, scorer, n_repeats=n, prev_hash=last_hash(ledger))
     except RuntimeError as e:
         console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
+    except httpx.HTTPStatusError as e:
+        resp = e.response
+        console.print(f"[red]HTTP {resp.status_code} from provider: {resp.text[:300]}[/red]")
+        if resp.status_code == 429:
+            console.print(
+                "[yellow]Rate limited. Responses recorded so far are saved in the cassette; "
+                "re-run the same command later to resume.[/yellow]"
+            )
         raise typer.Exit(code=1)
     record = seal_and_append(record, ledger)
     write_json(record)

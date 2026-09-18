@@ -35,12 +35,15 @@ the target and the judge, temperature left at the provider default, 20 arguable 
 
 | case | prompt | verdicts | mean | 95% CI | flip rate | stability |
 |---|---|---|---|---|---|---|
-| b01 | Is a hot dog a sandwich? | `FPPFP` | 0.60 | [0.20, 1.00] | 40% | UNSTABLE |
-| b10 | Blockchain for a child in exactly 20 words | `FPFPP` | 0.60 | [0.20, 1.00] | 40% | UNSTABLE |
-| b16 | "Do we only use 10% of our brains?" in a jokey tone | `PPFFP` | 0.60 | [0.20, 1.00] | 40% | UNSTABLE |
-| b05 | A borderline-polite refusal to a coworker | `PFPPP` | 0.80 | [0.40, 1.00] | 20% | BORDERLINE |
-| b19 | A technically accurate haiku about recursion | `PPFPP` | 0.80 | [0.40, 1.00] | 20% | BORDERLINE |
-| 15 others | | `PPPPP` | 1.00 | [1.00, 1.00] | 0% | STABLE |
+| b01 | Is a hot dog a sandwich? | `FPPFP` | 0.60 | [0.23, 0.88] | 40% | UNSTABLE |
+| b10 | Blockchain for a child in exactly 20 words | `FPFPP` | 0.60 | [0.23, 0.88] | 40% | UNSTABLE |
+| b16 | "Do we only use 10% of our brains?" in a jokey tone | `PPFFP` | 0.60 | [0.23, 0.88] | 40% | UNSTABLE |
+| b05 | A borderline-polite refusal to a coworker | `PFPPP` | 0.80 | [0.38, 0.96] | 20% | BORDERLINE |
+| b19 | A technically accurate haiku about recursion | `PPFPP` | 0.80 | [0.38, 0.96] | 20% | BORDERLINE |
+| 15 others | | `PPPPP` | 1.00 | [0.57, 1.00] | 0% | STABLE |
+
+A perfect 5-for-5 case reports `[0.57, 1.00]`, not `[1.00, 1.00]`: five identical runs do
+not establish certainty, and the interval says so.
 
 Treat the k-th repeat of every case as one ordinary single-run eval, and the five
 "single runs" of this identical eval scored **0.90, 0.95, 0.85, 0.90 and 1.00**. A single
@@ -138,7 +141,7 @@ evalseal diff --ledger .evalseal/compare.jsonl 0 1
 ```
 
 ```
-mean 0.975 -> 0.975  (delta +0.000, noise floor ±0.000) => within noise
+mean 0.975 -> 0.975  (delta +0.000, noise floor ±0.217) => within noise
 ```
 
 Both models scored 0.975, both perfectly stable, and both missed the *same* problem — the
@@ -146,10 +149,10 @@ broken one. On this suite the two models are indistinguishable, which says less 
 models than about the suite: 40 problems this easy cannot separate them. That is a useful
 thing to learn before quoting a benchmark number as evidence one model beats another.
 
-**Read that noise floor carefully.** It is ±0.000 because nothing flipped, and a floor of
-zero means `diff` would call a one-case difference (0.025) a REAL CHANGE. Zero flips in 5
-runs is not proof of zero variance: by the rule of three, the true flip rate could still be
-as high as ~45%. Raise N before trusting a floor this tight.
+**That noise floor is why N matters.** At N=5 a perfectly stable case still carries a
+±0.217 interval, so a one-case difference (0.025) is correctly reported as noise rather
+than a finding. Raising N narrows the floor and buys the power to call smaller differences
+real: ±0.217 at N=5 becomes roughly ±0.08 at N=20.
 
 ## Commands
 
@@ -224,6 +227,11 @@ Start with `--fail-on none` to observe flip rates without blocking merges, then 
 
 **Stability classes** are based on the flip rate, the share of a case's N verdicts that
 disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 20%).
+
+**Confidence intervals** use the Wilson score interval for binary verdicts and a seeded
+percentile bootstrap for float scores. Both are deterministic. Wilson is used because the
+bootstrap collapses to zero width when every run agrees, which would report certainty that
+five runs cannot support.
 
 **Scorers**: `exact`, `regex`, `answer_match` (extracts the final answer and compares it to
 `expected`, numerically when both are numbers), and `llm_judge` (a second model, itself a

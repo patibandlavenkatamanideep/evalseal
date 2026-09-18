@@ -43,3 +43,47 @@ def test_classify_boundaries():
     assert classify_stability(0.0) == "STABLE"
     assert classify_stability(0.20) == "BORDERLINE"
     assert classify_stability(0.21) == "UNSTABLE"
+
+
+def test_wilson_does_not_collapse_at_the_boundary():
+    """Five passes out of five is not proof of certainty; a zero-width CI would claim it."""
+    s = analyze_case([1, 1, 1, 1, 1], binary=True)
+    assert s.mean == 1.0
+    assert s.ci95_high == 1.0
+    assert 0.5 < s.ci95_low < 0.6          # ~0.566, consistent with the rule of three
+    assert s.stability == "STABLE"         # stability still reports what was observed
+
+
+def test_wilson_interval_values():
+    from evalseal.analyze import wilson_ci
+
+    lo, hi = wilson_ci(5, 5)
+    assert abs(lo - 0.5655) < 1e-3 and hi == 1.0
+    lo, hi = wilson_ci(0, 5)
+    assert lo == 0.0 and abs(hi - 0.4345) < 1e-3
+    lo, hi = wilson_ci(3, 5)
+    assert abs(lo - 0.2306) < 1e-3 and abs(hi - 0.8823) < 1e-3
+    assert wilson_ci(0, 0) == (0.0, 0.0)
+
+
+def test_interval_narrows_as_runs_accumulate():
+    from evalseal.analyze import wilson_ci
+
+    def width(k, n):
+        lo, hi = wilson_ci(k, n)
+        return hi - lo
+
+    assert width(5, 5) > width(20, 20) > width(100, 100)
+
+
+def test_binary_ci_is_deterministic_and_brackets_the_mean():
+    a = analyze_case([1, 0, 1, 1, 0], binary=True)
+    b = analyze_case([1, 0, 1, 1, 0], binary=True)
+    assert (a.ci95_low, a.ci95_high) == (b.ci95_low, b.ci95_high)
+    assert a.ci95_low <= a.mean <= a.ci95_high
+
+
+def test_float_scores_still_use_the_bootstrap():
+    s = analyze_case([0.2, 0.4, 0.6, 0.8, 1.0], binary=False)
+    assert s.ci95_low <= s.mean <= s.ci95_high
+    assert s.majority_verdict is None

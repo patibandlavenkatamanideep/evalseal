@@ -69,6 +69,12 @@ jobs:
             echo "::warning::gsm8k cassette not recorded; skipping."; exit 0
           fi
           evalseal run --suite examples/gsm8k/suite.json --ledger .evalseal/gsm8k.jsonl --quiet
+      - name: Code-QA suite reproduces from cassette
+        run: |
+          if [ ! -f tests/cassettes/codeqa.json ]; then
+            echo "::warning::codeqa cassette not recorded; skipping."; exit 0
+          fi
+          evalseal run --suite examples/codeqa/suite.json --ledger .evalseal/codeqa.jsonl --quiet
       - name: Signing round trip
         run: |
           evalseal keygen --private-key ci.key --public-key ci.pub

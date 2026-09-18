@@ -4,13 +4,23 @@ All notable changes to this project are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 while the version is 0.x, a minor bump may break formats.
 
-## Unreleased
+## [1.1.0] - 2026-09-18
+
+### Changed
+- **Binary verdicts now use a Wilson score interval instead of the bootstrap.** Resampling
+  identical verdicts produced a width-zero interval, so a perfectly stable case reported
+  `[1.00, 1.00]` and `diff` inherited a noise floor of ±0.000 — meaning a one-case
+  difference was announced as a REAL CHANGE. A 5-for-5 case now reports `[0.57, 1.00]`, in
+  line with the rule of three, and `diff`'s floor at N=5 is ±0.217. Reported CI values
+  change for every binary case; float scores keep the seeded bootstrap. `wilson_ci` is
+  exported.
 
 ### Added
 - `examples/codeqa/`: a code-comprehension suite generated from real repositories, with
   ground truth taken from the Python AST, plus its recorded cassette. Accuracy 0.993 at
   N=5 with 2 borderline cases, both asking for project-specific class names.
 - A second GSM8K run against `gemini-3.1-flash-lite` and a worked `diff` between models.
+- CI replays the codeqa suite alongside the other two.
 
 ## [1.0.0] - 2026-09-18
 
@@ -77,6 +87,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.1.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.1.0
 [1.0.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.0.0
 [0.3.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v0.3.0
 [0.2.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v0.2.0

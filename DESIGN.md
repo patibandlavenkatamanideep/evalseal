@@ -27,7 +27,7 @@ because an unsigned ledger is still useful to whoever produced it.
 
 | module | role |
 |---|---|
-| `analyze.py` | Pure functions: seeded bootstrap CI, flip rate, stability class. No I/O. |
+| `analyze.py` | Pure functions: Wilson / bootstrap CI, flip rate, stability class. No I/O. |
 | `adapters/recording.py` | Cassette keyed by SHA-256 of the effective request + repeat index. |
 | `adapters/target.py` | `Target` protocol; `LocalCallableTarget` (tests), `OpenAICompatibleTarget`. |
 | `adapters/scorer.py` | Exact, regex, and LLM-judge scorers. The judge is a `Target`. |
@@ -58,6 +58,14 @@ are retried with exponential backoff capped at 30s, preferring the provider's `R
 A 400 or 401 is not retried: repeating a malformed or unauthorized request cannot help.
 Because every response is cassette-backed as it arrives, an exhausted retry is resumable —
 re-run the same command and recording continues where it stopped.
+
+**Binary verdicts get a Wilson interval, not a bootstrap.** Resampling five identical
+verdicts only ever produces the same value, so the bootstrap reports a width-zero interval
+and `diff` inherits a noise floor of zero — certainty the data cannot support. The Wilson
+score interval stays well-defined at the boundary (5/5 gives roughly [0.57, 1.00], in line
+with the rule of three, which bounds an unseen failure rate near 3/n). Float scores keep
+the seeded bootstrap, since no closed form fits an arbitrary score distribution. Both are
+deterministic, so re-running the analysis reproduces the interval exactly.
 
 **Only the effective request is hashed.** The cassette key is the URL plus the JSON body
 actually sent. Unset parameters are left out of the body entirely, so "temperature not
@@ -99,18 +107,16 @@ still failing on a broken replay.
 
 ## Known limits
 
-- **Small-N bootstrap CIs are approximate.** With N=5 binary verdicts the bootstrap
-  distribution is coarse (steps of 0.2) and tends to under-cover. The CI's seed is fixed,
-  so the interval itself is reproducible, but it is still only an approximation.
+- **Small-N intervals are wide, and should be.** At N=5 even a perfectly stable case spans
+  [0.57, 1.00]. That is the honest width for five observations, not a defect — but it means
+  small differences cannot be called at small N. Raise N when you need that power.
+- **Wilson assumes independent runs.** Repeats of one case are treated as independent
+  Bernoulli trials. Provider-side caching, a sticky backend, or a rate-limit retry serving
+  a repeated response would break that assumption and narrow the interval unfairly.
 - **Flip rate needs N ≥ 5 to mean much.** At N=3 a single dissent already reads as 33%.
   Use a larger N on the cases you care about.
 - **Stability thresholds are conventions.** `BORDERLINE_MAX_FLIP = 0.20` is a named
   constant chosen for auditability, not a statistically derived cutoff.
-- **A zero noise floor overstates confidence.** The floor is estimated from observed
-  variance, so a run where nothing flipped yields ±0.000 and `diff` will then call any
-  difference real. Zero flips in N=5 bounds the flip rate at roughly 45% (rule of three),
-  not at zero. Treat a zero floor as "not enough runs to estimate noise", not as proof
-  that the eval is deterministic.
 - **The `diff` noise floor is conservative.** It uses the widest per-case CI half-width
   across both runs. That rarely claims a false "REAL CHANGE", but it will miss small real
   shifts in the aggregate. A paired test across cases would be more powerful.

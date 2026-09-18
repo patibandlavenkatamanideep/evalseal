@@ -33,6 +33,21 @@ def _as_number(text: str) -> float | None:
         return None
 
 
+_DECORATION = "`'\" \t"
+
+
+def strip_decoration(value: str) -> str:
+    """Remove markdown/quote decoration around an answer.
+
+    Models routinely return `RetrievalResult` when asked for a bare identifier. That is
+    the same answer in code formatting, not a different one, and scoring it wrong turns a
+    formatting habit into fake model variance — which is exactly what happened here: 11 of
+    11 "wrong" answers in one run were the right identifier wrapped in backticks. This
+    normalizes presentation only; it never rewrites the value itself.
+    """
+    return value.strip().strip(_DECORATION).strip()
+
+
 def extract_answer(text: str) -> str:
     """The model's final answer.
 
@@ -108,8 +123,8 @@ class AnswerMatchScorer:
     def score(self, prompt, response_text, expected):
         if expected is None:
             raise ValueError("answer_match scoring needs `expected` on every case")
-        got = extract_answer(response_text)
-        want = expected.strip()
+        got = strip_decoration(extract_answer(response_text))
+        want = strip_decoration(expected)
         got_n, want_n = _as_number(got), _as_number(want)
         if got_n is not None and want_n is not None:
             ok = abs(got_n - want_n) <= self.tolerance

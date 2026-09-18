@@ -145,6 +145,9 @@ def run(
     sign_key: Path | None = typer.Option(
         None, help="Ed25519 private key; signs the sealed record after the run."
     ),
+    only: str | None = typer.Option(
+        None, help="Run only these case ids (comma-separated), e.g. to re-examine a flip."
+    ),
 ):
     """Run an eval N times, seal the result, emit report.json + report.md."""
     cfg = _load_suite(suite)
@@ -169,6 +172,12 @@ def run(
     sign_key = sign_key or (Path(cfg["sign_key"]) if "sign_key" in cfg else None)
 
     ds = Dataset.from_jsonl(dataset)
+    if only:
+        wanted = [c.strip() for c in only.split(",") if c.strip()]
+        missing = [c for c in wanted if c not in {case.case_id for case in ds.cases}]
+        if missing:
+            raise typer.BadParameter(f"case id(s) not in {dataset}: {', '.join(missing)}")
+        ds = Dataset([c for c in ds.cases if c.case_id in wanted], ds.hash)
     try:
         cass = Cassette(cassette)
     except CassetteFormatError as e:

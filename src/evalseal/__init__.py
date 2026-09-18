@@ -10,6 +10,7 @@ from .adapters.scorer import (
     Scorer,
     ScoreResult,
     extract_answer,
+    strip_decoration,
 )
 from .adapters.target import (
     LocalCallableTarget,
@@ -24,7 +25,7 @@ from .models import Aggregate, CaseResult, ProvenanceManifest, RunRecord
 from .report import to_junit, to_markdown
 from .signing import generate_keypair, sign_head, verify_signatures
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 __all__ = [
     "Aggregate", "Case", "CaseResult", "CaseStats", "Cassette", "Dataset",
@@ -32,7 +33,7 @@ __all__ = [
     "OpenAICompatibleTarget",
     "ProvenanceManifest", "RegexScorer", "RunRecord", "ScoreResult", "Scorer", "Target",
     "TargetResponse", "__version__", "analyze_case", "classify_stability",
-    "extract_answer", "flip_rate", "wilson_ci",
+    "extract_answer", "flip_rate", "strip_decoration", "wilson_ci",
     "last_hash", "load_all", "run_eval", "seal_and_append", "slot", "to_junit",
     "to_markdown", "generate_keypair", "sign_head", "verify_chain",
     "verify_signatures",

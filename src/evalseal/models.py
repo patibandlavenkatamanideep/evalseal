@@ -45,7 +45,7 @@ class DatasetProvenance(BaseModel):
 class RunConfig(BaseModel):
     n_repeats: int = 5
     concurrency: int = 1
-    harness_version: str = "evalseal/1.1.0"
+    harness_version: str = "evalseal/1.2.0"
     started_at: str = Field(default_factory=_now)
 
 

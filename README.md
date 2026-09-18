@@ -101,22 +101,13 @@ evalseal run --suite examples/codeqa/suite.json
 ```
 
 The committed run covers **60 questions drawn from a pool of 3,279 across 7 repositories**,
-answered by `gemini-2.5-flash` at N=5:
+answered by `gemini-2.5-flash` at N=5: **accuracy 1.000, all 60 cases STABLE**, with every
+question type at 1.00.
 
-| question type | accuracy | inconsistent |
-|---|---|---|
-| default value | 1.00 | 0 |
-| parameter count | 1.00 | 0 |
-| exception raised | 1.00 | 0 |
-| declared return type | 0.97 | **2** |
+That clean number took three corrections, and every one of them was a defect in the eval
+rather than in the model.
 
-**Accuracy 0.993 — 58 stable, 2 borderline, 0 unstable.** Both remaining flips are questions
-whose answer is a class defined in that codebase (`RetrievalResult`, `EvidenceResult`).
-Primitives and counts never wavered; project-specific names did, in every recording.
-
-### What the flips caught was the eval, twice
-
-Building this suite produced two failures that had nothing to do with the model:
+### Three times the variance caught the eval, not the model
 
 - **A case failing all five runs** asked which exception `_call_with_retry` raises, where
   the source says `raise last_exc` — a variable holding an exception, not a type. The
@@ -124,10 +115,25 @@ Building this suite produced two failures that had nothing to do with the model:
 - **A case flipping 40%** asked which exception `_parse` raises. It explicitly raises
   `ValueError`, but also calls `json.loads` and `model_validate`, which propagate others.
   The model alternated between those two readings — both defensible. Rewording the question
-  to say "raised explicitly in its own body" took that case to `PPPPP`.
+  to "raised explicitly in its own body" took that case to `PPPPP`.
+- **Two cases flipping 20%** looked like genuine model uncertainty about class names
+  defined in the codebase. They were not. Re-running just those two at N=20 (40 API calls)
+  showed the model answered correctly every time; it simply wrote `` `RetrievalResult` ``
+  with backticks in some runs, and the scorer counted markdown decoration as a wrong
+  answer. `answer_match` now normalizes surrounding backticks and quotes before comparing.
+  Both cases are 20-for-20 STABLE.
 
-The pattern is worth keeping: **a stable failure usually means the eval is wrong, while a
-flip means the model is genuinely unsure.** One run shows you neither.
+```bash
+evalseal run --suite examples/codeqa/suite.json --only cq043,cq052 --n 20
+```
+
+`--only` re-examines named cases; a flip at N=5 is worth a closer look, because five runs
+cannot tell 20% from 30% — or, as here, from 0%.
+
+The rule that survives all three: **a stable failure means your eval item is broken, and a
+flip means either the model is unsure or your question and scorer are.** Look before
+concluding. Normalizing decoration did not paper over real variance — the judge-graded
+suite above still flips on 5 of 20 cases, because that disagreement is real.
 
 ## Did the score actually change?
 

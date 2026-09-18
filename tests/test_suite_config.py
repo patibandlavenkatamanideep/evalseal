@@ -100,3 +100,23 @@ def test_suite_can_request_signing(tmp_path, monkeypatch):
     assert "Signed record 0" in result.output
     ok, msg = verify_signatures(ledger, pub)
     assert ok, msg
+
+
+def test_only_runs_the_named_cases(tmp_path, monkeypatch):
+    _provider(monkeypatch)
+    suite = _suite(tmp_path)
+    result = runner.invoke(app, ["run", "--suite", str(suite), "--only", "a",
+                                 "--ledger", str(tmp_path / "l.jsonl")])
+    assert result.exit_code == 0, result.output
+    rec = load_all(tmp_path / "l.jsonl")[0]
+    assert [c.case_id for c in rec.results] == ["a"]
+    # The dataset hash still names the whole dataset, so the receipt says what it came from.
+    assert rec.manifest.dataset.n_cases == 1
+
+
+def test_only_rejects_an_unknown_case_id(tmp_path, monkeypatch):
+    _provider(monkeypatch)
+    suite = _suite(tmp_path)
+    result = runner.invoke(app, ["run", "--suite", str(suite), "--only", "a,nope"])
+    assert result.exit_code == 2
+    assert "nope" in plain(result.output)

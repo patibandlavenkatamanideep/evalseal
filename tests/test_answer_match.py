@@ -62,3 +62,18 @@ def test_explicit_answer_phrase_beats_a_later_working_number():
 def test_non_numeric_answer_phrase_still_works():
     assert extract_answer("The answer is yes.") == "yes"
     assert AnswerMatchScorer().score("q", "The answer is yes.", "yes").score == 1.0
+
+
+def test_backticked_identifiers_are_the_same_answer():
+    """Regression: 11 of 11 'wrong' answers in a real run were the right identifier in
+    backticks. Scoring those wrong manufactured model variance that did not exist."""
+    from evalseal.adapters.scorer import strip_decoration
+    assert strip_decoration("`RetrievalResult`") == "RetrievalResult"
+    assert AnswerMatchScorer().score("q", "`RetrievalResult`", "RetrievalResult").score == 1.0
+    assert AnswerMatchScorer().score("q", '"ValueError"', "ValueError").score == 1.0
+    assert AnswerMatchScorer().score("q", "  None  ", "None").score == 1.0
+
+
+def test_normalization_does_not_rewrite_the_value():
+    assert AnswerMatchScorer().score("q", "`RetrievalResult`", "EvidenceResult").score == 0.0
+    assert AnswerMatchScorer().score("q", "ValueErro", "ValueError").score == 0.0

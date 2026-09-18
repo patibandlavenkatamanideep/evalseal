@@ -89,6 +89,13 @@ content, so adding a manifest field changes the hash of everything sealed before
 `SCHEMA_VERSION` is stored in each record, and `verify` reports an older schema as exactly
 that instead of raising a false tamper alarm.
 
+**Normalization covers presentation, never content.** `answer_match` strips surrounding
+backticks and quotes before comparing, because a model writing `` `ValueError` `` gave the
+same answer in code formatting — scoring it wrong turns a formatting habit into fake model
+variance, which is exactly what happened in the codeqa suite. The line is that decoration
+around a value is removed and the value itself is never rewritten: a near-miss identifier
+still scores zero.
+
 **Answer extraction is simple on purpose.** `answer_match` prefers an explicit `####` or
 `\boxed{}` marker, then "the answer is <number>", then the last number in the reply. A
 cleverer extractor would repair sloppy model output and hide variance behind its own

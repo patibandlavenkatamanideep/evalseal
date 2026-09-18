@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 while the version is 0.x, a minor bump may break formats.
 
+## [1.2.0] - 2026-09-18
+
+### Added
+- `run --only a,b` runs just the named cases, for re-examining a flip at higher N.
+
+### Fixed
+- `answer_match` now strips surrounding backticks and quotes before comparing. A model
+  answering `` `RetrievalResult` `` was being scored wrong for markdown decoration, which
+  manufactured variance that did not exist: re-running the two affected cases at N=20
+  showed 20-for-20 correct answers. The codeqa suite goes from 0.993 with 2 borderline
+  cases to 1.000 with all 60 stable, and the README claim that the model was unreliable on
+  project-specific class names was wrong and has been corrected. Normalization touches
+  presentation only — a different identifier still scores zero, and the judge-graded suite
+  still flips on 5 of 20 cases.
+
 ## [1.1.0] - 2026-09-18
 
 ### Changed
@@ -87,6 +102,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.2.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.2.0
 [1.1.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.1.0
 [1.0.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.0.0
 [0.3.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v0.3.0

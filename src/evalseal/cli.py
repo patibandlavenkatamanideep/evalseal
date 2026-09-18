@@ -13,12 +13,23 @@ from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
 from .adapters.dataset import Dataset
 from .adapters.recording import Cassette, CassetteFormatError
-from .adapters.scorer import ExactMatchScorer, LLMJudgeScorer, RegexScorer
+from .adapters.scorer import (
+    AnswerMatchScorer,
+    ExactMatchScorer,
+    LLMJudgeScorer,
+    RegexScorer,
+)
 from .adapters.target import OpenAICompatibleTarget
 from .executor import run_eval
 from .ledger import LEDGER_PATH, last_hash, load_all, seal_and_append, verify_chain
 from .models import FailOn
 from .report import failing_cases, to_markdown, write_json, write_junit, write_markdown
+from .signing import (
+    generate_keypair,
+    sign_head,
+    signatures_path,
+    verify_signatures,
+)
 
 # Distinct from 1 (uncaught error) and 2 (usage error) so CI can tell
 # "the eval is unstable" apart from "the tool broke".
@@ -51,6 +62,29 @@ def _main() -> None:
     load_dotenv()
 
 
+def _load_suite(path: Path | None) -> dict:
+    """A suite file names the dataset, target, scorer and run settings in one place.
+    Explicit flags still win, so a suite is a default, not a cage."""
+    if path is None:
+        return {}
+    suite = json.loads(path.read_text())
+    unknown = set(suite) - {
+        "dataset", "target", "scorer", "n_repeats", "concurrency", "cassette",
+        "fail_on", "max_retries", "timeout", "ledger", "junit_xml", "sign_key",
+    }
+    if unknown:
+        raise typer.BadParameter(f"unknown key(s) in {path}: {', '.join(sorted(unknown))}")
+    base = path.parent
+
+    def resolve(value: str) -> str:      # paths are relative to the suite file
+        return str((base / value).resolve()) if value else value
+
+    for key in ("dataset", "target", "scorer", "cassette", "ledger", "junit_xml", "sign_key"):
+        if key in suite:
+            suite[key] = resolve(suite[key])
+    return suite
+
+
 def _build_target(
     cfg: dict, cassette: Cassette, max_retries: int, timeout: float
 ) -> OpenAICompatibleTarget:
@@ -70,6 +104,8 @@ def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: floa
         return ExactMatchScorer()
     if cfg["type"] == "regex":
         return RegexScorer(pattern=cfg["pattern"])
+    if cfg["type"] == "answer_match":
+        return AnswerMatchScorer(tolerance=cfg.get("tolerance", 1e-6))
     if cfg["type"] == "llm_judge":
         judge = OpenAICompatibleTarget(
             model=cfg["judge_model"],
@@ -86,24 +122,52 @@ def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: floa
 
 @app.command()
 def run(
-    dataset: Path = typer.Option(..., exists=True, dir_okay=False),
-    target_config: Path = typer.Option(..., exists=True, dir_okay=False),
-    scorer_config: Path = typer.Option(..., exists=True, dir_okay=False),
-    n: int = typer.Option(5, min=1, help="Repeats per case (flip rate needs N>=5)."),
-    cassette: Path = typer.Option(Path("tests/cassettes/run.json")),
+    suite: Path | None = typer.Option(
+        None, exists=True, dir_okay=False,
+        help="JSON suite file supplying any of the options below; flags override it.",
+    ),
+    dataset: Path | None = typer.Option(None, exists=True, dir_okay=False),
+    target_config: Path | None = typer.Option(None, exists=True, dir_okay=False),
+    scorer_config: Path | None = typer.Option(None, exists=True, dir_okay=False),
+    n: int | None = typer.Option(None, min=1, help="Repeats per case (flip rate needs N>=5)."),
+    cassette: Path | None = typer.Option(None),
     ledger: Path = LedgerOpt,
-    concurrency: int = typer.Option(4, min=1, help="Parallel requests in flight."),
-    max_retries: int = typer.Option(5, min=0, help="Retries per request on 429/5xx."),
+    concurrency: int | None = typer.Option(None, min=1, help="Parallel requests in flight."),
+    max_retries: int | None = typer.Option(None, min=0, help="Retries per request on 429/5xx."),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress the progress bar."),
-    timeout: float = typer.Option(60.0, min=1.0, help="Per-request timeout in seconds."),
-    fail_on: FailOn = typer.Option(
-        "unstable", help="Which stability classes fail the run: none | unstable | borderline."
+    timeout: float | None = typer.Option(None, min=1.0, help="Per-request timeout in seconds."),
+    fail_on: FailOn | None = typer.Option(
+        None, help="Which stability classes fail the run: none | unstable | borderline."
     ),
     junit_xml: Path | None = typer.Option(
         None, help="Also write JUnit XML here, for CI test reporting."
     ),
+    sign_key: Path | None = typer.Option(
+        None, help="Ed25519 private key; signs the sealed record after the run."
+    ),
 ):
     """Run an eval N times, seal the result, emit report.json + report.md."""
+    cfg = _load_suite(suite)
+    dataset = dataset or (Path(cfg["dataset"]) if "dataset" in cfg else None)
+    target_config = target_config or (Path(cfg["target"]) if "target" in cfg else None)
+    scorer_config = scorer_config or (Path(cfg["scorer"]) if "scorer" in cfg else None)
+    if dataset is None or target_config is None or scorer_config is None:
+        missing = [
+            name for name, value in
+            (("--dataset", dataset), ("--target-config", target_config),
+             ("--scorer-config", scorer_config))
+            if value is None
+        ]
+        raise typer.BadParameter(f"missing {', '.join(missing)} (or supply them via --suite)")
+    n = n or cfg.get("n_repeats", 5)
+    cassette = cassette or Path(cfg.get("cassette", "tests/cassettes/run.json"))
+    concurrency = concurrency or cfg.get("concurrency", 4)
+    max_retries = max_retries if max_retries is not None else cfg.get("max_retries", 5)
+    timeout = timeout or cfg.get("timeout", 60.0)
+    fail_on = fail_on or cfg.get("fail_on", "unstable")
+    junit_xml = junit_xml or (Path(cfg["junit_xml"]) if "junit_xml" in cfg else None)
+    sign_key = sign_key or (Path(cfg["sign_key"]) if "sign_key" in cfg else None)
+
     ds = Dataset.from_jsonl(dataset)
     try:
         cass = Cassette(cassette)
@@ -156,6 +220,12 @@ def run(
     write_markdown(record)
     if junit_xml is not None:
         write_junit(record, junit_xml, fail_on)
+    if sign_key is not None:
+        entry = sign_head(ledger, sign_key)
+        console.print(
+            f"[green]Signed record {entry['record_index']} "
+            f"-> {signatures_path(ledger)}[/green]"
+        )
     console.print(Markdown(to_markdown(record)))
 
     # CI gate: dedicated non-zero exit when the policy is violated.
@@ -169,12 +239,59 @@ def run(
 
 
 @app.command()
-def verify(ledger: Path = LedgerOpt):
-    """Check the ledger chain integrity (tamper detection)."""
+def verify(
+    ledger: Path = LedgerOpt,
+    public_key: str | None = typer.Option(
+        None, "--public-key",
+        help="Also require valid signatures, made by this key (path or base64).",
+    ),
+    signed: bool = typer.Option(
+        False, "--signed", help="Require signatures, whoever made them."
+    ),
+):
+    """Check the ledger chain integrity, and signatures when asked."""
     ok, msg = verify_chain(ledger)
-    color = "green" if ok else "red"
-    console.print(f"[{color}]{msg}[/{color}]")
-    raise typer.Exit(code=0 if ok else 1)
+    console.print(f"[{'green' if ok else 'red'}]{msg}[/{'green' if ok else 'red'}]")
+    if not ok:
+        raise typer.Exit(code=1)
+    if public_key is not None or signed:
+        sig_ok, sig_msg = verify_signatures(ledger, public_key)
+        console.print(f"[{'green' if sig_ok else 'red'}]{sig_msg}[/{'green' if sig_ok else 'red'}]")
+        if not sig_ok:
+            raise typer.Exit(code=1)
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def keygen(
+    private_key: Path = typer.Option(Path("evalseal.key"), help="Where to write the private key."),
+    public_key: Path = typer.Option(Path("evalseal.pub"), help="Where to write the public key."),
+):
+    """Generate an Ed25519 keypair for signing ledgers."""
+    try:
+        pub = generate_keypair(private_key, public_key)
+    except FileExistsError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1) from e
+    console.print(f"[green]private key: {private_key} (mode 600 — keep it secret)[/green]")
+    console.print(f"[green]public key:  {public_key}[/green]\n{pub}")
+
+
+@app.command()
+def sign(
+    ledger: Path = LedgerOpt,
+    key: Path = typer.Option(Path("evalseal.key"), exists=True, help="Ed25519 private key."),
+):
+    """Sign the ledger head, so others can verify the chain came from you."""
+    try:
+        entry = sign_head(ledger, key)
+    except (ValueError, FileNotFoundError) as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1) from e
+    console.print(
+        f"[green]Signed record {entry['record_index']} ({entry['hash'][:20]}...)[/green]\n"
+        f"signature -> {signatures_path(ledger)}\npublic key: {entry['public_key']}"
+    )
 
 
 @app.command()

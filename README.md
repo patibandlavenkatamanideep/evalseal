@@ -54,18 +54,83 @@ To re-record with your own key, copy `.env.example` to `.env`, add a free
 `EVALSEAL_RECORD=1`. If the free tier rate-limits you, run the same command again later;
 responses already recorded are kept.
 
+## A benchmark, objectively graded
+
+The suite above is graded by an LLM judge. This one is graded by arithmetic: 40 problems
+sampled (seed 20260918) from the [GSM8K](https://github.com/openai/grade-school-math) test
+split, each with one verified numeric answer, same model, same N=5, `answer_match` scoring.
+
+```bash
+evalseal run --suite examples/gsm8k/suite.json
+```
+
+**Accuracy 0.975, and every case STABLE — 40 stable, 0 borderline, 0 unstable.** All five
+runs scored exactly 0.975. No flips at all, even with temperature left at the provider
+default.
+
+Put the two runs side by side:
+
+| suite | grading | cases | flipped |
+|---|---|---|---|
+| borderline_judge | LLM judge | 20 | **5 (25%)** |
+| gsm8k | numeric answer match | 40 | **0** |
+
+That contrast is the finding. On this model and these tasks, the irreproducibility came
+from the *judge*, not the model. Which is exactly the kind of claim a single run cannot
+make, and the reason to measure rather than assume.
+
+One problem (`gsm016`) was wrong in all five runs — consistently, not randomly. Reading it
+shows why: it says ten stalls, then refers to "the twenty stalls". GSM8K's reference answer
+assumes ten; the model assumed twenty and answered 176 every time. A stable failure is a
+different thing from a flaky one, and worth a different response: here, fix the question.
+
 ## Commands
 
 | command | what it does | exit code |
 |---|---|---|
 | `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `report.json` + `report.md`. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error |
-| `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links. | `0` intact · `1` tampered or broken |
+| `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures. | `0` intact · `1` tampered or broken |
 | `evalseal diff A B` | Compares two ledger runs and says whether the mean moved beyond the noise floor. Use `--` for negative indices: `evalseal diff -- 0 -1`. | `0` |
+| `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
+| `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
 HTTP 429/408/5xx and connection errors, honouring `Retry-After`), `--timeout`, and
 `--quiet`. Concurrency never changes the result: each response is recorded against its own
 (case, repeat) slot, so a 16-worker replay is identical to a serial one.
+
+### One suite file instead of many flags
+
+```bash
+evalseal run --suite examples/gsm8k/suite.json          # flags still override it
+```
+
+```json
+{
+  "dataset": "dataset.jsonl", "target": "target.json", "scorer": "scorer.json",
+  "n_repeats": 5, "concurrency": 4, "fail_on": "unstable",
+  "cassette": "../../tests/cassettes/gsm8k.json"
+}
+```
+
+Paths resolve relative to the suite file, and an unknown key is an error rather than a
+silently ignored typo.
+
+### Signing a receipt
+
+The hash chain proves a ledger hasn't been edited. It doesn't prove who made it: anyone
+who can rewrite the whole file can rebuild a consistent chain. Signing closes that gap for
+anyone holding your public key.
+
+```bash
+evalseal keygen                                  # evalseal.key (0600) + evalseal.pub
+evalseal run --suite my-suite.json --sign-key evalseal.key
+evalseal verify --public-key evalseal.pub        # chain + signatures
+```
+
+A signature says *this key signed a ledger whose head was H*, and the head commits to every
+record before it. It does not say the run happened as described: a signer can sign whatever
+they like. What it rules out is someone else altering your receipt afterwards.
 
 ### Gating a pipeline
 
@@ -92,6 +157,10 @@ Start with `--fail-on none` to observe flip rates without blocking merges, then 
 
 **Stability classes** are based on the flip rate, the share of a case's N verdicts that
 disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 20%).
+
+**Scorers**: `exact`, `regex`, `answer_match` (extracts the final answer and compares it to
+`expected`, numerically when both are numbers), and `llm_judge` (a second model, itself a
+tracked target).
 
 **Provenance warnings** show up in the report when:
 - the served model differs from the requested one (for the target or the judge),

@@ -2,7 +2,15 @@
 
 from .adapters.dataset import Case, Dataset
 from .adapters.recording import Cassette, slot
-from .adapters.scorer import ExactMatchScorer, LLMJudgeScorer, RegexScorer, Scorer, ScoreResult
+from .adapters.scorer import (
+    AnswerMatchScorer,
+    ExactMatchScorer,
+    LLMJudgeScorer,
+    RegexScorer,
+    Scorer,
+    ScoreResult,
+    extract_answer,
+)
 from .adapters.target import (
     LocalCallableTarget,
     OpenAICompatibleTarget,
@@ -14,14 +22,18 @@ from .executor import run_eval
 from .ledger import last_hash, load_all, seal_and_append, verify_chain
 from .models import Aggregate, CaseResult, ProvenanceManifest, RunRecord
 from .report import to_junit, to_markdown
+from .signing import generate_keypair, sign_head, verify_signatures
 
-__version__ = "0.3.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "Aggregate", "Case", "CaseResult", "CaseStats", "Cassette", "Dataset",
-    "ExactMatchScorer", "LLMJudgeScorer", "LocalCallableTarget", "OpenAICompatibleTarget",
+    "AnswerMatchScorer", "ExactMatchScorer", "LLMJudgeScorer", "LocalCallableTarget",
+    "OpenAICompatibleTarget",
     "ProvenanceManifest", "RegexScorer", "RunRecord", "ScoreResult", "Scorer", "Target",
-    "TargetResponse", "__version__", "analyze_case", "classify_stability", "flip_rate",
+    "TargetResponse", "__version__", "analyze_case", "classify_stability",
+    "extract_answer", "flip_rate",
     "last_hash", "load_all", "run_eval", "seal_and_append", "slot", "to_junit",
-    "to_markdown", "verify_chain",
+    "to_markdown", "generate_keypair", "sign_head", "verify_chain",
+    "verify_signatures",
 ]

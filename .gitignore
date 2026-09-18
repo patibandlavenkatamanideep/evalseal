@@ -221,3 +221,6 @@ __marimo__/
 .evalseal/
 report.json
 report.md
+
+# Signing keys — never commit a private key
+*.key

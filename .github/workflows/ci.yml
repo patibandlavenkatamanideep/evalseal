@@ -63,6 +63,17 @@ jobs:
           # 0 = policy satisfied, 3 = cases failed --fail-on (expected for this demo).
           # Anything else means the replay itself broke.
           if [ "$code" -ne 0 ] && [ "$code" -ne 3 ]; then exit "$code"; fi
+      - name: GSM8K suite reproduces from cassette
+        run: |
+          if [ ! -f tests/cassettes/gsm8k.json ]; then
+            echo "::warning::gsm8k cassette not recorded; skipping."; exit 0
+          fi
+          evalseal run --suite examples/gsm8k/suite.json --ledger .evalseal/gsm8k.jsonl --quiet
+      - name: Signing round trip
+        run: |
+          evalseal keygen --private-key ci.key --public-key ci.pub
+          evalseal sign --ledger .evalseal/gsm8k.jsonl --key ci.key
+          evalseal verify --ledger .evalseal/gsm8k.jsonl --public-key ci.pub
       - name: Ledger integrity
         run: evalseal verify
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

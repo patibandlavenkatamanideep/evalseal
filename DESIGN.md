@@ -14,8 +14,14 @@ the same way today. To learn that, record again and `diff` the runs.
 **The ledger is tamper-evident, not tamper-proof.** Each record's SHA-256 covers its whole
 content plus the previous record's hash. Editing a past score breaks that record's hash,
 and re-hashing it breaks the next record's link. Anyone who can rewrite the *whole* file
-can build a new valid chain, though. Anchoring the head hash somewhere external
-(signing, notarization) is out of scope for v0.
+can still build a new valid chain.
+
+**A signature says who, not what.** `evalseal sign` signs the head hash with Ed25519, and
+the head commits to every earlier record, so one signature covers the chain. Holding the
+public key, a third party can tell that a receipt came from that key and has not been
+altered since. It proves nothing about whether the run happened as described: a signer can
+sign a record containing anything. Verification is opt-in (`--public-key` / `--signed`),
+because an unsigned ledger is still useful to whoever produced it.
 
 ## Components
 
@@ -27,7 +33,8 @@ can build a new valid chain, though. Anchoring the head hash somewhere external
 | `adapters/scorer.py` | Exact, regex, and LLM-judge scorers. The judge is a `Target`. |
 | `executor.py` | N-run loop (optionally concurrent), provenance capture and gap warnings. |
 | `ledger.py` | Hash-linked append-only JSONL; `verify_chain`. |
-| `report.py`, `cli.py` | `report.md` / `report.json`; `run`, `verify`, `diff`. |
+| `signing.py` | Ed25519 keypairs, signing the ledger head, verifying signatures. |
+| `report.py`, `cli.py` | `report.md` / `report.json` / JUnit; `run`, `verify`, `diff`, `keygen`, `sign`. |
 
 ## Decisions
 
@@ -74,6 +81,18 @@ content, so adding a manifest field changes the hash of everything sealed before
 `SCHEMA_VERSION` is stored in each record, and `verify` reports an older schema as exactly
 that instead of raising a false tamper alarm.
 
+**Answer extraction is simple on purpose.** `answer_match` prefers an explicit `####` or
+`\boxed{}` marker, then "the answer is <number>", then the last number in the reply. A
+cleverer extractor would repair sloppy model output and hide variance behind its own
+guesswork — the tool would then be measuring the extractor. The phrase pattern demands a
+number precisely because "answer" also occurs in ordinary prose, which an early version
+mis-captured.
+
+**A suite file is data, not a language.** It supplies the same options the flags do, with
+paths resolved relative to itself, and rejects unknown keys so a typo fails loudly. There
+are no expressions, no includes, and no inheritance: a config language would become a
+second thing to test.
+
 **Exit codes separate outcomes.** `run` exits 3 when any case is UNSTABLE, which is
 different from 1 (error) and 2 (usage). CI can then accept an expected unstable demo while
 still failing on a broken replay.
@@ -99,5 +118,12 @@ still failing on a broken replay.
 - **Concurrency changes rate-limit behaviour, not results.** More workers in flight means
   more 429s on a rate-limited tier, which retries absorb by waiting. If a provider is the
   bottleneck, lower `--concurrency` rather than raising retries.
+- **Signing covers the ledger, not the world.** A signature binds a key to a chain head.
+  It does not timestamp (a signer can backdate), does not prove the provider's responses
+  were genuine, and does not help if the private key leaks. There is no revocation,
+  no key rotation record, and no notarization against an external log.
+- **`answer_match` grades the final answer only.** Correct reasoning with a mistyped final
+  number scores zero, and a lucky guess scores one. That is the usual benchmark convention,
+  not a claim about reasoning quality.
 - **Canonical hosts are an allowlist.** Any self-hosted or gateway endpoint gets a
   NON-CANONICAL warning by design. The warning means "provenance unverified", not "wrong".

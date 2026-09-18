@@ -84,6 +84,31 @@ shows why: it says ten stalls, then refers to "the twenty stalls". GSM8K's refer
 assumes ten; the model assumed twenty and answered 176 every time. A stable failure is a
 different thing from a flaky one, and worth a different response: here, fix the question.
 
+## Did the score actually change?
+
+The same suite, same N, against a second model — `gemini-3.1-flash-lite` — then asking
+evalseal whether the difference is real:
+
+```bash
+evalseal run --suite examples/gsm8k/suite.json      --ledger .evalseal/compare.jsonl
+evalseal run --suite examples/gsm8k/suite-lite.json --ledger .evalseal/compare.jsonl
+evalseal diff --ledger .evalseal/compare.jsonl 0 1
+```
+
+```
+mean 0.975 -> 0.975  (delta +0.000, noise floor ±0.000) => within noise
+```
+
+Both models scored 0.975, both perfectly stable, and both missed the *same* problem — the
+broken one. On this suite the two models are indistinguishable, which says less about the
+models than about the suite: 40 problems this easy cannot separate them. That is a useful
+thing to learn before quoting a benchmark number as evidence one model beats another.
+
+**Read that noise floor carefully.** It is ±0.000 because nothing flipped, and a floor of
+zero means `diff` would call a one-case difference (0.025) a REAL CHANGE. Zero flips in 5
+runs is not proof of zero variance: by the rule of three, the true flip rate could still be
+as high as ~45%. Raise N before trusting a floor this tight.
+
 ## Commands
 
 | command | what it does | exit code |

@@ -106,6 +106,11 @@ still failing on a broken replay.
   Use a larger N on the cases you care about.
 - **Stability thresholds are conventions.** `BORDERLINE_MAX_FLIP = 0.20` is a named
   constant chosen for auditability, not a statistically derived cutoff.
+- **A zero noise floor overstates confidence.** The floor is estimated from observed
+  variance, so a run where nothing flipped yields ±0.000 and `diff` will then call any
+  difference real. Zero flips in N=5 bounds the flip rate at roughly 45% (rule of three),
+  not at zero. Treat a zero floor as "not enough runs to estimate noise", not as proof
+  that the eval is deterministic.
 - **The `diff` noise floor is conservative.** It uses the widest per-case CI half-width
   across both runs. That rarely claims a false "REAL CHANGE", but it will miss small real
   shifts in the aggregate. A paired test across cases would be more powerful.

@@ -84,6 +84,48 @@ shows why: it says ten stalls, then refers to "the twenty stalls". GSM8K's refer
 assumes ten; the model assumed twenty and answered 176 every time. A stable failure is a
 different thing from a flaky one, and worth a different response: here, fix the question.
 
+## An eval built from a real codebase
+
+`examples/codeqa/` is generated, not hand-written: `build_dataset.py` walks a directory of
+checked-out repositories, parses each Python file, and asks questions whose answers the
+parser already knows — a parameter's default, how many parameters a function takes, the
+exception it raises, its declared return type. Ground truth comes from the AST, so the
+suite is objectively gradable by `answer_match` with no judge in the loop.
+
+```bash
+python examples/codeqa/build_dataset.py ~/src/my-repos 60   # point it at your own code
+evalseal run --suite examples/codeqa/suite.json
+```
+
+The committed run covers **60 questions drawn from a pool of 3,279 across 7 repositories**,
+answered by `gemini-2.5-flash` at N=5:
+
+| question type | accuracy | inconsistent |
+|---|---|---|
+| default value | 1.00 | 0 |
+| parameter count | 1.00 | 0 |
+| exception raised | 1.00 | 0 |
+| declared return type | 0.97 | **2** |
+
+**Accuracy 0.993 — 58 stable, 2 borderline, 0 unstable.** Both remaining flips are questions
+whose answer is a class defined in that codebase (`RetrievalResult`, `EvidenceResult`).
+Primitives and counts never wavered; project-specific names did, in every recording.
+
+### What the flips caught was the eval, twice
+
+Building this suite produced two failures that had nothing to do with the model:
+
+- **A case failing all five runs** asked which exception `_call_with_retry` raises, where
+  the source says `raise last_exc` — a variable holding an exception, not a type. The
+  question was unanswerable; the generator now requires a class-shaped name.
+- **A case flipping 40%** asked which exception `_parse` raises. It explicitly raises
+  `ValueError`, but also calls `json.loads` and `model_validate`, which propagate others.
+  The model alternated between those two readings — both defensible. Rewording the question
+  to say "raised explicitly in its own body" took that case to `PPPPP`.
+
+The pattern is worth keeping: **a stable failure usually means the eval is wrong, while a
+flip means the model is genuinely unsure.** One run shows you neither.
+
 ## Did the score actually change?
 
 The same suite, same N, against a second model — `gemini-3.1-flash-lite` — then asking

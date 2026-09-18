@@ -1,0 +1,6305 @@
+{
+  "entries": {
+    "0079f9dfe43c0575a2c126165393d026fcecb4d6e865b12262fc23e8137371bc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718712,
+      "id": "t_CsaubWE6TSjMcPqoXtsQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 306,
+        "total_tokens": 397
+      }
+    },
+    "015240011321b770a5cb7dd9e265c2b697d9cb3ee93034cacb8cac62aee974e3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718660,
+      "id": "hPCsauXFD_jTjMcPveLY2Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 171
+      }
+    },
+    "01bc99bf5f19f96f2b330516c3e87a446640f5c71b260fb41466d77d59071eb6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "BudgetExceeded",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718776,
+      "id": "-PCsaoX7AZuh1MkP_7622Qs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 300,
+        "total_tokens": 442
+      }
+    },
+    "01d92f0e3985a467831f2bbe8d20373643f4b125d36ed311b4d25981addd9289": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718783,
+      "id": "_vCsatvONMqt9MoP7YPW2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 430,
+        "total_tokens": 493
+      }
+    },
+    "0295ec0fe99082c7979ddd2bb4bdd1a7db62399f23327118e03280684d4ef9ca": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718702,
+      "id": "rvCsarOFCt6YjMcPiYKA-Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 544,
+        "total_tokens": 670
+      }
+    },
+    "03008a4e75b87b31425f971cc9b20ccbb59c651185bfe7a39a5a5632b76c9aab": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "SystemExit",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718783,
+      "id": "__CsaorCK46w1MkP9bWU6As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 570,
+        "total_tokens": 572
+      }
+    },
+    "03037a691528843520b007aa5d74c472fe81c87140d2ff46b0755084779a7092": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718710,
+      "id": "tfCsarnKDK6u39IP0_Kf-Q8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 255,
+        "total_tokens": 409
+      }
+    },
+    "033c9531959d23bf72891f91bddd5dad31f28c9485bf3ce97aaa4faeb0e3e863": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ApprovalError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718796,
+      "id": "C_Gsaqq2MerUjMcP5_bssAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 147,
+        "total_tokens": 220
+      }
+    },
+    "0722bbebf0f9e52b66c5f9a0094240655b367b90daaa1fa9ff1ef702a8e93fac": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718687,
+      "id": "nvCsatKcNt3cjMcPxtvy8Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 482,
+        "total_tokens": 635
+      }
+    },
+    "07a8439c90a1d0d7bc8c50f968e63d5e947d2902c4b9289ab3167226ca920cf0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718710,
+      "id": "tPCsatziPOfTjMcP-vntyAU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 255,
+        "total_tokens": 388
+      }
+    },
+    "082898807faa914ab4156a31bb1d584b6ddc620e50382aaa9b72fb65a9a9be2a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718776,
+      "id": "-PCsapLFCuWd_uMP0NOHiQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 175,
+        "total_tokens": 264
+      }
+    },
+    "0833971f1531fe6913b8f45bd06f5f49f1c70d2c8f5a0d3edf8e08f7cf93e3ff": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718698,
+      "id": "qfCsauapGZzSjMcPooqi2AU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 190,
+        "total_tokens": 271
+      }
+    },
+    "08edf749e021fd5c77ff1458e7796f0a02b2ad6a843f1a6bc8d89fe7649c6529": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718793,
+      "id": "CPGsarrKEqLc-sAPgPfo0AQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 333,
+        "total_tokens": 563
+      }
+    },
+    "094055f3cc91237245e05ac88a211ed8244f0fdf31437eac810ee6b47d159b64": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "float",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718635,
+      "id": "avCsaqP9Ipmr1MkPiqnw4As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 155
+      }
+    },
+    "09b098559a1dda21356af5e464f7a96f553333f7fbaf113e30c73387aaabc627": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ApprovalError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718797,
+      "id": "DPGsauu6Kuu1_PUP6IWzgQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 147,
+        "total_tokens": 290
+      }
+    },
+    "0aa8e9f9c33ea6eae4030400a453c0e93636356faba7a7d8d07ebd48f9a95661": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718685,
+      "id": "nPCsavzeJavXjMcP85-aoQU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 281
+      }
+    },
+    "0ae09a7fdab25bed5373d8dfb08f6193869398b53421361d54d528c520baee1b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718643,
+      "id": "c_Csas_MEbri_uMPn4C70Qw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 116,
+        "total_tokens": 148
+      }
+    },
+    "0b71f979019cb651d8ba1ee3640028bd9b0597ddf04b3ce7051fed28bc091b83": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718670,
+      "id": "jfCsatXeEbfE_PUP_LqZgAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 316,
+        "total_tokens": 513
+      }
+    },
+    "0b76752a4f5dcbbb7c8f35b71c6edd7a8d7c7afce8cc59aff61f86f2d93d5978": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718795,
+      "id": "CvGsar7BLrKe1MkPzvTHuQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 554,
+        "total_tokens": 556
+      }
+    },
+    "0c18d6d0ed663f61a14eea7a76cb8411d81aaa842f980170f1d42ae5f1434238": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718673,
+      "id": "kPCsaq7EC-uu_PUPvIWFkQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 296,
+        "total_tokens": 547
+      }
+    },
+    "0e593585c8a50ae03e8467f29142abd1266567badb70341f22319aa1d39823bb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718649,
+      "id": "ePCsat77FdKv39IPj7mY2AQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 343
+      }
+    },
+    "0e81a1517c6d983a7ed4e48ffa54db27db8c72ac9b269c2a59cede04787089bc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718696,
+      "id": "p_Csao2oIrPD39IP46TfwQ8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 238
+      }
+    },
+    "0f3574aa35d39a66bb5dc0e5cac034ceeba0b51027d041419a132649a0ed6b50": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718646,
+      "id": "dfCsauCVO-jdjMcPkoS92AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 236,
+        "total_tokens": 324
+      }
+    },
+    "0f960fee2f73607bc8ed3f0586f381998102b09d2896bb53a135e087414a54cd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718793,
+      "id": "CPGsaumNEPG-_uMPv7eyOQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 333,
+        "total_tokens": 549
+      }
+    },
+    "0fd3e53da6d5bec9527f6a371c992dbc2da785bb25bc2ede5dfff9e7ecdb3d73": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "200",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718648,
+      "id": "dvCsaq2KO4fRjMcPms7LyAU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 164,
+        "total_tokens": 345
+      }
+    },
+    "1005218729f54ce1dce8b1f512b4894e8f8761679ca24bbbbd8b96c9346bdecf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718695,
+      "id": "pvCsauPZCpfXjMcPjc6BiAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 309
+      }
+    },
+    "110c86b8341e4da23c47b099db6d736d4f329fdf2dc0131451ed120ca5f1a5b6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718781,
+      "id": "_PCsavOaDtea9MoPgZx_",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 248,
+        "total_tokens": 456
+      }
+    },
+    "131a43042867d1efb75a72097227063680a7cb5b5e304eedc26f8f14ca0219c4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718782,
+      "id": "_fCsasb_F5fVjMcP3cyM4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 248,
+        "total_tokens": 444
+      }
+    },
+    "1389e79136a916183593bd8fc055ac38363a8ecf03d925f3194cbad63dc30bb1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "v1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718660,
+      "id": "g_Csat-UItWb9MoPr-j5uAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 459,
+        "total_tokens": 588
+      }
+    },
+    "140fa12ba133752d70a13f400577d84f6c982b9426b9ab81e87b057eecdbb043": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ProviderResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718643,
+      "id": "cvCsaoO1GqyBjMcP--2HiAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 256,
+        "total_tokens": 299
+      }
+    },
+    "153f1851c112a01d058bef3f9f5c888dbc1cd93417c307c45082efa12e52811f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "v1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718659,
+      "id": "gvCsaqyoMaHQ_uMPlJ-LwAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 459,
+        "total_tokens": 500
+      }
+    },
+    "163305bfbfa94a005fec1698d5c8ea0f2596aaee648cbed04edc31de9ecb9257": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718785,
+      "id": "APGsao6nDoXC_PUPnp3m0Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 401,
+        "total_tokens": 524
+      }
+    },
+    "1759c7b4c95c16f2ee90b544897c36c7b48602002e088c02b44158cd81d6c75b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "EvidenceResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718703,
+      "id": "rvCsaomuK8HK_uMPk_vQKQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 117,
+        "total_tokens": 152
+      }
+    },
+    "1852cabf1e710d474f87e2bb4af47c65ea29c8a3f666cbe79a74691ffcf23f14": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718792,
+      "id": "B_GsatSnD-rUjMcP5_bssAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 333,
+        "total_tokens": 432
+      }
+    },
+    "18b8b3ceab414fc82fe41de47e99ed10fbe421dc84942917732430af0cdbffbf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718712,
+      "id": "t_CsatuOL9PV1MkPpaSo6Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 306,
+        "total_tokens": 410
+      }
+    },
+    "18bb4fd7e47c2ca98f18faa3299a023cef3a4229ca5cf237ec2c664584d4c82b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RDABScoreCard",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718637,
+      "id": "bfCsaqzoJeSr1MkP6-fL-As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 406,
+        "total_tokens": 447
+      }
+    },
+    "18cf7bd894e79492a13cac9483c507b2ca96e294f86ea34a4d613a4b50f39fca": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ApprovalError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718796,
+      "id": "C_Gsaon9JqrVjMcPw77k2QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 147,
+        "total_tokens": 309
+      }
+    },
+    "194fd4d6e7e33cc24b50bbbd3856cbb981c45668e6f1f46f29291390ff35d728": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718793,
+      "id": "CPGsasP3FJKr9MoPutrM4Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 414,
+        "total_tokens": 528
+      }
+    },
+    "1979d5886984b2735c645591302a8c932008b18aa6ed95918b17f083b349852e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "LoopRun",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718706,
+      "id": "svCsav--C7-PjrEPx9SX-AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 86,
+        "total_tokens": 151
+      }
+    },
+    "1b2a50b845f8ab245aaec336ace16746a494ed8cf742e7164b05e392e4254ddf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "42",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718698,
+      "id": "qvCsapf3Dpyp_PUPqpGY8AY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 600,
+        "total_tokens": 694
+      }
+    },
+    "1b70081a977995d5f1bf9f73009840c8637772cb7178c8543ac0918ca3db6cb7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "MemoryEvaluationResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718691,
+      "id": "o_CsatmhE6-y1MkPxe6N-As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 148,
+        "total_tokens": 221
+      }
+    },
+    "1c536ef0cd85b8cfef6e27572227b55a817616830f814974ed60aff75aeba247": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "EvidenceResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718703,
+      "id": "rvCsasnCF_LTjMcP3JeByQU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 117,
+        "total_tokens": 233
+      }
+    },
+    "1cd866cca2c810b76be044c77a35adbaa0e3006858d75dee174a86afd157fcb2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718795,
+      "id": "C_Gsat-HEp-b_uMPt-WxuQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 554,
+        "total_tokens": 556
+      }
+    },
+    "1cec9e0a186a99db1ff6901f649649a4170f199721b774824b8bf432aa89b766": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718788,
+      "id": "AvGsati1M6rVjMcPw77k2QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 210,
+        "total_tokens": 463
+      }
+    },
+    "1d91e6c09204b8376ba8e01643ea531a06509093a950a40e5893d902a2e078aa": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718677,
+      "id": "lfCsaqPsBZjRjMcP5KaSuAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 257,
+        "total_tokens": 324
+      }
+    },
+    "1f19fcef73f7ce56e6817a10faa307fffa2f1b2cdf8665e5448d66c4a50b659f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718636,
+      "id": "a_CsapD3HbnUjMcP48bzwAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 114,
+        "total_tokens": 240
+      }
+    },
+    "1f6c8c5aa2a678d1214dedba9731d7819a10b71e1e5e49b7d32501260efa3c4e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718671,
+      "id": "j_Csapv9HKyU39IPxZXwGQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 187,
+        "total_tokens": 270
+      }
+    },
+    "20d2f206405b251054058e76509516d2eb7c8219de6603dfba6eb24a2b2246bf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718661,
+      "id": "hfCsasvZBNSkjMcPhO-LuAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 181
+      }
+    },
+    "20e7a8f9ed688f6c2884f03d45e37c7752ad0715af2ea40c00b16898b7280f2a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718657,
+      "id": "gPCsatGyG8bSjMcPr72RwQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 428,
+        "total_tokens": 557
+      }
+    },
+    "20f08df9cd0d72a25189cc1de8d4e1a485baafc8dcd253aec575cb59257f0944": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1536",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718639,
+      "id": "bvCsauKMJaHQ_uMPlJ-LwAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 95,
+        "total_tokens": 208
+      }
+    },
+    "215e74156e78e1956c473e410151f970e12933aabbee7cb19ce6265248223620": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718658,
+      "id": "gfCsapu7Geyg1MkPm__n6As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 428,
+        "total_tokens": 598
+      }
+    },
+    "21b886cda263d54d6237952420f131962e3789bccd6611f428c3885abebbe865": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "42",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718699,
+      "id": "q_CsaveSCvLUjrEPpZHJkQY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 600,
+        "total_tokens": 640
+      }
+    },
+    "21e4520f733ac1c6041ccd0677ee05391373874485eaa738e5b46397eb73db99": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718784,
+      "id": "_vCsaun4IfLTjMcP3JeByQU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 430,
+        "total_tokens": 636
+      }
+    },
+    "22279631e969eaffd7a0051fcacd9b4d360a6942346e361a5b477aa477438086": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718672,
+      "id": "j_CsavmVNO-y1MkPhfqR-As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 187,
+        "total_tokens": 291
+      }
+    },
+    "2290262a70c247e0acb4fdab5ae9453f74d5db233751ecfd9ddc67fb3e850625": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718787,
+      "id": "AvGsaq3GMtKs1MkPuIvB-Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 210,
+        "total_tokens": 281
+      }
+    },
+    "23770d5615240dc4111ea074488fe501de0700acb6e58b33e738bf3d1adea2a8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718705,
+      "id": "sPCsapClNeKD-8YP4MLLmA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 369,
+        "total_tokens": 513
+      }
+    },
+    "2590f1e4e702b94d30d06a293cbafd6f6585eb1e20b161b872f2ea9695470b42": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "int",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718710,
+      "id": "tvCsauajDciN_PUPnZKhgAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 203
+      }
+    },
+    "262f75579ffe221a0a97c9a467fac66c0c3474250735fc27ec37b9d7b70f8e67": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718685,
+      "id": "nPCsaqP4MJW0_PUPj-HPyQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 301
+      }
+    },
+    "2670e3d1b97fc5e66c68b94e408249daf3401beaecba4ba4b6dc8ffe03ec2a1b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "LoopRun",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718706,
+      "id": "sfCsaqX6Nd6d1MkP6fvmmQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 86,
+        "total_tokens": 152
+      }
+    },
+    "27786f30e28ca898730f4ba026a4cbdea86d3a0546c558c0d7d6cbd42d66767b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718663,
+      "id": "hvCsapLrKdGx_PUPlbmX0AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 281
+      }
+    },
+    "289fa789b190e5abf3da143130e2eef4e9a1e19586a5b0d492c84cb4e4e71265": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Path",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718696,
+      "id": "p_CsasqJK5bTjMcP2uiHqA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 158,
+        "total_tokens": 227
+      }
+    },
+    "29361b6075254705477c5d46bd669ca180a7bc8b656bbe446b9db7c71897d670": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "general",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718707,
+      "id": "svCsatiSFf28jrEPgsjv8A4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 359,
+        "total_tokens": 443
+      }
+    },
+    "2a612913a9c91645f00b04e290640f8e193a54be714df25d08af892a3a23f9f0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RDABScoreCard",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718637,
+      "id": "bfCsar6FFYGk1MkPzb7n6Qs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 406,
+        "total_tokens": 447
+      }
+    },
+    "2aa6566c6cb844d704685322d98d982afbce7680db2f498fcccfc9056c46a1f1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718793,
+      "id": "B_GsaufeLd6YjMcPiYKA-Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 333,
+        "total_tokens": 527
+      }
+    },
+    "2c7e5e4a14d2b0fd17390c40a0355df10a6e4db550301e76c39ad06d714b8aa8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718637,
+      "id": "a_CsapKaNueA_PUPt8-z-QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 114,
+        "total_tokens": 335
+      }
+    },
+    "2cbe3fccdf0228f411aeb1ff9995a769f07492963225c6d4d48c09bd1f784f9a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718690,
+      "id": "ovCsasq3C7uW1MkPtr2b8As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 450,
+        "total_tokens": 522
+      }
+    },
+    "2d590a13d60b6c9d3fe91daf296c8cc3f09ca9bd5cfb178f3280d46947e9eb09": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718673,
+      "id": "kPCsatj1MoXC_PUPnp3m0Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 296,
+        "total_tokens": 297
+      }
+    },
+    "2defea54042e6605975c2a05ef8be5f6d50ff0d286279d245fbf4fdd18a87335": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "EvidenceResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718703,
+      "id": "r_Csav69BvG-_uMPv7eyOQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 117,
+        "total_tokens": 227
+      }
+    },
+    "2e536a4f37b2f2f29f75ee0b90483fbbfa0618454b5171967113947dd58e5e92": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "`RetrievalResult`",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718692,
+      "id": "pPCsau-9B5uo1MkPwYPS6Qs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 369,
+        "total_tokens": 406
+      }
+    },
+    "2e7a0436d7848c15cd668e914389e7a7ffa4a4422c2189114aa9b3c232369c59": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Any",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718640,
+      "id": "b_CsapfKNuuu_PUPvIWFkQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 145,
+        "total_tokens": 187
+      }
+    },
+    "2ea6420e1efdfdad83847018eab0ffd0cbec3b6e00cd2bd389e0439a552bcea8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RDABScoreCard",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718638,
+      "id": "bfCsapLrOePVjMcPtPOskQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 406,
+        "total_tokens": 447
+      }
+    },
+    "2f6f9d412e4b9e8be7e5ca3841c29f7084a6fd549d57b0bf92e828a559037952": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718785,
+      "id": "APGsatetKpfVjMcP3cyM4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 401,
+        "total_tokens": 505
+      }
+    },
+    "32552081093b0af3d6ae788a0e6e4cc9ffb0c7dd55403bbc6e16836d13e72f6e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718669,
+      "id": "jPCsap_5BPit9MoP_rnToQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 290,
+        "total_tokens": 462
+      }
+    },
+    "337fc566486a718d709c42e8b9e167cfa2b81b8d5e7153f8f724204e459ad6c6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "int",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718711,
+      "id": "tvCsavO1PKHyjMcP5PHBaA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 201
+      }
+    },
+    "33c5c72e7a8c57f04b45b327ae20b2b896b97f403015a16897505e46ffdba901": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718672,
+      "id": "kPCsapGfC5ii1MkPl4HbwQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 187,
+        "total_tokens": 303
+      }
+    },
+    "33e71319d02dc157ce8c2077355270f764acdf91adb64a2ecf9142bc17c39115": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "730",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718662,
+      "id": "hvCsaufxAcyU1MkP5pOg-As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 514,
+        "total_tokens": 557
+      }
+    },
+    "350b335293292ed8e91d868e5b8b4580473585865fd5e990e6bdcccb36eed73a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Any",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718641,
+      "id": "cPCsao2rB97O_uMP37P8CA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 145,
+        "total_tokens": 316
+      }
+    },
+    "36273b46b4220276d1ab749e721a34d7e47994cb049e22a17bfeb03908fc8abc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Any",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718640,
+      "id": "cPCsaovcA9nT_uMPvamu0QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 145,
+        "total_tokens": 183
+      }
+    },
+    "3749c066bfaa6b462915c81c66cd3b75817e70ca672dbe3b39f82da6c81f4f0b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718777,
+      "id": "-fCsasb4DNWL_uMP_p_ayAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 175,
+        "total_tokens": 255
+      }
+    },
+    "38d79ccdbee22e4b6742abb03fd14f654ff399295d11f110bea0a39c37f3e989": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718690,
+      "id": "ofCsatODDarVjMcPw77k2QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 719,
+        "total_tokens": 888
+      }
+    },
+    "3ab86979081bfc769092d2b47c00093f4039959aa07293ffd80720d2dc67b0d2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718788,
+      "id": "A_GsaqDQD6yU39IPxZXwGQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 210,
+        "total_tokens": 480
+      }
+    },
+    "3af0288fcbcb919afc82c12804fc390897617d4ce466e574a5f61af0d75da6ec": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718794,
+      "id": "CfGsar-XGOrUjMcP5_bssAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 414,
+        "total_tokens": 509
+      }
+    },
+    "3b3306a65ab0201608f1fbe224cc4d5ea48e36ba09fdf7ab28a0a4f30d11ad24": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718660,
+      "id": "hPCsauy4DtrSjMcPqYma8Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 182
+      }
+    },
+    "3b6c6fcb6b340e0eabf3026a0dc0f8ca1bee8e5672639d0c75647379ca3bca40": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718782,
+      "id": "_fCsaoqkJrri_uMPn4C70Qw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 430,
+        "total_tokens": 553
+      }
+    },
+    "3c59e0e256b8c58d3fe3e2571dbfe2420a2af9600b06da0e4bf9b80f59d43df7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718777,
+      "id": "-PCsapLqMa3VjMcPm7_l8Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 175,
+        "total_tokens": 305
+      }
+    },
+    "3d205316ef84a0f4549d4b6517fc8e00c203a575171e8c52757b1cf80342c7f8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718637,
+      "id": "bPCsatbbHtea9MoPgZx_",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 114,
+        "total_tokens": 341
+      }
+    },
+    "3deaefd68fec7ed91d8272ef2c2d6576ed92dabe2830e4b83d25ff8fc5233dd0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718672,
+      "id": "j_CsariXK8iN_PUPmpKhgAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 187,
+        "total_tokens": 295
+      }
+    },
+    "3df65be0bafea7e231fd517463224cf638a6e2f8b29005949dbbdc021eb673c4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "bool",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718701,
+      "id": "rPCsatuOKN7O_uMP37P8CA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 133,
+        "total_tokens": 195
+      }
+    },
+    "3ee921530a6cd90f649a5935e31f37fd34a1874b4aa45cf8cadbcf9d6f55b5f7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718637,
+      "id": "bPCsarTLCtWL_uMP_p_ayAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 114,
+        "total_tokens": 273
+      }
+    },
+    "40350ca13ba0c2110f377cc41787dfe38be8b5f71687e05f285b037f4d35251c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "general",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718707,
+      "id": "s_CsarHtBfCc_uMPh8eSiQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 359,
+        "total_tokens": 458
+      }
+    },
+    "405533a121a799f1b79da0a13cf7606912db50b80b27c612252da9a16c9c0426": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718658,
+      "id": "f_Csav3GKbvI-8YPr5-0EA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 428,
+        "total_tokens": 531
+      }
+    },
+    "41b8aad393011fbbd4adb961dee85d9c20ac675161c6440b6f701311cd6120d3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RetrievalResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718692,
+      "id": "pPCsar-GC4G3jMcPtaP28Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 369,
+        "total_tokens": 435
+      }
+    },
+    "42085298390a432f1a226e15a6fe91e0110050e077c8e4852ec35a44dee0a3d2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "int",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718711,
+      "id": "t_Csatz2EoXC_PUPr7nkoQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 169
+      }
+    },
+    "42239943efd8cd0b70b850fd0f719788ae18ea6351da0ef0b553b64862c582b3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718650,
+      "id": "efCsauP6H6rVjMcPw77k2QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 231
+      }
+    },
+    "445a724eae7bf19338cd94062ebc61fed99f971cdc246b0518ff6cd5e9166fc0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718669,
+      "id": "i_CsatneNszs-sAPx4qnuQY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 290,
+        "total_tokens": 474
+      }
+    },
+    "44bb04fa734e48e19d2cd90198ac9b32e3b784246d6e9870c4fc087a80a4adc2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "MemoryEvaluationResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718692,
+      "id": "o_Csap33HZjF_PUPwcTFgAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 148,
+        "total_tokens": 219
+      }
+    },
+    "45bbff9ee0c54485bcaa36aa0e0e8cf5696a8e9a9276e0cccf3dede3507e5b79": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "float",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718635,
+      "id": "avCsaoT4JYW4sOIPxu3yaQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 262
+      }
+    },
+    "467fe995c2fa670f9f9046fd01d75bb0b88b1f5e2128270662d55d656e5760ad": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718676,
+      "id": "lPCsaoObCuTUjMcPjtmDsQU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 257,
+        "total_tokens": 343
+      }
+    },
+    "48fe2d8336d11d7084ca4fbbb30df13f50773763b133984e17d79f874ec93f08": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718791,
+      "id": "BvGsasCnLqKM39IP_d64CA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 162,
+        "total_tokens": 246
+      }
+    },
+    "494919372c9fc41bd4bba7513de5908928b042d0d8801f8e30dc2983196443be": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718646,
+      "id": "dfCsarz-E6yQ-8YPg-3LsAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 236,
+        "total_tokens": 327
+      }
+    },
+    "49abe9372ba61c05818ae878404a699acaeb26394cba43ee93b0c8b6a7095f49": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718674,
+      "id": "kfCsapa4D7-PjrEP5cCb6Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 296,
+        "total_tokens": 580
+      }
+    },
+    "49e95e8999b055540e6661242c9a74831e281ecb5b4c3ff2bcefcda214d07bb3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "BudgetExceeded",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718776,
+      "id": "9vCsaryIMYWb9MoPk4rbwQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 300,
+        "total_tokens": 562
+      }
+    },
+    "4a75d8179b8ce0c384a7a86224e7ce2bcbd71194b65e760bbad7c20f14bc9b3a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718689,
+      "id": "oPCsasHWFKmJ-sAPmpOn0QU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 719,
+        "total_tokens": 888
+      }
+    },
+    "4ae890a275bbac5dfa28e5e256e4f638eb8fbd2c13cdc8a325b9a4f0ec9fe833": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RetrievalResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718692,
+      "id": "o_Csaru3ON6YjMcPiYKA-Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 369,
+        "total_tokens": 405
+      }
+    },
+    "4afae8d1515c8fb47ae18f1cae7426f88db648bbfe1e7917939e074d7a5274b2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718674,
+      "id": "kfCsaqPuEsLRjMcPnfOQ4Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 296,
+        "total_tokens": 573
+      }
+    },
+    "4bd4992c4157a01ab3d3e76440bfbefe694751cc666bf5a8a43de347a3efde43": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718781,
+      "id": "_PCsapO1NIfRjMcPms7LyAU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 248,
+        "total_tokens": 354
+      }
+    },
+    "4ccab860c6ad8572c9a1c0f6d8bed6a28bcb3548606ec7e600a4a44fb6c964d8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ApprovalError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718796,
+      "id": "C_Gsap27L8nSjMcP16r42Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 147,
+        "total_tokens": 289
+      }
+    },
+    "4d38d5c0d5e95f18b95c43fcd3155875fee8e3c2337b64927c25d7224d644f2f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718705,
+      "id": "sPCsaqzBFNPV1MkPpaSo6Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 369,
+        "total_tokens": 556
+      }
+    },
+    "4db1d8088f585396d27ca322978b7e3b439e776fb4520598d1a162d7c3217aff": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718646,
+      "id": "dfCsav7QFvmK-sAP29-n8Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 236,
+        "total_tokens": 365
+      }
+    },
+    "4de5e2e7d11b12e5c44b20b18de1f558a3a502a8a59b8e7486b1f4dd800672ac": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718685,
+      "id": "nPCsavOvJfHR_uMP9LWNyQ0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 292
+      }
+    },
+    "5309e02a7609c853789dfcf1e8a06bc4db6f7e4b24ecd00badd0e3573e558eb2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718778,
+      "id": "-fCsauG3DIjVjMcP94frsQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 175,
+        "total_tokens": 365
+      }
+    },
+    "54440c10c958dacb8d01c116e35efca7c8076b00dabc2296d2c77f60ee731bdc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718789,
+      "id": "BfGsar-qD6Lc-sAPgPfo0AQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 421,
+        "total_tokens": 498
+      }
+    },
+    "58f457a907c082bb8d670a0368f314b9a5b8a108efe6bfffc11b84904c19973e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "SystemExit",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718783,
+      "id": "__CsaryIF77U-sAP4qXGoAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 570,
+        "total_tokens": 572
+      }
+    },
+    "5ad9c4bc2ebc17acaf2f704c374077566b7c4253d1784df6c1fea2866d3c0ffb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718645,
+      "id": "dfCsas5Y8sT89Q_n146BAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 174,
+        "total_tokens": 268
+      }
+    },
+    "5afa513155814e224b41b11771dea6ab162c3b020c3afd6b770a30f5676234b2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718786,
+      "id": "AfGsaqLjFNea9MoPgZx_",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 401,
+        "total_tokens": 647
+      }
+    },
+    "5f74262758b85e60fc50d5d961900f902666f9256784f887a24ccc8c49a28246": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718663,
+      "id": "hvCsapHmPJOY_uMPtJKF2QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 286
+      }
+    },
+    "5fdd1dcb128759b06ac0410feb60ad2f4d91d0f978ba7d464e74d40576a38c7b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718795,
+      "id": "CvGsauCLMObfjMcP4teImA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 554,
+        "total_tokens": 556
+      }
+    },
+    "600783895c6c2c7a616c1f5ba7ad5c3b133632b03de4dfb76f3788306844d916": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "general",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718707,
+      "id": "svCsaq_PMPW1_uMPnIWiQA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 359,
+        "total_tokens": 483
+      }
+    },
+    "604e29e6dd996501628ea2e3d493a4494c78bb0db447ac3aa53df7dccf6a3a81": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718708,
+      "id": "tPCsatCIDKDTjMcP1Kig2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 286
+      }
+    },
+    "60bc11bb5217490cad2ddb4241ace42ac84a2e089bd722b755a90990c605e0ea": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718661,
+      "id": "hfCsat-4BaDTjMcP1Kig2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 179
+      }
+    },
+    "6265be0728d72bef6468f206420ed786e98acf86ca5bc5819e927770527be525": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718790,
+      "id": "BfGsarGODNSkjMcPhO-LuAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 421,
+        "total_tokens": 584
+      }
+    },
+    "64899596cbfb1b8d356c9a01f4cef29a94d8d4681ebc97f0090f5e28b8ad767f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718790,
+      "id": "BfGsarDvGrrEjMcP9JbZwAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 421,
+        "total_tokens": 582
+      }
+    },
+    "6496bed7a045b816dbbb9c40307661518557b56bad9376fea74351fc51cc83e5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1536",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718639,
+      "id": "b_CsatKrBPmK-sAP29-n8Qk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 95,
+        "total_tokens": 175
+      }
+    },
+    "669700c02037a7ff960c75b475ca4366cc1ade3b5b156d3f4ae3c30e56d6ec7f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718645,
+      "id": "dPCsap-1JZjRjMcP5KaSuAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 174,
+        "total_tokens": 392
+      }
+    },
+    "67326bc7ab3fbcb94059905c0894aa12dfa74983eca66f462cfd815e5559b091": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718705,
+      "id": "sPCsar6sCuuV_uMP4JXX4QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 369,
+        "total_tokens": 496
+      }
+    },
+    "67bce1302fbac60aa0c3a98357e8f99982379e1460554d7bdb77e80571c050bc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718639,
+      "id": "b_CsatScF-u1_PUP6IWzgQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "684275881c88953d14d0dbca525524ffe065e93eb3d1d74851cfb6e7766b941e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "SystemExit",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718784,
+      "id": "__CsauH1Loq1jrEPm7W6sQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 570,
+        "total_tokens": 572
+      }
+    },
+    "68f4d95306e4fdf8aa69d71a85a2b40f19ff014f2efbb75d32d2425cfd028644": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718691,
+      "id": "ofCsao2FJIChjrEPqO-2sQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 450,
+        "total_tokens": 741
+      }
+    },
+    "6a00159d6b8d372c4b342a9b6bcdf8785de499fc6df6b814fdaf45dab75179fd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718791,
+      "id": "BvGsaq3HHfG-_uMPv7eyOQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 162,
+        "total_tokens": 244
+      }
+    },
+    "6a7e8aafffceebf8c954f6ee18e4d364090f24f68a48ab7a0bb1bc9f9add6b3c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718785,
+      "id": "APGsari0EMru_uMP18HQKA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 401,
+        "total_tokens": 656
+      }
+    },
+    "6ad76fa3c6b3dad8bda4bfbbc940670fb8a51f81463f70c50b23cf8a8e757508": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "MemoryEvaluationResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718691,
+      "id": "o_CsarXyAfbVjrEPv86J8As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 148,
+        "total_tokens": 219
+      }
+    },
+    "6b166a39a80f63e97597d6bb13b284e052f8b29628e549e7abd0785d7ebb125d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718639,
+      "id": "b_CsasbXIueA1MkP3YrWoQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "6c1f21968b055f20306ff92e0d8495079d686feb749025e152f030f3926f678f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718667,
+      "id": "i_Csap6vGIjVjMcP94frsQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "6c212c3545aeaff15d65693c47567b61cd1d61cde02bc971addf5b27b3fd114d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718673,
+      "id": "kPCsarzuJ5usjMcPxcKL0As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 296,
+        "total_tokens": 297
+      }
+    },
+    "6c3ce65b165a0debb7a18bc3d9cda8b42369bb4b3c296dac4f0a0adc7340959a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718697,
+      "id": "qfCsapbMD_7XjrEPzeLZyQ8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 190,
+        "total_tokens": 273
+      }
+    },
+    "6ce19d5779d265aca5beced9ac2c9269a3362d773a71d42779bf4072c3215d50": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718668,
+      "id": "i_CsavuJJOPVjMcPwOaswQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 290,
+        "total_tokens": 439
+      }
+    },
+    "6d343880f2b5b46230dfbfb901ff29e469fafac17acb07d4695b635362ad3610": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "730",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718662,
+      "id": "hvCsauyJCb7U-sAP4qXGoAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 514,
+        "total_tokens": 563
+      }
+    },
+    "6dfaf6d78292bca22b6e192d457f37094984ef16fcaf5ad0732283a11eeee88c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718795,
+      "id": "CfGsaofUEdbBjMcP9-bb8Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 414,
+        "total_tokens": 841
+      }
+    },
+    "6e2044f5f5ce31cce878be354c688bcd48843e1db03b4c40a57f5326be23a4bc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "general",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718707,
+      "id": "svCsatvyOuHWjMcP4aLM2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 359,
+        "total_tokens": 454
+      }
+    },
+    "6e2fd9b163ddce06f7df0abecebd8e7556c58c59826d8aa699ed34b9aed73e4a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718713,
+      "id": "uPCsatXcE-eA_PUPt8-z-QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 306,
+        "total_tokens": 390
+      }
+    },
+    "6f74ab419f960e119989984f05d930447e2db2e0946e94fe4db72f4816619a02": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718794,
+      "id": "CfGsavPrMqGr9MoP2oaM8Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 414,
+        "total_tokens": 503
+      }
+    },
+    "70855f1bf96833fb42836a163d9acc80f8e05fe37bd6ba0c3b6c50eb97a4ee73": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718789,
+      "id": "BPGsas71G7u9sOIP5pqhsQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 421,
+        "total_tokens": 531
+      }
+    },
+    "713e591044490c301c3eae7a0ed925134b11078181b7cd62216c98f29011e11c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718712,
+      "id": "t_CsasGsMMi9jrEPq-CroQY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 306,
+        "total_tokens": 433
+      }
+    },
+    "729518907a06e311a9bb8565528cbb61576545a95c39f8646a941af5865b5c2a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718795,
+      "id": "CfGsasrYNayd_uMPosTQsAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 414,
+        "total_tokens": 713
+      }
+    },
+    "7547247eb29bf942646ade3dbce2410da45cf3d96a4c58c17214b0b0e0f5e94c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718640,
+      "id": "b_CsatXULtak1MkPoLXr6As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "76b2bbf485167b89fdc75b3df6d4bafc5bbca50106b533d3c6de037a0ae3f113": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Any",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718641,
+      "id": "cPCsavraJ4XC_PUPnp3m0Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 145,
+        "total_tokens": 223
+      }
+    },
+    "76d3c552f2f11453969bd44300a3204cacb69e0f518c7bee947715f97f922b61": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718649,
+      "id": "ePCsav6vD_iM_uMP48LjyAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 263
+      }
+    },
+    "76db47a32759f867da85e07d261feee72748ce2ca0fdcbcd4fbf6351707ff96a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718663,
+      "id": "hvCsaqz5K4Kp9MoP8ualuQ8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 309
+      }
+    },
+    "76e4c0b40dd775c421e1646876e7b1a397264437e7c40ef23619e8dbc46989b6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718644,
+      "id": "dPCsaoGmBfCc_uMPh8eSiQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 174,
+        "total_tokens": 268
+      }
+    },
+    "77063b2289422faa8d922ea218379a4ecd48613d8d83ed46dbfa1943de03bd2f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718686,
+      "id": "nfCsasv-NpCp9MoPkvjAqAk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 482,
+        "total_tokens": 604
+      }
+    },
+    "7720438e6d9d7399cfd6b0b4fbee4599b41599e799dcbacf1cbf2b32227ebc05": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718783,
+      "id": "_vCsasOdOIq1jrEPm7W6sQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 430,
+        "total_tokens": 531
+      }
+    },
+    "779ebfddf3b577c63919219bd229312f533cbca6e04e6340fd82df839dfd2b4a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718639,
+      "id": "b_CsauPNBqyBjMcP--2HiAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "79a571445cdb699acd9414d1fc8514b6d0db9070c5c7baacb437e5144108a678": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "bool",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718701,
+      "id": "rPCsauDbJ7nUjMcP48bzwAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 133,
+        "total_tokens": 195
+      }
+    },
+    "7b85101142a0a95c8dfa459a9f92929ffdb127f3e354c7599228b4a247ad80f7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718645,
+      "id": "dPCsap6_Aaa31MkPmq6r6Qs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 174,
+        "total_tokens": 358
+      }
+    },
+    "7db9ae10e69de12cb7d48d81a469cb33ebf8ddbb7fcd39019f0cffcf06f1c9ba": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718671,
+      "id": "j_CsarqSHMua-8YP1rjZmQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 187,
+        "total_tokens": 224
+      }
+    },
+    "7dd8729943dda32aa582e112c74ac3ed8be84e49ee262fb7fffe23cd46f309cf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "bool",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718701,
+      "id": "rPCsavWcJ9Kv39IPj7mY2AQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 133,
+        "total_tokens": 170
+      }
+    },
+    "7ef696dccb25382ef54ac564ba22aac72d9ca71a206b35412544dcd9371e6573": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718691,
+      "id": "ovCsas6mHsih1MkP_L7A-Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 450,
+        "total_tokens": 629
+      }
+    },
+    "818b448a995372e045845900946bf29fa88d208398ecf5b6fb2cd79e8246e9a7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "`EvidenceResult`",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718704,
+      "id": "r_CsaqeQHP28jrEPgsjv8A4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 117,
+        "total_tokens": 188
+      }
+    },
+    "81b12f3ff7c8f56676e11ff6e23352fad16224d6b5d42eaa5ef389c8d8acd185": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718700,
+      "id": "q_CsavqzOszs-sAPx4qnuQY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 264,
+        "total_tokens": 305
+      }
+    },
+    "831586da1e8430461e11b12973abd41e4c6a1803487744aa4872db7167c93929": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718783,
+      "id": "_fCsasHAOYqK-sAPhYS0gQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 430,
+        "total_tokens": 642
+      }
+    },
+    "8456176ded4888925a9dee01b1e82bf5778988c42d1a441e757eb837f8d7f9b3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "42",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718699,
+      "id": "q_CsavuQBYiRjrEPucT8kAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 600,
+        "total_tokens": 690
+      }
+    },
+    "84919592567d7dd27e6d64b713e1272272ad982bc78a6fad04269e8e95421739": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "200",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718647,
+      "id": "dvCsapP-J_nO-8YP2f3LEA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 164,
+        "total_tokens": 341
+      }
+    },
+    "84c2a8c4f7d015720d994f1e3ebba7735d4afeb193819b8d697e990b433578fb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718686,
+      "id": "nfCsarOjPPqu_uMP2NujsAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 482,
+        "total_tokens": 604
+      }
+    },
+    "85b608618e0ed3d0d6bcabf2a663d675495e750bbab26b44df4b48294d79c026": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718708,
+      "id": "tPCsapHuAoiRjrEPucT8kAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 277
+      }
+    },
+    "8759be87997abf28076f8798d5d4e214f65999d2a2837cc5365d6e70eec91655": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718693,
+      "id": "pfCsavSJCMqt9MoP7YPW2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 379,
+        "total_tokens": 507
+      }
+    },
+    "8857b5926a0e405bf2a325a28f08977737a11bd4115349c3e06eedc34ae20e37": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718790,
+      "id": "BvGsaoDEEKKYjMcP8cKHsQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 162,
+        "total_tokens": 247
+      }
+    },
+    "886d504ab3dd403d8e436c5a7743aa80836a68fb1e081207949c82668bcaf5bf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "SystemExit",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718784,
+      "id": "APGsarVWudX-4w-c8ePQAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 570,
+        "total_tokens": 572
+      }
+    },
+    "890f62774c742992d4369ee4137ae8a674b94b9a27ce75df96e515b01561ce28": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "float",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718635,
+      "id": "avCsaozSJYXC_PUPnp3m0Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 188
+      }
+    },
+    "8bd0ac84da28a4e37e6f0cb8099221d28487529055ee1798b7dc86ee164d363a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718686,
+      "id": "nfCsapDBCrWqjMcP2tGlyQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 307
+      }
+    },
+    "8c76091e5fa8068a480f15cd5284ac378e84f6ac0feaa1f9b1288968b2710605": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718668,
+      "id": "i_CsatiNOuWq1MkP1JLpoQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 290,
+        "total_tokens": 441
+      }
+    },
+    "8cac908049b07147db3a9b3b40b65b56f89552a5ccde55f8fe9507276624c253": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718636,
+      "id": "a_CsaqGjH5OY_uMPtJKF2QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 114,
+        "total_tokens": 247
+      }
+    },
+    "8ce8409939be67f9f32da0ba64b01a920f4085bd6e13f5ec376dcecb9dcec3b0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718689,
+      "id": "oPCsatrcAs-U1MkPmJS3sQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 719,
+        "total_tokens": 884
+      }
+    },
+    "8eef0df2c40b8b8dfcb5e1fb232187e52fe65216d5db15dcc77cd5e3d49c2578": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ProviderResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718643,
+      "id": "cvCsavTNMoq1jrEPm7W6sQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 256,
+        "total_tokens": 339
+      }
+    },
+    "8fd226480aeb394442757b66351167a96b48d9adc7497d79ec088270f86ee723": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718694,
+      "id": "pfCsaqbfGPjTjMcPveLY2Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 379,
+        "total_tokens": 575
+      }
+    },
+    "91bdf168d5e947ff443b19adf8fabee0550b4075ff198d4511f3277c543617b1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718787,
+      "id": "AvGsaoWQDueUjrEPhrCZyQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 642,
+        "total_tokens": 740
+      }
+    },
+    "939e870ee77bad61814915221d364ca39f9a25b2e5e2a6466fd3f315d1643374": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1536",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718639,
+      "id": "bvCsavrIFqf91MkPweCokAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 95,
+        "total_tokens": 191
+      }
+    },
+    "945b439f3c0e2de7d5ecee73e5b8b5fd000fe5f487ce1c439aea1ee32c281873": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718667,
+      "id": "i_CsapfAAba9_uMPrPLsSA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "94b7b65be79b5d219d22d6cc114c0b7e51cc590737a7ebe4a1963e823af44b84": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Path",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718697,
+      "id": "qPCsaumkLcrG_PUP6L2-iAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 158,
+        "total_tokens": 199
+      }
+    },
+    "94de545af2b3e6cd1dcad29fa61dfa40099875d5500fabf4900b5cc1c865f904": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718785,
+      "id": "APGsaqb7HpbTjMcP2uiHqA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 401,
+        "total_tokens": 584
+      }
+    },
+    "94eda183c5bbf4d7f2acaff213f7276d2687d8d2e9440872a7e8527d77a880d0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718655,
+      "id": "fvCsaruIMtCw_PUPkcWZgQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 428,
+        "total_tokens": 520
+      }
+    },
+    "95764a3809c83e3ed344da9a17bb85fd1c402197ab162448e242ee0fc02ea01e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718689,
+      "id": "n_CsavuQO96YjMcPiYKA-Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 719,
+        "total_tokens": 885
+      }
+    },
+    "970f9434d2c3774da7c246b2596866fb14532434d136ae4b526e96dd7bde47ea": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "BudgetExceeded",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718775,
+      "id": "9vCsasSFMdme1MkP76W72As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 300,
+        "total_tokens": 494
+      }
+    },
+    "9769a8e40e06d48e5e9d73a172af6570fef0378e60404b4d7d3b1670f25288ab": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "LoopRun",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718706,
+      "id": "sfCsaue8FuDRjMcP5sSJ0QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 86,
+        "total_tokens": 152
+      }
+    },
+    "97b9e2122027ce72d22b80cc6cef214bf87d8097ffe28cd569d4c7fef7a425a3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718645,
+      "id": "dPCsare0HJia9MoP8IyR6As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 174,
+        "total_tokens": 263
+      }
+    },
+    "98c01910c9a4604972b21673983d3aef070290db4f376063db2e1ced9844c273": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718688,
+      "id": "oPCsauuHA-KD-8YP4MLLmA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 719,
+        "total_tokens": 867
+      }
+    },
+    "98d110416c8609c8bf81dfdf24f324c5ec58fd3d18c7f622562cd5508352c295": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718649,
+      "id": "ePCsao24K6yU39IPxZXwGQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 231
+      }
+    },
+    "9992b0d52ff6fb459ac4d1fb8bf567f79ac604068cb7ccd690753c96f403c3ee": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718794,
+      "id": "CvGsaqvYD_bVjrEPv86J8As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 554,
+        "total_tokens": 556
+      }
+    },
+    "99e6b7e266dbb3a4dabda617b59769bf7008ca9b1f4311802952db8a4389b824": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "BudgetExceeded",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718776,
+      "id": "9vCsariXMf6b9MoPvcGguQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 300,
+        "total_tokens": 654
+      }
+    },
+    "9a0d0f8905619d597d4c1bb65700fc94d6b619db1b0fc48aa6ec44b9ce9a6a58": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718658,
+      "id": "gfCsarTlLZfVjMcP3cyM4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 428,
+        "total_tokens": 504
+      }
+    },
+    "9b1a1354d1bb9423a69b70c051c829fcc55da01f346ae0b757b579e4e0e89a7a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1536",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718638,
+      "id": "bvCsaqHdCaf91MkPweCokAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 95,
+        "total_tokens": 167
+      }
+    },
+    "9ed7dbf0fdb927ab17402f04c5d6e364a5a9958f3a02480f4c6970951402eaee": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "42",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718699,
+      "id": "qvCsavvINZyp_PUPqpGY8AY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 600,
+        "total_tokens": 694
+      }
+    },
+    "a017543fbee81db99805e41fc7d0884fcde7dea9bd6364778b14c7c0f2f26c6f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "int",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718711,
+      "id": "tvCsauHROKacjrEPwL2wwA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 205
+      }
+    },
+    "a16b4ebd96087d4e04b5089ea957d88545c3c8968280c0bb987c7c0ce29a94a9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718789,
+      "id": "A_Gsap2QKeyg1MkPm__n6As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 210,
+        "total_tokens": 449
+      }
+    },
+    "a21cab7c75f4ed15d8b316265e61ee0b194aebae86954521a090c68b41568df1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718695,
+      "id": "pvCsapP3CuWd_uMP0NOHiQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 297
+      }
+    },
+    "a236289ad5558737ff203e09f634a344178ec6783827554901ea60767733e71f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718711,
+      "id": "tfCsavfsNYet9MoPpZybiAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 255,
+        "total_tokens": 435
+      }
+    },
+    "a2fece6203f38bfc0086474643620b4a2bc224099c4d9cb736d5ff726b18c498": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718710,
+      "id": "tfCsariFAaXHjMcPssXp-QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 255,
+        "total_tokens": 395
+      }
+    },
+    "a4dfc0bf6f3079415c19a98d1a3d7e585e34f96ac60d620293edede994fc8607": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718695,
+      "id": "pvCsapaUNs2d-8YPy87w0A8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 200
+      }
+    },
+    "a5d9b2defcccb0818ed2bbc5121935720fc17e945c2b19a1d1ba72c4d75f9b9b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "float",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718635,
+      "id": "avCsaqLRJcDF_PUPksWO-QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 188
+      }
+    },
+    "a5e11b700eee0f57d885d7ae9fe278955451a1c32e2279e19df3a1ede5053b83": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ApprovalError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718796,
+      "id": "C_Gsapq_H870jMcP0IT_0Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 147,
+        "total_tokens": 279
+      }
+    },
+    "a7291d3d8205ce5815101a3ad523ec2f216468dfe0d6bbe785794a1dc065c905": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718643,
+      "id": "c_CsavDcEd7XjMcP0_3L2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 116,
+        "total_tokens": 152
+      }
+    },
+    "a800605cc7f7a4413a9e350f129139671496e012ef5c9b7ac8a0b67139617d2c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ProviderResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718642,
+      "id": "cvCsarCnE9SkjMcPhO-LuAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 256,
+        "total_tokens": 296
+      }
+    },
+    "a92b4e708101dc22a3dba51e9a0963c7af730245bd70ff14ef3b7d8284e1bd5a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718711,
+      "id": "tvCsatyfDerRjMcPhObd8Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 255,
+        "total_tokens": 408
+      }
+    },
+    "a95c67e657248c37fe24589b10e2c911e9d60d08978116ca244a6f20148b8561": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718790,
+      "id": "BvGsatXQCcKjjrEPgsPQsQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 162,
+        "total_tokens": 243
+      }
+    },
+    "a96fb107e48ec72af7c2303c51168d8cc475cdc3cf632276c5b17f361dde0b01": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718792,
+      "id": "B_GsaonLBeeA_PUPt8-z-QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 162,
+        "total_tokens": 260
+      }
+    },
+    "aa1bfe08e6949b1db5240b45f87f126cb5f57e8569656d1e55fb5414b58a7544": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718699,
+      "id": "q_CsaoWFC-Wd_uMP0NOHiQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 264,
+        "total_tokens": 320
+      }
+    },
+    "aa9ab6206a1848dd1ed7efae6e4a020e424fb9850bdcd271d8f91a0817b50891": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718786,
+      "id": "AfGsaorTL8nSjMcP16r42Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 642,
+        "total_tokens": 644
+      }
+    },
+    "adbf6aa6dd4422c7c306fed255504d5fc8cd1f5386add801b42a77ed50b45bcd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718702,
+      "id": "rfCsauqkGf7XjrEPzeLZyQ8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 544,
+        "total_tokens": 654
+      }
+    },
+    "ae0be2b06cc9d6787c8e8e092299455bfcf24b523c9bb119fd8a571759719022": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718713,
+      "id": "t_CsapL6Naid9MoPg6f2gQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 306,
+        "total_tokens": 479
+      }
+    },
+    "aebdade1b75321007cd3a8cabdf0a2709300d68e74e414233a50ff17ec870ebe": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718667,
+      "id": "i_CsaoXyGIr3jrEP852KiAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "af50510215b0f988a215d5a8f35b1a3fe496f466ed6cade6aa2e04a3e3997ee8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718698,
+      "id": "qfCsas7AIcqt9MoP7YPW2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 190,
+        "total_tokens": 230
+      }
+    },
+    "b07e3dde023a7acdaab86cb8fb9beafd1748015474a6e6792acfc72927eb7aa3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "730",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718661,
+      "id": "hfCsasWyH4rUjMcPx42OoAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 514,
+        "total_tokens": 554
+      }
+    },
+    "b2305c6e8fdac4ade55de94841bffefd258fa4a89c01d0a2c1ed0a7df2ea06f2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "bool",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718701,
+      "id": "rfCsavaZFfSR_PUPi_Ga4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 133,
+        "total_tokens": 185
+      }
+    },
+    "b313daeb56abe0f859e415999f21597b19d03c8cd124d469c6d87fad348db885": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718700,
+      "id": "q_CsapK9PIfRjMcPms7LyAU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 264,
+        "total_tokens": 302
+      }
+    },
+    "b41a666cc15ed32d30119259044872303e35cbced4d512ad89ef72bfc5f760f7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "200",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718648,
+      "id": "d_Csatz1IYOz1MkP_I_e6As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 164,
+        "total_tokens": 356
+      }
+    },
+    "b5e10f0d689f065efcb8296a7e43ff887a262c24e1acda02aa48020e71f017b7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718700,
+      "id": "q_Csat3MM6f91MkPweCokAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 264,
+        "total_tokens": 300
+      }
+    },
+    "b68aa7ac6bd3441ca599ef2b566393787f9a96662e6aac9b77b048cca354e657": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718671,
+      "id": "jfCsarvGOfuj1MkPhtnjuQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 316,
+        "total_tokens": 559
+      }
+    },
+    "b9308d85844086eb8035420a1d023906baa095f0b4101213e3fb9bdb8bf9fdb3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718702,
+      "id": "rfCsaqypGfq91MkP5-uQsQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 544,
+        "total_tokens": 648
+      }
+    },
+    "b9942343db90a16552272472930da60bf1ba9c13c4b8781a73e8a660a891ed4e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "general",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718708,
+      "id": "s_Csas27D-CN1MkPlPXu6As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 359,
+        "total_tokens": 456
+      }
+    },
+    "b9a6317d25b929fbd7e519d830fe78d3aed5eb52092eebd550ca7fb11bd3cafb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ProviderResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718642,
+      "id": "cvCsasZn_-D-4w-t1c1p",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 256,
+        "total_tokens": 297
+      }
+    },
+    "ba1c4696c0f18500d94a4952faa03df0ce4c3832226e5c9a6990eb1190cae9a9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718647,
+      "id": "dvCsapHGGLnD39IP8IXu4Q0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 236,
+        "total_tokens": 349
+      }
+    },
+    "ba551c304b4bfa0ce4c8b76faed2acc71a37fc885b52d0de4dd0886018c4c629": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718781,
+      "id": "-_CsaqKyF4CtsOIP8sPxwQU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 200,
+        "total_tokens": 531
+      }
+    },
+    "ba7b5781dcd6f757c5b0e1243a5287cbef7913d36f4a669d0b389936ce788d4f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718643,
+      "id": "cvCsare6PLqYjMcP7qCdqA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 116,
+        "total_tokens": 156
+      }
+    },
+    "baaaec1119e212dccebe9056d996ded60feca4b44965657e2ff7212d0df4af8c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ProviderResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718643,
+      "id": "cvCsauSvIpW0_PUPj-HPyQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 256,
+        "total_tokens": 300
+      }
+    },
+    "bbd9fb367710d761a6656839973c409e101382a5b270fc56cbf361cb646c4a34": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718664,
+      "id": "h_CsaoW6K-uV_uMP4JXX4QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 296
+      }
+    },
+    "bce108b18a8e90b61cd0ece67974eaedd5326d0ec95e3ad31401ee6694899935": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718693,
+      "id": "pfCsariwBLPD39IP46TfwQ8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 379,
+        "total_tokens": 521
+      }
+    },
+    "be8463820de406936bd0b4f0a165a3a1a33919e51c9c552949f46ff5adc3de57": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718777,
+      "id": "-PCsaqX0FPiM_uMP48LjyAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 175,
+        "total_tokens": 354
+      }
+    },
+    "bf55a47a23d1745dda53472de6098adc7c0542d79137e507ca704bc08c56ad00": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718639,
+      "id": "b_CsarLJI8qt9MoP7YPW2Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "bfbadd70a3d1b0e4a7cf2ed535147ee2e7a623c558d91c868bf9c817e11626c8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718790,
+      "id": "BPGsarfhOciN_PUPmpKhgAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 421,
+        "total_tokens": 610
+      }
+    },
+    "c0baded20d57c0543cf9d00d7cc0f4dd537d992a05f4eadee5705ed61b3a1840": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718644,
+      "id": "c_CsaqatMJfVjMcP3cyM4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 116,
+        "total_tokens": 193
+      }
+    },
+    "c29c0902c7676dcd150ae528e927b5b112a5ecef8b0824bb7e42a54050860167": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "bool",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718701,
+      "id": "rPCsapmmJeWd_uMP0NOHiQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 133,
+        "total_tokens": 195
+      }
+    },
+    "c47c8e16f87c062e0b23c3dd3c98e35de14ef8ef535aed39d80ed956898ef37d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718779,
+      "id": "-fCsapruJ5TijMcP5dWo4Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 200,
+        "total_tokens": 452
+      }
+    },
+    "c497d11df288908a2855eabea559dab8cad2e8a6dbae23dee8b27b5c16128263": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718689,
+      "id": "ofCsaqrgDp-NjMcPr7CuqAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 450,
+        "total_tokens": 547
+      }
+    },
+    "c4983dc467bfdefacda072008e7dce772dd445a85a26cbb1c5bf5ff75fc34b14": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "v1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718659,
+      "id": "gvCsapaKGayBjMcP--2HiAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 459,
+        "total_tokens": 601
+      }
+    },
+    "c5438cf2b06d00415db835f0c1778118f5812f6d105d7c00c0fcf4edea966edc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718667,
+      "id": "i_Csas3vBanUjrEP9MSS-Qs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "c5c43ff38bbaae40c272a19dd3d7650ed7789dbd9ac2371d7041854aee13ed33": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "EvidenceResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718704,
+      "id": "r_CsavWGHcnSjMcP16r42Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 117,
+        "total_tokens": 184
+      }
+    },
+    "c6b3234458c5fbbdd0bae08d30a334be165ee130a5dacc722f6d2efaf100994d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "StorageError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718792,
+      "id": "B_GsaprLGfiM_uMP48LjyAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 333,
+        "total_tokens": 427
+      }
+    },
+    "c91e6b996d61719038fc2a7c61d8676fd03160bfd6bb0da05c7ab136bb82363e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "float",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718635,
+      "id": "a_CsaoeiHbTU1MkPp8qswQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 156
+      }
+    },
+    "c99ccee3889b9eafed030c89229fcb726543ce113beda03179c54a0800f1bdfd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718670,
+      "id": "jfCsaq68EpWY-8YP1tqHCQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 316,
+        "total_tokens": 554
+      }
+    },
+    "cb28ecd16633551b2e494a51f931945b0b7935e442dca0f86aac79ae80cc2f46": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718686,
+      "id": "nvCsatrsCKbK-8YPw8ujkA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 482,
+        "total_tokens": 604
+      }
+    },
+    "cb4bb6932fb53834144c9f59132d74b295c380ee35d3a067ac0333f8adf4906c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718669,
+      "id": "jPCsau39LcWz_PUP-aXhmQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 316,
+        "total_tokens": 488
+      }
+    },
+    "cc2ca38c2bac21ae49d809f6b00315abbaf5d249185b565fd4934f0d357d4a22": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RetrievalResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718692,
+      "id": "pPCsaojFFO-y1MkPhfqR-As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 369,
+        "total_tokens": 408
+      }
+    },
+    "cd0aa73408d860cc3b93d52e036d2fef93124a5a00005d65fa2fd77c863ab14a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718677,
+      "id": "lPCsatyLHMHK_uMPk_vQKQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 257,
+        "total_tokens": 399
+      }
+    },
+    "ce1bf9211c80132dc1aee9bcce8bbd15c021aa2cf03c9a29900098212267e8b8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RDABScoreCard",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718638,
+      "id": "bfCsareYIsGu1MkPyvnpmAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 406,
+        "total_tokens": 481
+      }
+    },
+    "ce37a9fd23dd6bd8337a08ab8021b05c1c33b083a84d3ad5f5742d6e34a6388e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718779,
+      "id": "-vCsaru0BNea9MoPgZx_",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 200,
+        "total_tokens": 506
+      }
+    },
+    "cf3615b1ef9bdd3ef527e8dd259ade2bd138f56422276b9226e8e9784d01eb65": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Path",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718696,
+      "id": "p_CsaqLDNbKc-8YPgJKUsQ8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 158,
+        "total_tokens": 228
+      }
+    },
+    "cfc4255722c73d6682a8fb33e900b090f55f131292877d0300c34ab64e3d78e1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718644,
+      "id": "c_CsaovCMLCg_PUP1deUqA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 116,
+        "total_tokens": 156
+      }
+    },
+    "d0b15d6ea3bff6ab0be88a87310a045869fd1be9a30165b6995d1fcb03046cca": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718649,
+      "id": "ePCsavP6OaW0_PUPiqakcA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 269
+      }
+    },
+    "d1b6f97dbe030479a40cdf4eab2bf92fd45dc33b1ea4b17bf05a03bc6add5530": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718795,
+      "id": "C_GsasSODr7U-sAP4qXGoAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 554,
+        "total_tokens": 556
+      }
+    },
+    "d2b0594ae3e4fe7ce84aecc3f6b8dcd403fab8b4c9559869952b3084d1c2adac": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718786,
+      "id": "AfGsaqHdPJ_djrEP6tbquAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 642,
+        "total_tokens": 774
+      }
+    },
+    "d3d3c9b4cc8f96bfe3adf9c3923dfcb04acc3582ea704dd2691a6bccb7339188": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Path",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718697,
+      "id": "qPCsas_KK9Wb9MoPr-j5uAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 158,
+        "total_tokens": 217
+      }
+    },
+    "d528ee024c344e5e042a2317fb742c7a57bf20609998811644e0bb248d6813d8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "730",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718662,
+      "id": "hvCsatGPAsWz_PUP-aXhmQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 514,
+        "total_tokens": 546
+      }
+    },
+    "d5322266f51e497bb72a75dbe113b70c8140b4e60272613b560ac5daafb0a192": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RetrievalResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718693,
+      "id": "pPCsaoWkLOmf1MkP6eOPyAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 369,
+        "total_tokens": 406
+      }
+    },
+    "d58234072e7eafa0a905af7106450cbc42b0d25ba42de9d46747181efc8565b3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "LoopRun",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718705,
+      "id": "sfCsaoCjF5_djrEP6tbquAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 86,
+        "total_tokens": 125
+      }
+    },
+    "d701f582296ae6650825964684127a489b81ae6184eeed1a1103c56e5ce42870": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "MemoryEvaluationResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718691,
+      "id": "ovCsarz8J5zdjMcP_tWWyAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 148,
+        "total_tokens": 225
+      }
+    },
+    "d839ccfdb86b579e79104f0369529e4252b2ce0f3a2fbe72a9b4836919d357a9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718663,
+      "id": "hvCsar-3K42s_PUPpvK7qQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 308
+      }
+    },
+    "d87af215dd3bef3b3f4d4029ee5f0fdd77065ed4f99fcd4487223432a204601e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718698,
+      "id": "qvCsasWfDPLUjrEPpZHJkQY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 190,
+        "total_tokens": 267
+      }
+    },
+    "d99b495e2aaa9a70b44317faa263a1927b81e138c7fa8b51c6eca869cf53c535": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "SystemExit",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718784,
+      "id": "APGsapn_C63VjMcPm7_l8Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 570,
+        "total_tokens": 572
+      }
+    },
+    "d9b1990c392aed801c430ff4d14d1b09b755cb1c502c6a5f5b26d8498a380a60": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "BudgetExceeded",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718775,
+      "id": "9vCsatCJMf25sOIP47byqA4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 300,
+        "total_tokens": 433
+      }
+    },
+    "db6f9fe8b10497f9bc7827245356a0c5dac24368bd460738fbbe7010482f01f5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718666,
+      "id": "ivCsatvaJo2s_PUPpvK7qQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 564,
+        "total_tokens": 565
+      }
+    },
+    "dc4c41ad423e8273ac894dcfb742e5e1b3ff9a711387f054faea8fd87ccf058c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718780,
+      "id": "-fCsatPbOP2GjrEPuqjcoA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 200,
+        "total_tokens": 739
+      }
+    },
+    "dc766f04d68dd8540e03197bfc80479811e05473d7372aa105ba52462108779a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "MemoryEvaluationResult",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718691,
+      "id": "o_CsasTsKJLXjrEPodqG2QU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 148,
+        "total_tokens": 151
+      }
+    },
+    "dcde9bf2032e95dd46983e49def4a1f22badda2a07d151b5374f38601bfd9a83": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718708,
+      "id": "s_Csav-dOfiM_uMP48LjyAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 287
+      }
+    },
+    "de5e9ca8cacc0ba956f0b0328efee22c9431f401a226dc688cdc05211e9b9119": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718687,
+      "id": "nvCsaqboIM-X1MkPvJaR2As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 482,
+        "total_tokens": 603
+      }
+    },
+    "decdab4c58a31c5f35f738e36430cc3bc567306a0bf0e95479a3f7501f0d60a6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RDABScoreCard",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718637,
+      "id": "bPCsaunIJYeb9MoPxZ6xgAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 406,
+        "total_tokens": 447
+      }
+    },
+    "e08a8fdb24da88e8a52120c17d580f66b67d7bd2671ee8cec5c625a2c508e4cd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718781,
+      "id": "-_Csaoe_OqvXjMcP376PwQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 248,
+        "total_tokens": 504
+      }
+    },
+    "e0f5b2e1920a7855b278998c3f8dc22c5c64f54ef768ef31692d18f860b7278b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718693,
+      "id": "pPCsauWqM9nT_uMPvamu0QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 379,
+        "total_tokens": 554
+      }
+    },
+    "e1c3265839413c5de063cc6538a41d665edf7bbf7c8c556dbf1bb35d6e7209ed": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "v1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718660,
+      "id": "g_Csao-VHYrUjMcPx42OoAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 459,
+        "total_tokens": 506
+      }
+    },
+    "e22d14ef522a093181f5c8cd262952b7c8609600353894c6b014e79a56c77679": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718676,
+      "id": "k_Csao_KOviM_uMP48LjyAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 257,
+        "total_tokens": 408
+      }
+    },
+    "e2d3f5a7682c1446d4c3eb013876135232019d03486f5f68955dbc07579bbd3d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "3",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718684,
+      "id": "m_Csat7HN8DF_PUPksWO-QE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 324
+      }
+    },
+    "e2fe6665b842c86cf3e15cd539f1e313bfa68236f6f87353b9c418a3d8280f04": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718705,
+      "id": "sPCsasqfEuTUjMcPjtmDsQU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 369,
+        "total_tokens": 510
+      }
+    },
+    "e3053f80138ca91e8c0fad0bc5fd465b7f52e8d2ad1ad927ddb1bd2fea422f08": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718709,
+      "id": "tPCsarOhNciN_PUPnZKhgAM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 314
+      }
+    },
+    "e333a290232b4298a555bc7babfeb63b52eccff350763325a7d5ce33745d699f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718690,
+      "id": "ofCsatXxEMyt9MoPqKf66Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 450,
+        "total_tokens": 628
+      }
+    },
+    "e65cb82e04e9b2f16fb44bf332d72b950a083796e1502d87efa6ef12ff22db3b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718704,
+      "id": "r_Csau7zLPT4jrEPyO2UyQ0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 369,
+        "total_tokens": 537
+      }
+    },
+    "e751c74afc83002ed70873fcbe5e409b28fbdceab3b15a7205d487e15444bca2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718700,
+      "id": "q_CsaoDoN7HL_uMPueDKyAo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 264,
+        "total_tokens": 302
+      }
+    },
+    "e7bdc41f3c93f8ec692a429f604e15ef4d8c72385626c36665493511c33a0279": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "4",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718670,
+      "id": "jfCsapHHDd-y1MkPyvPPgAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 316,
+        "total_tokens": 598
+      }
+    },
+    "e862eb4121b56404fea90bdc7a7c5f51c60be1130133eadb5a4ed93067c09682": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "RuntimeError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718789,
+      "id": "A_GsaviLDNGx_PUPyK2X0AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 210,
+        "total_tokens": 599
+      }
+    },
+    "e8f8caa525c0978b6245406ca83b227cfe8cfecaa7294f6ed95f49d7a17a09b8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718697,
+      "id": "p_CsasmHLJKr9MoPutrM4Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 344
+      }
+    },
+    "e963b15da88862f3d02daca73962510fd95d84188910eaed28dcac7b6b6b48f5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718646,
+      "id": "dvCsapMb1qTUyQ-gtevoCw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 236,
+        "total_tokens": 338
+      }
+    },
+    "ea34dab7e3471af5e399e27c8ceb41ca29bffafff70c376b9e78058d1dda7fc0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "int",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718710,
+      "id": "tvCsapiQFInfjrEPstnmeA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 130,
+        "total_tokens": 166
+      }
+    },
+    "ebb76f1fb9f5ddbcb146fc69e9c4976e458c25bb8a48e21833d76e7d775094a0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718695,
+      "id": "pvCsaqGoA5KE1MkPtbTpgAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 379,
+        "total_tokens": 582
+      }
+    },
+    "ebb9dd214ab04b55d3e4ea4376f86ac955e481c654b7f85a40b24a7f4b2c4781": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Any",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718640,
+      "id": "cPCsaquFEbvI-8YPr5-0EA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 145,
+        "total_tokens": 183
+      }
+    },
+    "ed351e78edab9284934303c91c5564acc6749b973a4f387f8c5d0c826064daca": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "LoopRun",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718706,
+      "id": "svCsaoLaBIWb9MoPk4rbwQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 86,
+        "total_tokens": 152
+      }
+    },
+    "f0945db1d7881215b2a5084a596b981f4ffd533cb1ce505d7bebe96be8b84687": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "730",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718662,
+      "id": "hvCsaviOAoex_PUPtJCK4Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 514,
+        "total_tokens": 546
+      }
+    },
+    "f0a1468c8798f03963e5bc761a37a5af019ad6e5680f9be0fcb35dc978846cfd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "200",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718648,
+      "id": "dvCsaoj_POjdjMcPkoS92AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 164,
+        "total_tokens": 354
+      }
+    },
+    "f161b202f4b6cf4bc384948d46c44bc288764296aef0201a49073850786d34ef": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "v1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718660,
+      "id": "gvCsatmHM7fE_PUP_LqZgAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 459,
+        "total_tokens": 635
+      }
+    },
+    "f1a084e53230267580a81b1e4f3bb1ff9367b2ee774ac8774a5392646bd85fc2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718703,
+      "id": "rvCsarn7FdbdjMcPxMWOuQU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 544,
+        "total_tokens": 693
+      }
+    },
+    "f1daeccd8a53152176de504d57fee54e8cbd7d5ae7130f50ec8bbb1c11e3545b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718780,
+      "id": "-vCsaqebGqCh9MoP0cTI6As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 200,
+        "total_tokens": 464
+      }
+    },
+    "f28841e83309fdcd1efbb275a9e793bb89f9b836e33bbb540438d85f259f9a07": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "42",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718698,
+      "id": "qvCsaqLPDtPV1MkPpaSo6Qc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 600,
+        "total_tokens": 642
+      }
+    },
+    "f30c56637341a3fcf11420b43600855bd44c76845887491b7a8d4be8646ed252": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1536",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718638,
+      "id": "bvCsar6LDKyd_uMPosTQsAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 95,
+        "total_tokens": 191
+      }
+    },
+    "f70fe496a681dae0fea084d87c00ede1aeb4c277ede0f18fd914ca2cd9f5e5e3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718702,
+      "id": "rfCsauC5I_28jrEPgsjv8A4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 544,
+        "total_tokens": 676
+      }
+    },
+    "f8164a93cdb02296e642f5a6e6f90d871fee7cab0922ef048014cb424dc80050": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "1",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718708,
+      "id": "s_Csav2sO8mVjMcP1vnEyAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 177,
+        "total_tokens": 285
+      }
+    },
+    "f869e12bfbb63f80ad5828723cb05ac31ef22ab8c0eee4c2c874404b9a6c0c78": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "200",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718648,
+      "id": "ePCsavenA6W0_PUPiqakcA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 164,
+        "total_tokens": 213
+      }
+    },
+    "f89c4cfae218b0d5927c935431d2234e908d79b1535abb724fe5646f6cf435f3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718786,
+      "id": "AfGsas3TOKid9MoPg6f2gQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 642,
+        "total_tokens": 644
+      }
+    },
+    "f99830366b5c470179aba3a2291b25bdb29cc207a2e448dc4aa3d1c61ab3df4e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "str",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718661,
+      "id": "hPCsaqDZJqmJ-sAPmpOn0QU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "total_tokens": 182
+      }
+    },
+    "f9ae08637487f04057987ce28494611aa3027360a5fed239f3f3fdce86f08e11": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Path",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718697,
+      "id": "qPCsauaKHrfE_PUP_LqZgAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 158,
+        "total_tokens": 238
+      }
+    },
+    "f9ffec1c8d32970d06079061f69c0075b1bfc43858e539086faa767f4a3cc7bb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718667,
+      "id": "i_CsatSvIZbTjMcP2uiHqA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 290,
+        "total_tokens": 291
+      }
+    },
+    "fa437516f7bfea71bb27c5e0b29d4fd29a403e9c40a728ea2c631b8545e1a899": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "HTTPException",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718786,
+      "id": "AvGsatmYHKKYjMcP8cKHsQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 642,
+        "total_tokens": 644
+      }
+    },
+    "fb177ca94dc92715ce88e7bae7bc9dc6391e2a4a1ca5f77e2ff9499e595b914e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "None",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718677,
+      "id": "lPCsaqO1GaKYjMcP8cKHsQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 257,
+        "total_tokens": 386
+      }
+    },
+    "fc44a3ba9f778f47f0fcfeae7e3e7399a359a65bdfcb710c83624d8ce2f99173": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "ValueError",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718782,
+      "id": "_fCsaq7NFueUjrEPm7CZyQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 248,
+        "total_tokens": 484
+      }
+    },
+    "fdcc86ed839c52438752c61b603cfc44b1485b699dda348f82ea6cbcbf465165": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "dict",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789718698,
+      "id": "qfCsarrrHebfjMcP4teImA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 190,
+        "total_tokens": 372
+      }
+    }
+  },
+  "version": 2
+}

@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 while the version is 0.x, a minor bump may break formats.
 
+## Unreleased
+
+### Added
+- `examples/codeqa/`: a code-comprehension suite generated from real repositories, with
+  ground truth taken from the Python AST, plus its recorded cassette. Accuracy 0.993 at
+  N=5 with 2 borderline cases, both asking for project-specific class names.
+- A second GSM8K run against `gemini-3.1-flash-lite` and a worked `diff` between models.
+
 ## [1.0.0] - 2026-09-18
 
 First stable release: the cassette format, the sealed-record schema and the CLI surface

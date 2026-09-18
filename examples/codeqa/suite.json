@@ -1,0 +1,9 @@
+{
+  "dataset": "dataset.jsonl",
+  "target": "target.json",
+  "scorer": "scorer.json",
+  "n_repeats": 5,
+  "concurrency": 4,
+  "cassette": "../../tests/cassettes/codeqa.json",
+  "fail_on": "none"
+}

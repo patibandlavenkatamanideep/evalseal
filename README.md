@@ -62,6 +62,11 @@ responses already recorded are kept.
 | `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links. | `0` intact · `1` tampered or broken |
 | `evalseal diff A B` | Compares two ledger runs and says whether the mean moved beyond the noise floor. Use `--` for negative indices: `evalseal diff -- 0 -1`. | `0` |
 
+`run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
+HTTP 429/408/5xx and connection errors, honouring `Retry-After`), and `--quiet` to drop the
+progress bar. Concurrency never changes the result: each response is recorded against its
+own (case, repeat) slot, so a 16-worker replay is identical to a serial one.
+
 **Stability classes** are based on the flip rate, the share of a case's N verdicts that
 disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 20%).
 
@@ -76,11 +81,20 @@ disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 
 The executor sends each prompt to the target N times and scores every response. An LLM
 judge is itself a target, so its own randomness is measured instead of assumed away.
 `analyze.py` computes the mean, a seeded bootstrap 95% CI, and the flip rate for each case.
-Every request goes through a cassette. In record mode, real responses are saved in call
-order; in replay mode, which is the default and what CI uses, they are served back, and a
-missing entry fails loudly. Each run is saved as a `RunRecord`: its manifest (requested vs.
+Every request goes through a cassette, keyed by the request plus which repeat it belongs
+to. In record mode real responses are saved as they arrive; in replay mode, the default and
+what CI uses, they are served back by that key, and a missing entry fails loudly. Each run is saved as a `RunRecord`: its manifest (requested vs.
 served model, fingerprint, parameters and whether they were set explicitly, rubric hash,
 dataset hash) plus its results. The record is hashed and linked to the previous record's
 hash in an append-only JSONL ledger, so editing any past score breaks `verify`.
 
-See [DESIGN.md](https://github.com/patibandlavenkatamanideep/evalseal/blob/main/DESIGN.md) for what this does and does not prove.
+Contributing: see
+[CONTRIBUTING.md](https://github.com/patibandlavenkatamanideep/evalseal/blob/main/CONTRIBUTING.md).
+See [DESIGN.md](https://github.com/patibandlavenkatamanideep/evalseal/blob/main/DESIGN.md)
+for what this does and does not prove.
+
+**Upgrading to 0.2:** cassettes and sealed records written by 0.1.x cannot be read by 0.2,
+which keys entries by repeat. The demo cassette in this repo was converted in place, so the
+published numbers above are unchanged; your own cassettes need re-recording, and an
+existing ledger needs to start fresh. `verify` names an old record rather than calling it
+tampered.

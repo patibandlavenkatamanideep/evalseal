@@ -1,34 +1,39 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Literal, Optional
+from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
+ParamsSource = Literal["explicit", "provider_default"]
+ScorerKind = Literal["exact", "regex", "llm_judge"]
+
+SCHEMA_VERSION = "1.1"  # 1.1 added run_config.concurrency; it changes record hashes
+
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class EffectiveParams(BaseModel):
-    temperature: Optional[float] = None
-    seed: Optional[int] = None
-    top_p: Optional[float] = None
+    temperature: float | None = None
+    seed: int | None = None
+    top_p: float | None = None
 
 
 class TargetProvenance(BaseModel):
     requested_model: str
-    served_model: Optional[str] = None        # from response; WARN if != requested
-    system_fingerprint: Optional[str] = None
+    served_model: str | None = None        # from response; WARN if != requested
+    system_fingerprint: str | None = None
     base_url: str
     effective_params: EffectiveParams
-    params_source: Literal["explicit", "provider_default"] = "explicit"
+    params_source: ParamsSource = "explicit"
 
 
 class ScorerProvenance(BaseModel):
-    type: Literal["exact", "regex", "llm_judge"]
-    judge: Optional[TargetProvenance] = None  # the judge is a target too
-    rubric_hash: Optional[str] = None
+    type: ScorerKind
+    judge: TargetProvenance | None = None  # the judge is a target too
+    rubric_hash: str | None = None
 
 
 class DatasetProvenance(BaseModel):
@@ -38,12 +43,13 @@ class DatasetProvenance(BaseModel):
 
 class RunConfig(BaseModel):
     n_repeats: int = 5
-    harness_version: str = "evalseal/0.1.0"
+    concurrency: int = 1
+    harness_version: str = "evalseal/0.2.0"
     started_at: str = Field(default_factory=_now)
 
 
 class ProvenanceManifest(BaseModel):
-    schema_version: str = "1.0"
+    schema_version: str = SCHEMA_VERSION
     target: TargetProvenance
     scorer: ScorerProvenance
     dataset: DatasetProvenance
@@ -57,7 +63,7 @@ class CaseResult(BaseModel):
     ci95: tuple[float, float]
     flip_rate: float
     stability: str
-    majority_verdict: Optional[int] = None
+    majority_verdict: int | None = None
 
 
 class Aggregate(BaseModel):

@@ -1,15 +1,25 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
-from .adapters.dataset import Dataset
+from .adapters.dataset import Case, Dataset
+from .adapters.recording import slot
 from .adapters.scorer import Scorer
 from .adapters.target import Target, TargetResponse
 from .analyze import analyze_case
 from .models import (
-    Aggregate, CaseResult, DatasetProvenance, EffectiveParams,
-    ProvenanceManifest, RunConfig, RunRecord, ScorerProvenance, TargetProvenance,
+    Aggregate,
+    CaseResult,
+    DatasetProvenance,
+    EffectiveParams,
+    ProvenanceManifest,
+    RunConfig,
+    RunRecord,
+    ScorerProvenance,
+    TargetProvenance,
 )
 
 _CANONICAL_HOSTS = {"api.openai.com", "generativelanguage.googleapis.com"}
@@ -73,34 +83,69 @@ def _dedupe(items: list[str]) -> list[str]:
     return list(dict.fromkeys(items))
 
 
+class _Unit:
+    """One (case, repeat) measurement: generate once, score once."""
+
+    __slots__ = ("case", "repeat", "score", "binary", "target_resp", "judge_resp")
+
+    def __init__(self, case: Case, repeat: int):
+        self.case = case
+        self.repeat = repeat
+        self.score: float = 0.0
+        self.binary: bool = True
+        self.target_resp: TargetResponse | None = None
+        self.judge_resp: TargetResponse | None = None
+
+    def run(self, target: Target, scorer: Scorer) -> _Unit:
+        # The slot pins this unit's cassette entries to `repeat`, so replays are
+        # identical regardless of how many workers run or what order they finish in.
+        with slot(self.repeat):
+            tr = target.generate(self.case.prompt)
+            sr = scorer.score(self.case.prompt, tr.text, self.case.expected)
+        self.target_resp = tr
+        self.judge_resp = sr.judge_response
+        self.score = sr.score
+        self.binary = sr.binary
+        return self
+
+
 def run_eval(
     dataset: Dataset,
     target: Target,
     scorer: Scorer,
     n_repeats: int = 5,
     prev_hash: str = "GENESIS",
+    concurrency: int = 1,
+    on_unit_done: Callable[[], None] | None = None,
 ) -> RunRecord:
     if not dataset.cases:
         raise ValueError("dataset has no cases")
     if n_repeats < 1:
         raise ValueError("n_repeats must be >= 1")
+    if concurrency < 1:
+        raise ValueError("concurrency must be >= 1")
+
+    units = [_Unit(case, r) for case in dataset.cases for r in range(n_repeats)]
+
+    def execute(unit: _Unit) -> _Unit:
+        done = unit.run(target, scorer)
+        if on_unit_done is not None:
+            on_unit_done()
+        return done
+
+    if concurrency == 1:
+        for unit in units:
+            execute(unit)
+    else:
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            # list() re-raises the first failure; order of `units` is untouched.
+            list(pool.map(execute, units))
 
     results: list[CaseResult] = []
-    target_resps: list[TargetResponse] = []
-    judge_resps: list[TargetResponse] = []
-
-    for case in dataset.cases:
-        scores: list[float] = []
-        binary = True
-        for _ in range(n_repeats):
-            tr = target.generate(case.prompt)
-            target_resps.append(tr)
-            sr = scorer.score(case.prompt, tr.text, case.expected)
-            if sr.judge_response is not None:
-                judge_resps.append(sr.judge_response)
-            scores.append(sr.score)
-            binary = binary and sr.binary
-        stats = analyze_case(scores, binary=binary)
+    for i, case in enumerate(dataset.cases):
+        case_units = units[i * n_repeats:(i + 1) * n_repeats]
+        scores = [u.score for u in case_units]
+        stats = analyze_case(scores, binary=all(u.binary for u in case_units))
         results.append(CaseResult(
             case_id=case.case_id,
             scores=scores,
@@ -110,6 +155,9 @@ def run_eval(
             stability=stats.stability,
             majority_verdict=stats.majority_verdict,
         ))
+
+    target_resps = [u.target_resp for u in units if u.target_resp is not None]
+    judge_resps = [u.judge_resp for u in units if u.judge_resp is not None]
 
     # Every response is checked, not just the last one: a mismatch on any call matters.
     warnings: list[str] = []
@@ -129,7 +177,7 @@ def run_eval(
         target=_to_provenance(target_resps[0]),
         scorer=sp,
         dataset=DatasetProvenance(hash=dataset.hash, n_cases=len(dataset.cases)),
-        run_config=RunConfig(n_repeats=n_repeats),
+        run_config=RunConfig(n_repeats=n_repeats, concurrency=concurrency),
     )
     agg = Aggregate(
         n_cases=len(results),

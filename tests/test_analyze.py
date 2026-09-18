@@ -1,4 +1,4 @@
-from evalseal.analyze import analyze_case, flip_rate, classify_stability
+from evalseal.analyze import analyze_case, classify_stability, flip_rate
 
 
 def test_stable_case():

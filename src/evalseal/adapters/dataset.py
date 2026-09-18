@@ -19,7 +19,7 @@ class Dataset:
     hash: str
 
     @classmethod
-    def from_jsonl(cls, path: str | Path) -> "Dataset":
+    def from_jsonl(cls, path: str | Path) -> Dataset:
         raw = Path(path).read_text()
         cases = []
         seen: set[str] = set()

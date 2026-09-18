@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
+from ..models import ScorerKind
 from .target import Target, TargetResponse
 
 _VERDICT_RE = re.compile(r"\b(PASS|FAIL)\b")
@@ -14,19 +15,19 @@ _VERDICT_RE = re.compile(r"\b(PASS|FAIL)\b")
 class ScoreResult:
     score: float            # 0/1 for binary scorers
     binary: bool
-    verdict: Optional[int]  # 0/1 or None
-    judge_response: Optional[TargetResponse] = None
+    verdict: int | None  # 0/1 or None
+    judge_response: TargetResponse | None = None
 
 
 @runtime_checkable
 class Scorer(Protocol):
-    kind: str
-    def score(self, prompt: str, response_text: str, expected: Optional[str]) -> ScoreResult: ...
+    kind: ScorerKind
+    def score(self, prompt: str, response_text: str, expected: str | None) -> ScoreResult: ...
 
 
 @dataclass
 class ExactMatchScorer:
-    kind: str = "exact"
+    kind: ScorerKind = "exact"
 
     def score(self, prompt, response_text, expected):
         ok = expected is not None and response_text.strip() == expected.strip()
@@ -36,7 +37,7 @@ class ExactMatchScorer:
 @dataclass
 class RegexScorer:
     pattern: str
-    kind: str = "regex"
+    kind: ScorerKind = "regex"
 
     def score(self, prompt, response_text, expected):
         ok = re.search(self.pattern, response_text) is not None
@@ -56,7 +57,7 @@ class LLMJudgeScorer:
     gets its own recording + provenance. This is where flips are most visible."""
     judge: Target
     rubric: str
-    kind: str = "llm_judge"
+    kind: ScorerKind = "llm_judge"
 
     @property
     def rubric_hash(self) -> str:

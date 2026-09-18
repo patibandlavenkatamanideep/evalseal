@@ -16,7 +16,7 @@ def test_scripted_variance_produces_known_flip_rates():
     ds = make_dataset("stable", "borderline", "unstable")
     rec = run_eval(ds, target, RegexScorer(pattern=r"^yes$"), n_repeats=5)
 
-    by_prompt = {c.prompt: r for c, r in zip(ds.cases, rec.results)}
+    by_prompt = {c.prompt: r for c, r in zip(ds.cases, rec.results, strict=True)}
     assert by_prompt["stable"].stability == "STABLE"
     assert abs(by_prompt["borderline"].flip_rate - 0.2) < 1e-9
     assert by_prompt["borderline"].stability == "BORDERLINE"

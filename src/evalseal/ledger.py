@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from .models import RunRecord
+from .models import SCHEMA_VERSION, RunRecord
 
 LEDGER_PATH = Path(".evalseal/ledger.jsonl")
 GENESIS = "GENESIS"
@@ -55,6 +55,13 @@ def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
         if r.prev_hash != prev:
             return (False, f"Broken chain at record {i}: prev_hash mismatch.")
         if _content_hash(r) != r.hash:
+            # An older schema hashes different fields, so say that rather than cry tamper.
+            if r.manifest.schema_version != SCHEMA_VERSION:
+                return (False, (
+                    f"Record {i} was sealed under schema {r.manifest.schema_version}; this build "
+                    f"seals {SCHEMA_VERSION} and cannot verify it. Start a new ledger, or verify "
+                    f"it with the version that wrote it."
+                ))
             return (False, f"TAMPER DETECTED at record {i}: content hash does not match.")
         prev = r.hash
     return (True, f"Chain intact: {len(recs)} record(s).")

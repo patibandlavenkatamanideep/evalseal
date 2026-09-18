@@ -8,8 +8,8 @@ from conftest import make_dataset, scripted
 
 from evalseal.adapters.scorer import RegexScorer
 from evalseal.adapters.target import LocalCallableTarget
-from evalseal.ledger import _content_hash, last_hash, load_all, seal_and_append, verify_chain
 from evalseal.executor import run_eval
+from evalseal.ledger import _content_hash, last_hash, load_all, seal_and_append, verify_chain
 
 
 def _record(prev_hash: str):
@@ -90,3 +90,15 @@ def test_append_refuses_unlinked_record(tmp_path):
     seal_and_append(_record("GENESIS"), path)
     with pytest.raises(ValueError, match="broken chain"):
         seal_and_append(_record("GENESIS"), path)
+
+
+def test_older_schema_is_named_not_called_tampering(tmp_path):
+    path = tmp_path / "ledger.jsonl"
+    seal_and_append(_record("GENESIS"), path)
+    # Simulate a record sealed by an older build: same bytes, older schema tag.
+    _rewrite_line(path, 0, lambda d: d["manifest"].update(schema_version="1.0"))
+
+    ok, msg = verify_chain(path)
+    assert not ok
+    assert "sealed under schema 1.0" in msg
+    assert "TAMPER" not in msg

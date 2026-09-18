@@ -29,10 +29,12 @@ def example(tmp_path):
     return tmp_path
 
 
-def _args(d: Path) -> list[str]:
+def _args(d: Path, *extra: str) -> list[str]:
+    # Concurrency 1 by default: the fake provider's scripted cycle is order-sensitive,
+    # which is exactly what the cassette slots make irrelevant on replay.
     return ["run", "--dataset", str(d / "ds.jsonl"), "--target-config", str(d / "target.json"),
             "--scorer-config", str(d / "scorer.json"), "--n", "5",
-            "--cassette", str(d / "cassette.json")]
+            "--cassette", str(d / "cassette.json"), "--concurrency", "1", *extra]
 
 
 def _fake_provider(monkeypatch):
@@ -71,7 +73,8 @@ def test_record_then_keyless_replay_reproduces_the_flip(example, monkeypatch):
     monkeypatch.delenv("EVALSEAL_RECORD")
     monkeypatch.delenv("EVALSEAL_API_KEY")
     monkeypatch.setattr(httpx.Client, "post", lambda *a, **k: pytest.fail("network in replay"))
-    replayed = runner.invoke(app, _args(example))
+    # Replayed with 4 workers: slots make the result independent of completion order.
+    replayed = runner.invoke(app, _args(example, "--concurrency", "4"))
     assert replayed.exit_code == EXIT_UNSTABLE, replayed.output
 
     first, second = load_all()
@@ -111,7 +114,7 @@ def test_rate_limit_is_reported_and_progress_kept(example, monkeypatch):
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
     monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
         429, text="quota exceeded", request=httpx.Request("POST", url)))
-    result = runner.invoke(app, _args(example))
+    result = runner.invoke(app, _args(example, "--max-retries", "0"))
     assert result.exit_code == 1
     assert "HTTP 429" in result.output and "re-run" in result.output
     assert load_all() == []

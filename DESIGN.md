@@ -22,20 +22,35 @@ can build a new valid chain, though. Anchoring the head hash somewhere external
 | module | role |
 |---|---|
 | `analyze.py` | Pure functions: seeded bootstrap CI, flip rate, stability class. No I/O. |
-| `adapters/recording.py` | Cassette keyed by the SHA-256 of the effective request body. |
+| `adapters/recording.py` | Cassette keyed by SHA-256 of the effective request + repeat index. |
 | `adapters/target.py` | `Target` protocol; `LocalCallableTarget` (tests), `OpenAICompatibleTarget`. |
 | `adapters/scorer.py` | Exact, regex, and LLM-judge scorers. The judge is a `Target`. |
-| `executor.py` | N-run loop, provenance capture, provenance-gap warnings. |
+| `executor.py` | N-run loop (optionally concurrent), provenance capture and gap warnings. |
 | `ledger.py` | Hash-linked append-only JSONL; `verify_chain`. |
 | `report.py`, `cli.py` | `report.md` / `report.json`; `run`, `verify`, `diff`. |
 
 ## Decisions
 
-**The cassette stores responses as ordered lists.** Repeats of a case send identical
-requests. If the cassette kept one response per request hash, repeat #1 would be replayed
-N times and every recorded flip would disappear. Instead, the k-th identical call gets the
-k-th recorded response. This depends on calls happening in the same order in record and
-replay mode, which holds because the executor is sequential.
+**The cassette keys on (request, repeat).** Repeats of a case send identical requests. If
+the cassette kept one response per request hash, repeat #1 would be replayed N times and
+every recorded flip would disappear. Keying on arrival order fixes that but only while the
+executor is sequential. So the repeat index is part of the key: the executor opens a
+`slot(k)` per (case, repeat) unit, and every request inside it — the target call and the
+judge call it feeds — is stored and replayed under that k. Replays are therefore identical
+at any concurrency, and a cassette file is order-independent. (0.1.x wrote arrival-ordered
+lists; those files cannot be converted after the fact, because which repeat produced a
+response is exactly what they do not record.)
+
+**Concurrency is bounded and result-preserving.** `--concurrency` runs whole (case, repeat)
+units in a thread pool, since the work is I/O-bound. Scores are assembled by index, never
+by completion order, so the report, the aggregate and the sealed hash do not depend on
+scheduling. `Cassette` is lock-guarded; the lock is released across the network call.
+
+**Retries cover transient failures only.** 408/409/425/429 and 5xx, plus connection errors,
+are retried with exponential backoff capped at 30s, preferring the provider's `Retry-After`.
+A 400 or 401 is not retried: repeating a malformed or unauthorized request cannot help.
+Because every response is cassette-backed as it arrives, an exhausted retry is resumable —
+re-run the same command and recording continues where it stopped.
 
 **Only the effective request is hashed.** The cassette key is the URL plus the JSON body
 actually sent. Unset parameters are left out of the body entirely, so "temperature not
@@ -53,6 +68,11 @@ in `served_model`. Any other difference produces a warning.
 **Judge verdict parsing is strict.** The first standalone `PASS`/`FAIL` token decides, and
 anything else counts as FAIL. A plain substring check would read "FAIL — does not PASS" as
 a pass.
+
+**A schema change is named, not mistaken for tampering.** A record's hash covers its whole
+content, so adding a manifest field changes the hash of everything sealed before it.
+`SCHEMA_VERSION` is stored in each record, and `verify` reports an older schema as exactly
+that instead of raising a false tamper alarm.
 
 **Exit codes separate outcomes.** `run` exits 3 when any case is UNSTABLE, which is
 different from 1 (error) and 2 (usage). CI can then accept an expected unstable demo while
@@ -72,5 +92,12 @@ still failing on a broken replay.
   shifts in the aggregate. A paired test across cases would be more powerful.
 - **Float scores use a median-crossing pseudo-flip.** This gives a variance signal
   without a threshold, but it is a heuristic. All built-in scorers are binary.
+- **Identical prompts in different cases share cassette entries.** The key is the request
+  plus the repeat, not the case id. Two cases with the same prompt therefore replay the
+  same response for the same repeat, which understates variance between them. Dataset
+  loading rejects duplicate case ids, not duplicate prompts.
+- **Concurrency changes rate-limit behaviour, not results.** More workers in flight means
+  more 429s on a rate-limited tier, which retries absorb by waiting. If a provider is the
+  bottleneck, lower `--concurrency` rather than raising retries.
 - **Canonical hosts are an allowlist.** Any self-hosted or gateway endpoint gets a
   NON-CANONICAL warning by design. The warning means "provenance unverified", not "wrong".

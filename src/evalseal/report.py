@@ -23,7 +23,8 @@ def to_markdown(record: RunRecord) -> str:
            f", temperature `{judge.effective_params.temperature}` ({judge.params_source})"
            if judge else ""),
         f"- N repeats: {record.manifest.run_config.n_repeats}",
-        f"- Dataset: `{record.manifest.dataset.hash[:20]}...` ({record.manifest.dataset.n_cases} cases)",
+        f"- Dataset: `{record.manifest.dataset.hash[:20]}...` "
+        f"({record.manifest.dataset.n_cases} cases)",
         f"- Sealed hash: `{record.hash[:20]}...`\n",
         f"**Aggregate:** {a.n_cases} cases · mean {a.mean_score:.2f} · "
         f"{a.n_stable} stable / {a.n_borderline} borderline / {a.n_unstable} unstable\n",

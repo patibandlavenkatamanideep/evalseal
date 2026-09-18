@@ -63,9 +63,32 @@ responses already recorded are kept.
 | `evalseal diff A B` | Compares two ledger runs and says whether the mean moved beyond the noise floor. Use `--` for negative indices: `evalseal diff -- 0 -1`. | `0` |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
-HTTP 429/408/5xx and connection errors, honouring `Retry-After`), and `--quiet` to drop the
-progress bar. Concurrency never changes the result: each response is recorded against its
-own (case, repeat) slot, so a 16-worker replay is identical to a serial one.
+HTTP 429/408/5xx and connection errors, honouring `Retry-After`), `--timeout`, and
+`--quiet`. Concurrency never changes the result: each response is recorded against its own
+(case, repeat) slot, so a 16-worker replay is identical to a serial one.
+
+### Gating a pipeline
+
+`--fail-on` decides which stability classes fail the run, and `--junit-xml` writes a report
+CI can display next to ordinary tests:
+
+```yaml
+- name: Eval reproducibility
+  run: |
+    evalseal run --dataset evals/dataset.jsonl \
+      --target-config evals/target.json --scorer-config evals/scorer.json \
+      --n 5 --fail-on borderline --junit-xml junit.xml --quiet
+```
+
+| exit code | meaning |
+|---|---|
+| `0` | every case satisfied `--fail-on` |
+| `3` | at least one case violated it |
+| `1` | the run itself failed (missing cassette entry, provider error) |
+| `2` | bad arguments |
+| `130` | interrupted; recorded responses are kept, re-run to resume |
+
+Start with `--fail-on none` to observe flip rates without blocking merges, then tighten.
 
 **Stability classes** are based on the flip rate, the share of a case's N verdicts that
 disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 20%).
@@ -75,6 +98,22 @@ disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 
 - the endpoint isn't a canonical provider host,
 - temperature was left at the provider default,
 - the served model or system fingerprint changed partway through the run.
+
+## Using it as a library
+
+```python
+from evalseal import Dataset, LocalCallableTarget, RegexScorer, run_eval
+
+record = run_eval(
+    Dataset.from_jsonl("dataset.jsonl"),
+    LocalCallableTarget(my_model_fn),
+    RegexScorer(r"^yes"),
+    n_repeats=5,
+)
+print(record.aggregate.mean_score, [r.stability for r in record.results])
+```
+
+The package ships type information (PEP 561), so mypy and pyright see the annotations.
 
 ## How it works
 
@@ -88,6 +127,10 @@ served model, fingerprint, parameters and whether they were set explicitly, rubr
 dataset hash) plus its results. The record is hashed and linked to the previous record's
 hash in an append-only JSONL ledger, so editing any past score breaks `verify`.
 
+Security policy:
+[SECURITY.md](https://github.com/patibandlavenkatamanideep/evalseal/blob/main/SECURITY.md).
+Release notes:
+[CHANGELOG.md](https://github.com/patibandlavenkatamanideep/evalseal/blob/main/CHANGELOG.md).
 Contributing: see
 [CONTRIBUTING.md](https://github.com/patibandlavenkatamanideep/evalseal/blob/main/CONTRIBUTING.md).
 See [DESIGN.md](https://github.com/patibandlavenkatamanideep/evalseal/blob/main/DESIGN.md)

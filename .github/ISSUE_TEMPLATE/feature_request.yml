@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest a change. Please read DESIGN.md first — some things are deliberately out of scope.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you unable to measure or prove today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: I have read the "What it claims, and what it doesn't" section of DESIGN.md

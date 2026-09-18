@@ -1,6 +1,6 @@
 [project]
 name = "evalseal"
-version = "0.2.0"
+version = "0.3.0"
 description = "Reproducibility and provenance receipts for LLM evaluations."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -42,6 +42,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/evalseal"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/evalseal/py.typed" = "evalseal/py.typed"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
@@ -86,7 +87,7 @@ def _dedupe(items: list[str]) -> list[str]:
 class _Unit:
     """One (case, repeat) measurement: generate once, score once."""
 
-    __slots__ = ("case", "repeat", "score", "binary", "target_resp", "judge_resp")
+    __slots__ = ("case", "repeat", "score", "binary", "target_resp", "judge_resp", "seconds")
 
     def __init__(self, case: Case, repeat: int):
         self.case = case
@@ -95,13 +96,16 @@ class _Unit:
         self.binary: bool = True
         self.target_resp: TargetResponse | None = None
         self.judge_resp: TargetResponse | None = None
+        self.seconds: float = 0.0
 
     def run(self, target: Target, scorer: Scorer) -> _Unit:
         # The slot pins this unit's cassette entries to `repeat`, so replays are
         # identical regardless of how many workers run or what order they finish in.
+        started = time.perf_counter()
         with slot(self.repeat):
             tr = target.generate(self.case.prompt)
             sr = scorer.score(self.case.prompt, tr.text, self.case.expected)
+        self.seconds = time.perf_counter() - started
         self.target_resp = tr
         self.judge_resp = sr.judge_response
         self.score = sr.score
@@ -146,6 +150,7 @@ def run_eval(
         case_units = units[i * n_repeats:(i + 1) * n_repeats]
         scores = [u.score for u in case_units]
         stats = analyze_case(scores, binary=all(u.binary for u in case_units))
+        seconds = sum(u.seconds for u in case_units)
         results.append(CaseResult(
             case_id=case.case_id,
             scores=scores,
@@ -154,6 +159,7 @@ def run_eval(
             flip_rate=stats.flip_rate,
             stability=stats.stability,
             majority_verdict=stats.majority_verdict,
+            seconds=seconds,
         ))
 
     target_resps = [u.target_resp for u in units if u.target_resp is not None]

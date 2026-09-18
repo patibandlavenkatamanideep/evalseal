@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 ParamsSource = Literal["explicit", "provider_default"]
 ScorerKind = Literal["exact", "regex", "llm_judge"]
+FailOn = Literal["none", "unstable", "borderline"]
 
 SCHEMA_VERSION = "1.1"  # 1.1 added run_config.concurrency; it changes record hashes
 
@@ -44,7 +45,7 @@ class DatasetProvenance(BaseModel):
 class RunConfig(BaseModel):
     n_repeats: int = 5
     concurrency: int = 1
-    harness_version: str = "evalseal/0.2.0"
+    harness_version: str = "evalseal/0.3.0"
     started_at: str = Field(default_factory=_now)
 
 
@@ -64,6 +65,7 @@ class CaseResult(BaseModel):
     flip_rate: float
     stability: str
     majority_verdict: int | None = None
+    seconds: float = 0.0
 
 
 class Aggregate(BaseModel):

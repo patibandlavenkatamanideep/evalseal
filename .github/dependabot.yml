@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule: { interval: weekly }
+    groups:
+      python-deps:
+        patterns: ["*"]
+  # Actions are pinned to commit SHAs, so this is what keeps them current.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly }

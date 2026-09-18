@@ -17,11 +17,13 @@ from .adapters.scorer import ExactMatchScorer, LLMJudgeScorer, RegexScorer
 from .adapters.target import OpenAICompatibleTarget
 from .executor import run_eval
 from .ledger import LEDGER_PATH, last_hash, load_all, seal_and_append, verify_chain
-from .report import to_markdown, write_json, write_markdown
+from .models import FailOn
+from .report import failing_cases, to_markdown, write_json, write_junit, write_markdown
 
 # Distinct from 1 (uncaught error) and 2 (usage error) so CI can tell
 # "the eval is unstable" apart from "the tool broke".
 EXIT_UNSTABLE = 3
+EXIT_INTERRUPTED = 130   # conventional 128 + SIGINT
 
 app = typer.Typer(add_completion=False, help="Reproducibility receipts for LLM evals.")
 console = Console()
@@ -49,7 +51,9 @@ def _main() -> None:
     load_dotenv()
 
 
-def _build_target(cfg: dict, cassette: Cassette, max_retries: int) -> OpenAICompatibleTarget:
+def _build_target(
+    cfg: dict, cassette: Cassette, max_retries: int, timeout: float
+) -> OpenAICompatibleTarget:
     return OpenAICompatibleTarget(
         model=cfg["model"],
         cassette=cassette,
@@ -57,10 +61,11 @@ def _build_target(cfg: dict, cassette: Cassette, max_retries: int) -> OpenAIComp
         temperature=cfg.get("temperature"),   # omit in config to surface the "unset" warning
         seed=cfg.get("seed"),
         max_retries=max_retries,
+        timeout=timeout,
     )
 
 
-def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int):
+def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: float):
     if cfg["type"] == "exact":
         return ExactMatchScorer()
     if cfg["type"] == "regex":
@@ -73,6 +78,7 @@ def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int):
             temperature=cfg.get("judge_temperature"),  # leave unset to demonstrate flips
             seed=cfg.get("judge_seed"),
             max_retries=max_retries,
+            timeout=timeout,
         )
         return LLMJudgeScorer(judge=judge, rubric=cfg["rubric"])
     raise typer.BadParameter(f"unknown scorer type {cfg['type']!r}")
@@ -89,6 +95,13 @@ def run(
     concurrency: int = typer.Option(4, min=1, help="Parallel requests in flight."),
     max_retries: int = typer.Option(5, min=0, help="Retries per request on 429/5xx."),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress the progress bar."),
+    timeout: float = typer.Option(60.0, min=1.0, help="Per-request timeout in seconds."),
+    fail_on: FailOn = typer.Option(
+        "unstable", help="Which stability classes fail the run: none | unstable | borderline."
+    ),
+    junit_xml: Path | None = typer.Option(
+        None, help="Also write JUnit XML here, for CI test reporting."
+    ),
 ):
     """Run an eval N times, seal the result, emit report.json + report.md."""
     ds = Dataset.from_jsonl(dataset)
@@ -97,8 +110,8 @@ def run(
     except CassetteFormatError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=1) from e
-    target = _build_target(json.loads(target_config.read_text()), cass, max_retries)
-    scorer = _build_scorer(json.loads(scorer_config.read_text()), cass, max_retries)
+    target = _build_target(json.loads(target_config.read_text()), cass, max_retries, timeout)
+    scorer = _build_scorer(json.loads(scorer_config.read_text()), cass, max_retries, timeout)
 
     total = len(ds.cases) * n
     show_progress = not quiet and sys.stderr.isatty()
@@ -123,6 +136,12 @@ def run(
     except RuntimeError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=1) from e
+    except KeyboardInterrupt:
+        console.print(
+            "[yellow]Interrupted. Responses recorded so far are kept in the cassette; "
+            "re-run the same command to resume.[/yellow]"
+        )
+        raise typer.Exit(code=EXIT_INTERRUPTED) from None
     except httpx.HTTPStatusError as e:
         resp = e.response
         console.print(f"[red]HTTP {resp.status_code} from provider: {resp.text[:300]}[/red]")
@@ -135,11 +154,17 @@ def run(
     record = seal_and_append(record, ledger)
     write_json(record)
     write_markdown(record)
+    if junit_xml is not None:
+        write_junit(record, junit_xml, fail_on)
     console.print(Markdown(to_markdown(record)))
 
-    # CI gate: dedicated non-zero exit if any case is UNSTABLE.
-    if record.aggregate.n_unstable > 0:
-        console.print(f"[red]{record.aggregate.n_unstable} unstable case(s) — failing.[/red]")
+    # CI gate: dedicated non-zero exit when the policy is violated.
+    failed = failing_cases(record, fail_on)
+    if failed:
+        ids = ", ".join(r.case_id for r in failed)
+        console.print(
+            f"[red]{len(failed)} case(s) fail --fail-on {fail_on}: {ids}[/red]"
+        )
         raise typer.Exit(code=EXIT_UNSTABLE)
 
 

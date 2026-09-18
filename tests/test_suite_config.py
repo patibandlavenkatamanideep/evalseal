@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import httpx
@@ -11,6 +12,13 @@ from evalseal.cli import app
 from evalseal.ledger import load_all
 
 runner = CliRunner()
+
+
+def plain(output: str) -> str:
+    """Strip ANSI styling and wrapping. Rich colours the `--` of an option separately
+    from its name, so a literal "--dataset" never appears in the raw output."""
+    text = re.sub(r"\x1b\[[0-9;]*m", "", output)
+    return re.sub(r"\s+", " ", text)
 
 
 def _suite(tmp_path: Path, **overrides) -> Path:
@@ -69,13 +77,15 @@ def test_unknown_suite_key_is_rejected(tmp_path):
     suite = _suite(tmp_path, tempreture=0.2)             # a typo must not pass silently
     result = runner.invoke(app, ["run", "--suite", str(suite)])
     assert result.exit_code == 2
-    assert "unknown key(s)" in result.output and "tempreture" in result.output
+    assert "unknown key(s)" in plain(result.output)
+    assert "tempreture" in plain(result.output)
 
 
 def test_missing_inputs_are_named(tmp_path):
     result = runner.invoke(app, ["run"])
     assert result.exit_code == 2
-    assert "--dataset" in result.output and "--suite" in result.output
+    message = plain(result.output)
+    assert "--dataset" in message and "--suite" in message
 
 
 def test_suite_can_request_signing(tmp_path, monkeypatch):

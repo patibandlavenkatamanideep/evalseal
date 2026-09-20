@@ -10,6 +10,38 @@ def write_json(record: RunRecord, path: str | Path = "report.json") -> None:
     Path(path).write_text(record.model_dump_json(indent=2))
 
 
+def verdict_sequence(case: CaseResult) -> str:
+    """`PPFP` — the observed verdicts in run order, so a reader sees when it flipped."""
+    if case.verdicts:
+        return "".join("P" if v else "F" for v in case.verdicts)
+    return "".join("P" if s >= 0.5 else "F" for s in case.scores)
+
+
+def case_rows(record: RunRecord, unstable_only: bool = False) -> list[CaseResult]:
+    """Cases for display: unstable first, then by case id."""
+    rows = [c for c in record.results if not unstable_only or c.flip_count > 0]
+    return sorted(rows, key=lambda c: (-c.flip_rate, c.case_id))
+
+
+def to_case_table(record: RunRecord, unstable_only: bool = False) -> str:
+    """The per-case view: which cases are unstable, and under which judge."""
+    rows = case_rows(record, unstable_only)
+    if not rows:
+        return "No unstable cases." if unstable_only else "No cases."
+    prompt_hash = (record.manifest.scorer.judge_prompt_hash or "-")[:14]
+    header = ("| case_id | runs | pass | fail | flips | flip_rate | majority | "
+              "stability | judge_prompt_hash |")
+    lines = [header, "|---|---|---|---|---|---|---|---|---|"]
+    for c in rows:
+        majority = "-" if c.majority_verdict is None else ("PASS" if c.majority_verdict else "FAIL")
+        lines.append(
+            f"| {c.case_id} | {len(c.scores)} | {c.pass_count} | {c.fail_count} | "
+            f"{c.flip_count} | {c.flip_rate:.0%} | {majority} | {c.stability_label} | "
+            f"`{prompt_hash}` |"
+        )
+    return "\n".join(lines)
+
+
 def to_markdown(record: RunRecord) -> str:
     a = record.aggregate
     t = record.manifest.target

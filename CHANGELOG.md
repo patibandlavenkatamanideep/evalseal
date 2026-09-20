@@ -4,6 +4,41 @@ All notable changes to this project are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 while the version is 0.x, a minor bump may break formats.
 
+## [1.3.0] - 2026-09-20
+
+### Fixed
+- **Ledger appends are now linear under concurrent writers.** Two `evalseal run`
+  processes could read the same head hash, both validate it, and both append a record
+  claiming the same predecessor — leaving sibling records that weaken the chain. The head
+  read, validation, seal, append and `fsync` now happen inside one advisory file lock
+  (`fcntl` on Unix, `msvcrt` on Windows) held on `<ledger>.lock`. `verify` reports siblings
+  explicitly rather than as a generic broken link. **Local filesystems only** — this is not
+  distributed consensus, and the guarantee weakens on NFS or SMB.
+
+### Added
+- **Per-case verdict distribution.** Each case now records its verdict sequence, pass /
+  fail / other counts, flip count, and a finer `stability_label` — `stable_pass`,
+  `stable_fail`, `unstable`, or `insufficient_runs` when N < 5. `run --show-cases`
+  (with `--unstable-only`) prints the table; `report --json` emits it machine-readably
+  with a provenance block. The existing `stability` field is unchanged.
+- **The receipt seals the evaluator configuration**, not only the score: judge prompt hash,
+  rubric hash, scorer type, judge model and parameters, dataset path and case ids, suite
+  name and hash, EvalSeal version, git commit and dirty flag, Python version and platform.
+  `--store-judge-prompt` additionally seals the prompt verbatim; it is off by default
+  because the prompt embeds case text.
+- **`evalseal gate`** applies CI thresholds to a sealed record and exits 3 on violation:
+  `--min-score`, `--max-flip-rate`, `--critical` (case ids that must not flip),
+  `--expect-config` (evaluator fingerprint), and ledger verification by default.
+- **`evalseal report`** shows per-case detail for any sealed record, `--json` included.
+- `diff` now says **"Not directly comparable: evaluator configuration changed"** and names
+  what differed, because a changed rubric moves the score without the model changing.
+
+### Changed
+- Records are sealed under schema **1.2**. Ledgers sealed by 1.2.x verify with the version
+  that wrote them; `verify` names the older schema rather than alleging tampering.
+- Flip rate is documented explicitly as `non-majority verdicts / total runs`, not
+  transitions, so it does not depend on the order concurrent runs completed in.
+
 ## [1.2.0] - 2026-09-18
 
 ### Added
@@ -102,6 +137,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.3.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.0
 [1.2.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.2.0
 [1.1.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.1.0
 [1.0.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.0.0

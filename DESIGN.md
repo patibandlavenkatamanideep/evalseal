@@ -67,6 +67,24 @@ with the rule of three, which bounds an unseen failure rate near 3/n). Float sco
 the seeded bootstrap, since no closed form fits an arbitrary score distribution. Both are
 deterministic, so re-running the analysis reproduces the interval exactly.
 
+**The ledger lock covers the whole read-modify-append, not just the write.** Locking only
+the append leaves the race intact: two processes read the same head, both validate it, and
+both append. The head is therefore read inside the lock, and the record is re-pointed at
+the live head when the caller asks for it (`relink=True`, which `evalseal run` uses) so
+concurrent runs serialise instead of failing. The lock is an open file descriptor rather
+than the existence of a lock file, so a process that dies mid-write releases it when the OS
+closes its descriptors — no stale lock to reap, no timeout to tune. It coordinates
+processes on **one machine**; networked filesystems are out of scope.
+
+**The receipt seals how the answer was judged.** A tamper-evident score is not worth much
+if the rubric changed quietly, so the manifest carries the judge prompt hash as well as the
+rubric hash — the rubric is what a user edits, the prompt is what the model saw — plus the
+scorer type, judge model and parameters, dataset and suite hashes, code commit and
+environment. `config_fingerprint` hashes exactly the parts that decide whether two runs
+measure the same thing, which is what `diff` and `gate --expect-config` compare. The prompt
+itself is stored only behind `--store-judge-prompt`, because it embeds case text that may
+be private.
+
 **Only the effective request is hashed.** The cassette key is the URL plus the JSON body
 actually sent. Unset parameters are left out of the body entirely, so "temperature not
 set" and "temperature=1.0" are different requests. API keys never enter the key or the

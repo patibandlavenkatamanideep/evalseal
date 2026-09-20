@@ -14,6 +14,8 @@ import statistics
 from collections import Counter
 from dataclasses import dataclass
 
+from .models import Stability
+
 # Stability thresholds (constants so they're auditable, not magic numbers).
 BORDERLINE_MAX_FLIP = 0.20  # flip_rate in (0, 0.20]  -> BORDERLINE
 # flip_rate == 0 -> STABLE ; flip_rate > BORDERLINE_MAX_FLIP -> UNSTABLE
@@ -21,6 +23,10 @@ BORDERLINE_MAX_FLIP = 0.20  # flip_rate in (0, 0.20]  -> BORDERLINE
 _BOOTSTRAP_ITERS = 2000
 _RNG_SEED = 12345  # fixed so the CI computation itself is reproducible
 _Z95 = 1.959963984540054  # standard normal quantile for a two-sided 95% interval
+
+
+# Below this many runs a flip rate is not worth reading: at N=3 one dissent is 33%.
+MIN_RUNS_FOR_STABILITY = 5
 
 
 @dataclass(frozen=True)
@@ -31,6 +37,8 @@ class CaseStats:
     flip_rate: float
     stability: str  # "STABLE" | "BORDERLINE" | "UNSTABLE"
     majority_verdict: int | None  # for binary; None for pure-float scores
+    flip_count: int = 0
+    stability_label: Stability = "insufficient_runs"
 
 
 def _bootstrap_ci(scores: list[float], iters: int = _BOOTSTRAP_ITERS) -> tuple[float, float]:
@@ -69,13 +77,40 @@ def wilson_ci(successes: int, n: int, z: float = _Z95) -> tuple[float, float]:
 
 
 def flip_rate(verdicts: list[int]) -> tuple[float, int]:
-    """Fraction of verdicts disagreeing with the majority. Returns (rate, majority)."""
+    """Fraction of verdicts disagreeing with the majority. Returns (rate, majority).
+
+    **Definition (one of two reasonable ones):** flip rate is
+    `non-majority verdicts / total runs`, *not* `transitions / (runs - 1)`. So
+    PASS,PASS,FAIL,PASS scores 1/4 = 0.25 under this definition and 2/3 under the
+    transition one. Chosen because it does not depend on the order runs happened to
+    execute in, which matters once runs are concurrent.
+    """
     if not verdicts:
         return (0.0, 0)
     counts = Counter(verdicts)
     majority, majority_count = counts.most_common(1)[0]
     disagree = len(verdicts) - majority_count
     return (disagree / len(verdicts), majority)
+
+
+def classify_stability_label(
+    flip_count: int, n_runs: int, majority: int | None
+) -> Stability:
+    """The finer taxonomy: separates a stable pass from a stable fail, and says when
+    there were simply too few runs to judge.
+
+    Note this is deliberately stricter than `classify_stability`: a case with any flip
+    is `unstable` here, where the coarse label calls a single flip in five BORDERLINE.
+    """
+    if n_runs < MIN_RUNS_FOR_STABILITY:
+        return "insufficient_runs"
+    if flip_count:
+        return "unstable"
+    if majority == 1:
+        return "stable_pass"
+    if majority == 0:
+        return "stable_fail"
+    return "unstable"
 
 
 def classify_stability(rate: float) -> str:
@@ -95,7 +130,12 @@ def analyze_case(scores: list[float], *, binary: bool) -> CaseStats:
         verdicts = [int(s) for s in scores]
         lo, hi = wilson_ci(sum(verdicts), len(verdicts))
         rate, majority = flip_rate(verdicts)
-        return CaseStats(mean, lo, hi, rate, classify_stability(rate), majority)
+        flips = len(verdicts) - Counter(verdicts).most_common(1)[0][1]
+        return CaseStats(
+            mean, lo, hi, rate, classify_stability(rate), majority,
+            flip_count=flips,
+            stability_label=classify_stability_label(flips, len(verdicts), majority),
+        )
     lo, hi = _bootstrap_ci(scores)
     # Float scores: define a "flip" as crossing the run-set's own median.
     # This gives a variance signal without a fixed threshold assumption.

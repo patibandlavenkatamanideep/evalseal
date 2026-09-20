@@ -208,7 +208,24 @@ A signature says *this key signed a ledger whose head was H*, and the head commi
 record before it. It does not say the run happened as described: a signer can sign whatever
 they like. What it rules out is someone else altering your receipt afterwards.
 
-### Gating a pipeline
+### Gating a pipeline with `gate`
+
+`gate` applies CI thresholds to a sealed record and exits 3 when one is violated:
+
+```bash
+evalseal verify --ledger .evalseal/ledger.jsonl      # chain, siblings, schema
+evalseal report --unstable-only                      # which cases flipped
+evalseal gate --min-score 0.85 --max-flip-rate 0.10  # thresholds
+evalseal gate --critical b01,b02                     # these must never flip
+evalseal gate --expect-config sha256:407033d3836b8   # evaluator must not have changed
+```
+
+`--expect-config` compares the evaluator fingerprint — target model and parameters, scorer
+type, rubric hash, judge prompt hash, judge model and parameters, dataset and suite hashes.
+A change there moves the score without the model changing, so a gate that ignores it will
+eventually mistake evaluator drift for model drift.
+
+### Gating a run directly
 
 `--fail-on` decides which stability classes fail the run, and `--junit-xml` writes a report
 CI can display next to ordinary tests:
@@ -231,8 +248,29 @@ CI can display next to ordinary tests:
 
 Start with `--fail-on none` to observe flip rates without blocking merges, then tighten.
 
+### Per-case instability
+
+An aggregate flip rate hides which cases are unstable. `--show-cases` prints the
+distribution, worst first, stamped with the judge prompt that produced it:
+
+```
+| case_id | runs | pass | fail | flips | flip_rate | majority | stability | judge_prompt_hash |
+| b01     | 5    | 3    | 2    | 2     | 40%       | PASS     | unstable  | sha256:457d7c3    |
+| b05     | 5    | 4    | 1    | 1     | 20%       | PASS     | unstable  | sha256:457d7c3    |
+```
+
+`evalseal report --json` emits the same data machine-readably, with
+`summary.flip_rate`, `cases[].verdict_distribution`, `cases[].verdict_sequence` and a
+`provenance` block including the config fingerprint.
+
+**Flip rate is `non-majority verdicts / total runs`** — not transitions between runs. So
+`PPFP` is 1/4 = 25%, not 2 transitions out of 3. The definition was chosen because it does
+not depend on the order runs happened to execute in, which matters once runs are concurrent.
+
 **Stability classes** are based on the flip rate, the share of a case's N verdicts that
-disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 20%).
+disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 20%). Each
+case also carries a finer `stability_label`: `stable_pass`, `stable_fail`, `unstable`, or
+`insufficient_runs` when N < 5, because a flip rate from three runs is not worth reading.
 
 **Confidence intervals** use the Wilson score interval for binary verdicts and a seeded
 percentile bootstrap for float scores. Both are deterministic. Wilson is used because the
@@ -248,6 +286,32 @@ tracked target).
 - the endpoint isn't a canonical provider host,
 - temperature was left at the provider default,
 - the served model or system fingerprint changed partway through the run.
+
+## What EvalSeal guarantees
+
+- **Hash-chain integrity.** Every record commits to the previous one; editing a past score
+  breaks that record's hash, and re-hashing it breaks the next record's link.
+- **Linear appends under concurrent writers.** The head is read and the record appended
+  inside one file lock, so two simultaneous runs cannot create sibling records. `verify`
+  reports siblings explicitly if a ledger acquires them another way.
+- **Repeat-run instability measurement.** Per-case verdict sequences, counts, flip rates
+  and Wilson intervals, rather than one aggregate number.
+- **Evaluator config fingerprinting.** The receipt seals the judge prompt hash, rubric
+  hash, scorer type, judge model and parameters, dataset and suite hashes, EvalSeal
+  version, git commit and dirty flag, Python version and platform.
+
+## What EvalSeal does not guarantee
+
+- **It cannot prove the provider behaved the same way later.** A replay reproduces recorded
+  responses; it says nothing about what the model would return today.
+- **It does not make a nondeterministic judge deterministic.** It measures the
+  nondeterminism instead.
+- **It does not replace human review of borderline cases.** A 40% flip rate tells you where
+  to look, not what the right answer is.
+- **Local file locking is not distributed consensus.** `fcntl`/`msvcrt` coordinate
+  processes on one machine. On NFS or SMB the guarantee weakens or disappears.
+- **Hashes detect change, not incorrectness.** A sealed record with a wrong rubric is
+  sealed just as firmly as one with a right rubric.
 
 ## Using it as a library
 

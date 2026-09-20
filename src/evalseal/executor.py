@@ -14,14 +14,18 @@ from .analyze import analyze_case
 from .models import (
     Aggregate,
     CaseResult,
+    CodeProvenance,
     DatasetProvenance,
     EffectiveParams,
+    EnvironmentProvenance,
     ProvenanceManifest,
     RunConfig,
     RunRecord,
     ScorerProvenance,
+    SuiteProvenance,
     TargetProvenance,
 )
+from .provenance import environment_provenance, git_provenance, text_hash
 
 _CANONICAL_HOSTS = {"api.openai.com", "generativelanguage.googleapis.com"}
 _LOCAL_SCHEMES = {"local"}
@@ -121,6 +125,9 @@ def run_eval(
     prev_hash: str = "GENESIS",
     concurrency: int = 1,
     on_unit_done: Callable[[], None] | None = None,
+    suite: SuiteProvenance | None = None,
+    dataset_path: str | None = None,
+    store_judge_prompt: bool = False,
 ) -> RunRecord:
     if not dataset.cases:
         raise ValueError("dataset has no cases")
@@ -149,8 +156,13 @@ def run_eval(
     for i, case in enumerate(dataset.cases):
         case_units = units[i * n_repeats:(i + 1) * n_repeats]
         scores = [u.score for u in case_units]
-        stats = analyze_case(scores, binary=all(u.binary for u in case_units))
+        binary = all(u.binary for u in case_units)
+        stats = analyze_case(scores, binary=binary)
         seconds = sum(u.seconds for u in case_units)
+        verdicts = [int(s) for s in scores] if binary else []
+        passes = sum(1 for v in verdicts if v == 1)
+        fails = sum(1 for v in verdicts if v == 0)
+        others = len(scores) - len(verdicts)
         results.append(CaseResult(
             case_id=case.case_id,
             scores=scores,
@@ -158,8 +170,14 @@ def run_eval(
             ci95=(stats.ci95_low, stats.ci95_high),
             flip_rate=stats.flip_rate,
             stability=stats.stability,
+            stability_label=stats.stability_label,
             majority_verdict=stats.majority_verdict,
             seconds=seconds,
+            verdicts=verdicts,
+            pass_count=passes,
+            fail_count=fails,
+            other_count=others,
+            flip_count=stats.flip_count,
         ))
 
     target_resps = [u.target_resp for u in units if u.target_resp is not None]
@@ -174,16 +192,30 @@ def run_eval(
         warnings += _provenance_warnings(_to_provenance(jr), "JUDGE")
     warnings += _drift_warnings(judge_resps, "JUDGE")
 
+    git = git_provenance()
+    judge_prompt = getattr(scorer, "last_judge_prompt", None)
     sp = ScorerProvenance(
         type=scorer.kind,
         judge=_to_provenance(judge_resps[0]) if judge_resps else None,
         rubric_hash=getattr(scorer, "rubric_hash", None),
+        judge_prompt_hash=text_hash(judge_prompt) if judge_prompt else None,
+        # The prompt embeds the case under test, so storing it verbatim can leak private
+        # dataset content into the receipt. Off unless the caller opts in.
+        judge_prompt=judge_prompt if (store_judge_prompt and judge_prompt) else None,
     )
     manifest = ProvenanceManifest(
         target=_to_provenance(target_resps[0]),
         scorer=sp,
-        dataset=DatasetProvenance(hash=dataset.hash, n_cases=len(dataset.cases)),
+        dataset=DatasetProvenance(
+            hash=dataset.hash,
+            n_cases=len(dataset.cases),
+            path=dataset_path,
+            case_ids=[c.case_id for c in dataset.cases],
+        ),
         run_config=RunConfig(n_repeats=n_repeats, concurrency=concurrency),
+        suite=suite,
+        code=CodeProvenance(commit=git["commit"], dirty=git["dirty"]),
+        environment=EnvironmentProvenance(**environment_provenance()),
     )
     agg = Aggregate(
         n_cases=len(results),

@@ -140,6 +140,9 @@ class LLMJudgeScorer:
     judge: Target
     rubric: str
     kind: ScorerKind = "llm_judge"
+    # The exact prompt last sent to the judge, so the executor can seal its hash. The
+    # rubric alone would miss a change to the instruction wrapper around it.
+    last_judge_prompt: str | None = None
 
     @property
     def rubric_hash(self) -> str:
@@ -152,6 +155,7 @@ class LLMJudgeScorer:
             f"RESPONSE TO GRADE:\n{response_text}\n\n"
             f"Answer with exactly one word: PASS or FAIL."
         )
+        self.last_judge_prompt = judge_prompt
         jr = self.judge.generate(judge_prompt)
         verdict = parse_verdict(jr.text)
         return ScoreResult(float(verdict), True, verdict, judge_response=jr)

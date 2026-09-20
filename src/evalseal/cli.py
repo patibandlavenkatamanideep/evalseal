@@ -21,9 +21,26 @@ from .adapters.scorer import (
 )
 from .adapters.target import OpenAICompatibleTarget
 from .executor import run_eval
-from .ledger import LEDGER_PATH, last_hash, load_all, seal_and_append, verify_chain
-from .models import FailOn
-from .report import failing_cases, to_markdown, write_json, write_junit, write_markdown
+from .ledger import (
+    LEDGER_PATH,
+    config_fingerprint,
+    last_hash,
+    load_all,
+    seal_and_append,
+    verify_chain,
+)
+from .models import FailOn, SuiteProvenance
+from .provenance import file_hash
+from .report import (
+    case_rows,
+    failing_cases,
+    to_case_table,
+    to_markdown,
+    verdict_sequence,
+    write_json,
+    write_junit,
+    write_markdown,
+)
 from .signing import (
     generate_keypair,
     sign_head,
@@ -148,6 +165,16 @@ def run(
     only: str | None = typer.Option(
         None, help="Run only these case ids (comma-separated), e.g. to re-examine a flip."
     ),
+    show_cases: bool = typer.Option(
+        False, "--show-cases", help="Print the per-case verdict table."
+    ),
+    unstable_only: bool = typer.Option(
+        False, "--unstable-only", help="With --show-cases, list only cases that flipped."
+    ),
+    store_judge_prompt: bool = typer.Option(
+        False, "--store-judge-prompt",
+        help="Seal the judge prompt verbatim, not only its hash. It embeds case text.",
+    ),
 ):
     """Run an eval N times, seal the result, emit report.json + report.md."""
     cfg = _load_suite(suite)
@@ -205,6 +232,11 @@ def run(
                 prev_hash=last_hash(ledger),
                 concurrency=concurrency,
                 on_unit_done=lambda: progress.advance(task),
+                suite=SuiteProvenance(
+                    name=suite.stem, path=str(suite), hash=file_hash(suite)
+                ) if suite else None,
+                dataset_path=str(dataset),
+                store_judge_prompt=store_judge_prompt,
             )
     except RuntimeError as e:
         console.print(f"[red]{e}[/red]")
@@ -224,7 +256,7 @@ def run(
                 "cassette; re-run the same command later to resume.[/yellow]"
             )
         raise typer.Exit(code=1) from e
-    record = seal_and_append(record, ledger)
+    record = seal_and_append(record, ledger, relink=True)
     write_json(record)
     write_markdown(record)
     if junit_xml is not None:
@@ -236,6 +268,8 @@ def run(
             f"-> {signatures_path(ledger)}[/green]"
         )
     console.print(Markdown(to_markdown(record)))
+    if show_cases:
+        console.print(Markdown(to_case_table(record, unstable_only=unstable_only)))
 
     # CI gate: dedicated non-zero exit when the policy is violated.
     failed = failing_cases(record, fail_on)
@@ -330,3 +364,162 @@ def diff(
     )
     if ra.manifest.dataset.hash != rb.manifest.dataset.hash:
         console.print("[yellow]Warning: runs used different datasets.[/yellow]")
+    if config_fingerprint(ra) != config_fingerprint(rb):
+        # A changed rubric or judge prompt moves the score without the target model
+        # changing at all, so comparing the two numbers answers a different question.
+        console.print(
+            "[yellow]Not directly comparable: evaluator configuration changed.[/yellow]"
+        )
+        for label, left, right in (
+            ("judge prompt", ra.manifest.scorer.judge_prompt_hash,
+             rb.manifest.scorer.judge_prompt_hash),
+            ("rubric", ra.manifest.scorer.rubric_hash, rb.manifest.scorer.rubric_hash),
+            ("scorer type", ra.manifest.scorer.type, rb.manifest.scorer.type),
+            ("target model", ra.manifest.target.requested_model,
+             rb.manifest.target.requested_model),
+        ):
+            if left != right:
+                console.print(f"  [yellow]{label}:[/yellow] {left} -> {right}")
+
+
+@app.command()
+def report(
+    ledger: Path = LedgerOpt,
+    index: int = typer.Option(-1, help="Ledger index to report on; -1 = latest."),
+    unstable_only: bool = typer.Option(
+        False, "--unstable-only", help="List only cases that flipped."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+):
+    """Per-case verdict distribution for a sealed record."""
+    recs = load_all(ledger)
+    if not -len(recs) <= index < len(recs):
+        raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
+    record = recs[index]
+
+    if as_json:
+        cases = [
+            {
+                "case_id": c.case_id,
+                "runs": len(c.scores),
+                "verdict_distribution": {
+                    "pass": c.pass_count, "fail": c.fail_count, "other": c.other_count
+                },
+                "verdict_sequence": verdict_sequence(c),
+                "flip_count": c.flip_count,
+                "flip_rate": c.flip_rate,
+                "majority_verdict": c.majority_verdict,
+                "stability": c.stability,
+                "stability_label": c.stability_label,
+                "ci95": list(c.ci95),
+            }
+            for c in case_rows(record, unstable_only)
+        ]
+        m = record.manifest
+        payload = {
+            "summary": {
+                "mean_score": record.aggregate.mean_score,
+                "flip_rate": round(
+                    sum(c.flip_rate for c in record.results) / len(record.results), 4
+                ),
+                "n_cases": record.aggregate.n_cases,
+                "n_stable": record.aggregate.n_stable,
+                "n_unstable": record.aggregate.n_unstable,
+                "sealed_hash": record.hash,
+            },
+            "provenance": {
+                "config_fingerprint": config_fingerprint(record),
+                "target_model": m.target.requested_model,
+                "served_model": m.target.served_model,
+                "scorer_type": m.scorer.type,
+                "judge_model": m.scorer.judge.requested_model if m.scorer.judge else None,
+                "judge_prompt_hash": m.scorer.judge_prompt_hash,
+                "rubric_hash": m.scorer.rubric_hash,
+                "dataset_hash": m.dataset.hash,
+                "suite_hash": m.suite.hash if m.suite else None,
+                "evalseal_version": m.environment.evalseal_version,
+                "git_commit": m.code.commit,
+                "git_dirty": m.code.dirty,
+            },
+            "cases": cases,
+        }
+        console.print_json(json.dumps(payload))
+        raise typer.Exit(code=0)
+
+    console.print(Markdown(to_case_table(record, unstable_only=unstable_only)))
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def gate(
+    ledger: Path = LedgerOpt,
+    index: int = typer.Option(-1, help="Ledger index to gate on; -1 = latest."),
+    min_score: float | None = typer.Option(None, help="Fail if mean score is below this."),
+    max_flip_rate: float | None = typer.Option(
+        None, help="Fail if any case's flip rate exceeds this."
+    ),
+    critical: str | None = typer.Option(
+        None, help="Comma-separated case ids that must not flip at all."
+    ),
+    expect_config: str | None = typer.Option(
+        None, help="Fail unless the evaluator config fingerprint equals this."
+    ),
+    verify_ledger: bool = typer.Option(
+        True, help="Also require the hash chain to verify."
+    ),
+):
+    """Apply CI thresholds to a sealed record. Exit 3 means the gate failed."""
+    recs = load_all(ledger)
+    if not -len(recs) <= index < len(recs):
+        raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
+    record = recs[index]
+    failures: list[str] = []
+
+    if verify_ledger:
+        ok, msg = verify_chain(ledger)
+        if not ok:
+            failures.append(f"ledger verification failed: {msg}")
+
+    if min_score is not None and record.aggregate.mean_score < min_score:
+        failures.append(
+            f"mean score {record.aggregate.mean_score:.3f} is below --min-score {min_score:.3f}"
+        )
+
+    if max_flip_rate is not None:
+        over = [c for c in record.results if c.flip_rate > max_flip_rate]
+        if over:
+            worst = max(over, key=lambda c: c.flip_rate)
+            failures.append(
+                f"{len(over)} case(s) exceed --max-flip-rate {max_flip_rate:.2f} "
+                f"(worst: {worst.case_id} at {worst.flip_rate:.0%})"
+            )
+
+    if critical:
+        wanted = {c.strip() for c in critical.split(",") if c.strip()}
+        known = {c.case_id for c in record.results}
+        missing = wanted - known
+        if missing:
+            failures.append(f"critical case(s) not in this record: {', '.join(sorted(missing))}")
+        flipped = [c.case_id for c in record.results if c.case_id in wanted and c.flip_count]
+        if flipped:
+            failures.append(f"critical case(s) flipped: {', '.join(sorted(flipped))}")
+
+    if expect_config is not None:
+        actual = config_fingerprint(record)
+        if actual != expect_config:
+            failures.append(
+                "Not directly comparable: evaluator configuration changed "
+                f"(expected {expect_config[:20]}..., got {actual[:20]}...)"
+            )
+
+    if failures:
+        for f in failures:
+            console.print(f"[red]FAIL[/red] {f}")
+        raise typer.Exit(code=EXIT_UNSTABLE)
+
+    console.print(
+        f"[green]PASS[/green] mean {record.aggregate.mean_score:.3f} · "
+        f"{record.aggregate.n_unstable} unstable case(s) · "
+        f"config {config_fingerprint(record)[:20]}..."
+    )
+    raise typer.Exit(code=0)

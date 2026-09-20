@@ -92,7 +92,7 @@ split, each with one verified numeric answer, same model, same N=5, `answer_matc
 evalseal run --suite examples/gsm8k/suite.json
 ```
 
-**Accuracy 0.975, and every case STABLE — 40 stable, 0 borderline, 0 unstable.** All five
+**Accuracy 0.975, and every case STABLE - 40 stable, 0 borderline, 0 unstable.** All five
 runs scored exactly 0.975. No flips at all, even with temperature left at the provider
 default.
 
@@ -107,7 +107,7 @@ That contrast is the finding. On this model and these tasks, the irreproducibili
 from the *judge*, not the model. Which is exactly the kind of claim a single run cannot
 make, and the reason to measure rather than assume.
 
-One problem (`gsm016`) was wrong in all five runs — consistently, not randomly. Reading it
+One problem (`gsm016`) was wrong in all five runs - consistently, not randomly. Reading it
 shows why: it says ten stalls, then refers to "the twenty stalls". GSM8K's reference answer
 assumes ten; the model assumed twenty and answered 176 every time. A stable failure is a
 different thing from a flaky one, and worth a different response: here, fix the question.
@@ -116,7 +116,7 @@ different thing from a flaky one, and worth a different response: here, fix the 
 
 `examples/codeqa/` is generated, not hand-written: `build_dataset.py` walks a directory of
 checked-out repositories, parses each Python file, and asks questions whose answers the
-parser already knows — a parameter's default, how many parameters a function takes, the
+parser already knows - a parameter's default, how many parameters a function takes, the
 exception it raises, its declared return type. Ground truth comes from the AST, so the
 suite is objectively gradable by `answer_match` with no judge in the loop.
 
@@ -135,11 +135,11 @@ rather than in the model.
 ### Three times the variance caught the eval, not the model
 
 - **A case failing all five runs** asked which exception `_call_with_retry` raises, where
-  the source says `raise last_exc` — a variable holding an exception, not a type. The
+  the source says `raise last_exc` - a variable holding an exception, not a type. The
   question was unanswerable; the generator now requires a class-shaped name.
 - **A case flipping 40%** asked which exception `_parse` raises. It explicitly raises
   `ValueError`, but also calls `json.loads` and `model_validate`, which propagate others.
-  The model alternated between those two readings — both defensible. Rewording the question
+  The model alternated between those two readings - both defensible. Rewording the question
   to "raised explicitly in its own body" took that case to `PPPPP`.
 - **Two cases flipping 20%** looked like genuine model uncertainty about class names
   defined in the codebase. They were not. Re-running just those two at N=20 (40 API calls)
@@ -153,29 +153,38 @@ evalseal run --suite examples/codeqa/suite.json --only cq043,cq052 --n 20
 ```
 
 `--only` re-examines named cases; a flip at N=5 is worth a closer look, because five runs
-cannot tell 20% from 30% — or, as here, from 0%.
+cannot tell 20% from 30% - or, as here, from 0%.
 
 The rule that survives all three: **a stable failure means your eval item is broken, and a
 flip means either the model is unsure or your question and scorer are.** Look before
-concluding. Normalizing decoration did not paper over real variance — the judge-graded
+concluding. Normalizing decoration did not paper over real variance - the judge-graded
 suite above still flips on 5 of 20 cases, because that disagreement is real.
 
 ## Did the score actually change?
 
-The same suite, same N, against a second model — `gemini-3.1-flash-lite` — then asking
+The same suite, same N, against a second model - `gemini-3.1-flash-lite` - then asking
 evalseal whether the difference is real:
 
 ```bash
 evalseal run --suite examples/gsm8k/suite.json      --ledger .evalseal/compare.jsonl
 evalseal run --suite examples/gsm8k/suite-lite.json --ledger .evalseal/compare.jsonl
-evalseal diff --ledger .evalseal/compare.jsonl 0 1
+evalseal diff --ledger .evalseal/compare.jsonl -- 0 1
 ```
 
 ```
-mean 0.975 -> 0.975  (delta +0.000, noise floor ±0.217) => within noise
+Comparable: yes. Same grading setup, so the scores mean the same thing.
+
+ metric              before  after  change
+ ───────────────────────────────────────────────────────────────────────────────
+ score               0.975   0.975  no change (within noise, noise floor ±0.217)
+ mean flip rate      0.0%    0.0%   +0.0%
+ cases that flipped  0       0      +0
+
+Other differences: served model gemini-2.5-flash to gemini-3.1-flash-lite, sealed
+hash sha256:44c37b257f73e to sha256:cf13839f41540
 ```
 
-Both models scored 0.975, both perfectly stable, and both missed the *same* problem — the
+Both models scored 0.975, both perfectly stable, and both missed the *same* problem - the
 broken one. On this suite the two models are indistinguishable, which says less about the
 models than about the suite: 40 problems this easy cannot separate them. That is a useful
 thing to learn before quoting a benchmark number as evidence one model beats another.
@@ -185,15 +194,64 @@ thing to learn before quoting a benchmark number as evidence one model beats ano
 than a finding. Raising N narrows the floor and buys the power to call smaller differences
 real: ±0.217 at N=5 becomes roughly ±0.08 at N=20.
 
+### Comparability comes before the delta
+
+The first line is the one that matters. A score delta means nothing until you know the two
+runs measured the same thing, so `diff` answers that first and the number second.
+
+Comparability is decided by the **evaluator fingerprint**: scorer type, rubric, judge
+prompt, judge model and parameters, and the dataset. It deliberately excludes the *target*
+model, because comparing two target models is the entire point of a benchmark. Change the
+rubric and the score moves while the model sits still - that is the comparison EvalSeal
+refuses to let you make silently.
+
+Any two sealed records work, whether they are receipt files or ledgers:
+
+```bash
+evalseal diff report-before.json report-after.json     # two receipts
+evalseal diff --ledger .evalseal/runs.jsonl -- 0 -1    # first vs latest
+evalseal diff runs-a.jsonl runs-b.jsonl                # heads of two ledgers
+evalseal diff before.json after.json --json            # for CI
+```
+
+```
+Not directly comparable: evaluator configuration changed.
+
+ what changed  before                            after
+ ──────────────────────────────────────────────────────────────────────────────────
+ dataset       sha256:b2639589bcf0b3161b5fc144…  sha256:95c3248301dd733c4e3c24cf07…
+
+ metric              before  after  change
+ ──────────────────────────────────────────────────────────────────────────────
+ score               0.987   0.993  +0.007 (not comparable, noise floor ±0.400)
+ mean flip rate      1.3%    0.7%   -0.7%
+ cases that flipped  3       2      -1
+
+ • Now stable: cq015
+ • Still unstable: cq043, cq052
+```
+
+The score went up by 0.007 and EvalSeal declines to call that an improvement, because the
+dataset underneath it changed. What it will tell you is which *cases* moved: `cq015`
+stopped flipping, `cq043` and `cq052` still flip. That case-level drift is the part worth
+acting on - it points at a specific question to go read, which is where eval defects
+actually live.
+
+`--json` emits the same content as a machine-readable object (`comparable`, `score`,
+`flip_rate`, `unstable_cases`, `cases`, `config_changes`, `provenance`) for a pipeline to
+assert on. `diff` always exits 0: it reports, it does not gate. Gating is `gate`'s job.
+
 ## Commands
 
 | command | what it does | exit code |
 |---|---|---|
 | `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `report.json` + `report.md`. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error |
 | `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures. | `0` intact · `1` tampered or broken |
-| `evalseal diff A B` | Compares two ledger runs and says whether the mean moved beyond the noise floor. Use `--` for negative indices: `evalseal diff -- 0 -1`. | `0` |
+| `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - and reports comparability, score change against the noise floor, and which cases started or stopped flipping. `--json` for CI. | `0` |
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
+| `evalseal report` | Prints the per-case verdict distribution for a sealed record. | `0` |
+| `evalseal gate` | Applies CI thresholds to a sealed record. | `0` passed · `3` gate failed |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
 HTTP 429/408/5xx and connection errors, honouring `Retry-After`), `--timeout`, and
@@ -245,7 +303,7 @@ evalseal gate --critical b01,b02                     # these must never flip
 evalseal gate --expect-config sha256:407033d3836b8   # evaluator must not have changed
 ```
 
-`--expect-config` compares the evaluator fingerprint — target model and parameters, scorer
+`--expect-config` compares the evaluator fingerprint - target model and parameters, scorer
 type, rubric hash, judge prompt hash, judge model and parameters, dataset and suite hashes.
 A change there moves the score without the model changing, so a gate that ignores it will
 eventually mistake evaluator drift for model drift.
@@ -288,7 +346,7 @@ distribution, worst first, stamped with the judge prompt that produced it:
 `summary.flip_rate`, `cases[].verdict_distribution`, `cases[].verdict_sequence` and a
 `provenance` block including the config fingerprint.
 
-**Flip rate is `non-majority verdicts / total runs`** — not transitions between runs. So
+**Flip rate is `non-majority verdicts / total runs`** - not transitions between runs. So
 `PPFP` is 1/4 = 25%, not 2 transitions out of 3. The definition was chosen because it does
 not depend on the order runs happened to execute in, which matters once runs are concurrent.
 
@@ -351,6 +409,19 @@ record = run_eval(
 )
 print(record.aggregate.mean_score, [r.stability for r in record.results])
 ```
+
+Comparing two sealed runs, with the same rules the CLI applies:
+
+```python
+from evalseal import diff_records, load_receipt
+
+result = diff_records(load_receipt("before.json"), load_receipt("after.json"))
+if result.comparable and result.score_verdict == "REAL CHANGE":
+    print(result.score_delta, result.newly_unstable)
+```
+
+`load_receipt` reads either shape: a `report.json` receipt, or a ledger, whose head it
+takes. `DiffResult.to_dict()` is what `--json` prints.
 
 The package ships type information (PEP 561), so mypy and pyright see the annotations.
 

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from .models import CaseResult, RunRecord
+
+if TYPE_CHECKING:
+    from .diffing import DiffResult
 
 
 # Every artifact is written UTF-8 explicitly. Path.write_text defaults to the locale
@@ -155,3 +159,58 @@ def to_junit(record: RunRecord, fail_on: str = "unstable") -> str:
 
 def write_junit(record: RunRecord, path: str | Path, fail_on: str = "unstable") -> None:
     Path(path).write_text(to_junit(record, fail_on), encoding="utf-8")
+
+
+def render_diff(result: DiffResult) -> str:
+    """Human-readable drift report. Comparability comes first, deliberately:
+    a score delta is meaningless until you know the two runs measured the same thing."""
+    lines: list[str] = []
+
+    if result.comparable:
+        lines.append("**Comparable:** yes. Same grading setup, so the scores mean the "
+                     "same thing.")
+    else:
+        lines.append("**Not directly comparable: evaluator configuration changed.**")
+        lines.append("")
+        lines.append("| what changed | before | after |")
+        lines.append("|---|---|---|")
+        for change in result.config_changes:
+            lines.append(f"| {change.name} | `{change.before}` | `{change.after}` |")
+    lines.append("")
+
+    arrow = "no change" if result.score_delta == 0 else f"{result.score_delta:+.3f}"
+    lines.append("| metric | before | after | change |")
+    lines.append("|---|---|---|---|")
+    lines.append(
+        f"| score | {result.score_before:.3f} | {result.score_after:.3f} | "
+        f"{arrow} ({result.score_verdict}, noise floor ±{result.noise_floor:.3f}) |"
+    )
+    # One decimal: at whole percents a 1.3% -> 0.7% move renders as "1% 1% -1%".
+    lines.append(
+        f"| mean flip rate | {result.flip_rate_before:.1%} | {result.flip_rate_after:.1%} | "
+        f"{result.flip_rate_delta:+.1%} |"
+    )
+    lines.append(
+        f"| cases that flipped | {len(result.unstable_before)} | "
+        f"{len(result.unstable_after)} | "
+        f"{len(result.unstable_after) - len(result.unstable_before):+d} |"
+    )
+    lines.append("")
+
+    for label, cases in (
+        ("Newly unstable", result.newly_unstable),
+        ("Now stable", result.now_stable),
+        ("Still unstable", result.still_unstable),
+        ("Cases added", result.cases_added),
+        ("Cases removed", result.cases_removed),
+    ):
+        if cases:
+            lines.append(f"- **{label}:** {', '.join(cases)}")
+
+    changed_provenance = [c for c in result.provenance if c.changed]
+    if changed_provenance:
+        lines.append("")
+        lines.append("Other differences: " + ", ".join(
+            f"{c.name} `{c.before}` to `{c.after}`" for c in changed_provenance
+        ))
+    return "\n".join(lines)

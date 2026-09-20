@@ -175,11 +175,37 @@ def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
     return (True, f"Chain intact: {len(recs)} record(s).")
 
 
-def config_fingerprint(record: RunRecord) -> str:
-    """Hash of the parts of a manifest that decide whether two runs are comparable.
+def evaluator_fingerprint(record: RunRecord) -> str:
+    """Hash of the *judging* side only: scorer, rubric, judge prompt, judge model, inputs.
 
-    Scores from runs with different fingerprints measure different things: a changed
-    judge prompt or rubric moves the number without the target model changing at all.
+    Deliberately excludes the target model and its parameters. Swapping the model under
+    test is the reason to run a benchmark, and two models graded the same way are
+    comparable. Changing how the grading works is what makes a comparison meaningless.
+    """
+    m = record.manifest
+    payload = {
+        "scorer_type": m.scorer.type,
+        "rubric_hash": m.scorer.rubric_hash,
+        "judge_prompt_hash": m.scorer.judge_prompt_hash,
+        "judge_model": m.scorer.judge.requested_model if m.scorer.judge else None,
+        "judge_params": (
+            m.scorer.judge.effective_params.model_dump(mode="json") if m.scorer.judge else None
+        ),
+        "dataset_hash": m.dataset.hash,
+        # The suite file is deliberately not included: it bundles the target model, so
+        # hashing it would make "same grading, different model" look incomparable, which
+        # is the one comparison a benchmark exists to make.
+    }
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(blob.encode()).hexdigest()
+
+
+def config_fingerprint(record: RunRecord) -> str:
+    """Hash of the whole measurement setup, target model included.
+
+    This is what `gate --expect-config` pins: it answers "is anything about this run
+    different from the one I approved". For "can these two numbers be compared", use
+    `evaluator_fingerprint`, which ignores the target under test.
     """
     m = record.manifest
     payload = {

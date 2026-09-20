@@ -20,6 +20,7 @@ from .adapters.scorer import (
     RegexScorer,
 )
 from .adapters.target import OpenAICompatibleTarget
+from .diffing import diff_records, load_receipt
 from .executor import run_eval
 from .ledger import (
     LEDGER_PATH,
@@ -29,11 +30,12 @@ from .ledger import (
     seal_and_append,
     verify_chain,
 )
-from .models import FailOn, SuiteProvenance
+from .models import FailOn, RunRecord, SuiteProvenance
 from .provenance import file_hash
 from .report import (
     case_rows,
     failing_cases,
+    render_diff,
     to_case_table,
     to_markdown,
     verdict_sequence,
@@ -341,47 +343,44 @@ def sign(
 
 @app.command()
 def diff(
-    a: int = typer.Argument(..., help="Ledger index of the baseline run (negative ok)."),
-    b: int = typer.Argument(..., help="Ledger index of the candidate run (negative ok)."),
+    a: str = typer.Argument(..., help="Baseline: a receipt file, or a ledger index."),
+    b: str = typer.Argument(..., help="Candidate: a receipt file, or a ledger index."),
     ledger: Path = LedgerOpt,
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ):
-    """Compare two runs; state whether a score change exceeds the noise floor."""
-    recs = load_all(ledger)
-    for i in (a, b):
-        if not -len(recs) <= i < len(recs):
-            raise typer.BadParameter(f"index {i} out of range; ledger has {len(recs)} record(s)")
-    ra, rb = recs[a], recs[b]
-    ma, mb = ra.aggregate.mean_score, rb.aggregate.mean_score
+    """Compare two runs: score, stability, and whether they are comparable at all.
 
-    # Noise floor: widest per-case CI half-width across both runs. Deliberately
-    # conservative — "REAL CHANGE" is only claimed when no single case's noise explains it.
-    def halfwidth(r):
-        return max(((c.ci95[1] - c.ci95[0]) / 2 for c in r.results), default=0.0)
+    Both arguments accept either a path to a receipt (report.json) or an index into the
+    ledger, so `evalseal diff baseline.json current.json` and `evalseal diff 0 -1` both
+    work. Exit status is always 0: this command reports, it does not gate. Use
+    `evalseal gate` to fail a build.
+    """
+    def resolve(token: str) -> RunRecord:
+        path = Path(token)
+        if path.exists():
+            return load_receipt(path)
+        try:
+            index = int(token)
+        except ValueError:
+            raise typer.BadParameter(
+                f"{token!r} is neither an existing file nor a ledger index"
+            ) from None
+        recs = load_all(ledger)
+        if not -len(recs) <= index < len(recs):
+            raise typer.BadParameter(
+                f"index {index} out of range; ledger has {len(recs)} record(s)"
+            )
+        return recs[index]
 
-    noise = max(halfwidth(ra), halfwidth(rb))
-    delta = mb - ma
-    verdict = "within noise" if abs(delta) <= noise else "REAL CHANGE"
-    console.print(
-        f"mean {ma:.3f} -> {mb:.3f}  (delta {delta:+.3f}, noise floor ±{noise:.3f}) => {verdict}"
-    )
-    if ra.manifest.dataset.hash != rb.manifest.dataset.hash:
-        console.print("[yellow]Warning: runs used different datasets.[/yellow]")
-    if config_fingerprint(ra) != config_fingerprint(rb):
-        # A changed rubric or judge prompt moves the score without the target model
-        # changing at all, so comparing the two numbers answers a different question.
-        console.print(
-            "[yellow]Not directly comparable: evaluator configuration changed.[/yellow]"
-        )
-        for label, left, right in (
-            ("judge prompt", ra.manifest.scorer.judge_prompt_hash,
-             rb.manifest.scorer.judge_prompt_hash),
-            ("rubric", ra.manifest.scorer.rubric_hash, rb.manifest.scorer.rubric_hash),
-            ("scorer type", ra.manifest.scorer.type, rb.manifest.scorer.type),
-            ("target model", ra.manifest.target.requested_model,
-             rb.manifest.target.requested_model),
-        ):
-            if left != right:
-                console.print(f"  [yellow]{label}:[/yellow] {left} -> {right}")
+    before, after = resolve(a), resolve(b)
+    result = diff_records(before, after)
+
+    if as_json:
+        console.print_json(json.dumps(result.to_dict()))
+        raise typer.Exit(code=0)
+
+    console.print(Markdown(render_diff(result)))
+    raise typer.Exit(code=0)
 
 
 @app.command()

@@ -1,8 +1,48 @@
 # Changelog
 
 All notable changes to this project are documented here.
-This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
-while the version is 0.x, a minor bump may break formats.
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The sealed record format carries its own `schema_version`; a record written by an
+older version still verifies.
+
+## [1.4.0] - 2026-09-20
+
+### Added
+- **First-class drift comparison.** `evalseal diff` no longer just prints a mean delta. It
+  reports, in this order: whether the two runs are comparable at all, the score change
+  against the noise floor, the mean flip-rate change, and which individual cases started
+  or stopped flipping. The case-level part is the actionable one - it names a question to
+  go read.
+- **Comparability is decided by an evaluator fingerprint**, not the whole config.
+  `evaluator_fingerprint()` covers the grading side only: scorer type, rubric hash, judge
+  prompt hash, judge model and parameters, and the dataset. It deliberately excludes the
+  target model and its parameters, because comparing two target models is the point of a
+  benchmark. Previously `diff` used `config_fingerprint()`, which includes the target, so
+  the single most common comparison - model A versus model B on one suite - was reported
+  as "not directly comparable". That was wrong.
+- **`diff` accepts receipt files as well as ledger indices**, in any mix:
+  `evalseal diff before.json after.json`, `evalseal diff --ledger runs.jsonl -- 0 -1`, or
+  two different ledgers. `load_receipt()` reads either shape.
+- **`evalseal diff --json`** emits the whole comparison as one object for a pipeline to
+  assert on: `comparable`, `score`, `flip_rate`, `unstable_cases`, `cases`,
+  `config_changes`, `provenance`.
+- **`diff_records`, `load_receipt`, `render_diff` and `DiffResult`** are exported from the
+  package, so the comparison is available as a library with the same rules the CLI uses.
+
+### Fixed
+- **A pre-1.2 receipt reported nothing unstable.** The diff keyed instability on
+  `flip_count`, a field added in schema 1.2 that deserializes to 0 on older records - so
+  comparing an old run against a new one silently showed zero flips on the old side. It
+  now keys on `flip_rate`, which every schema has.
+- **Flip-rate rounding made a real move look like none.** At whole percents a 1.3% to 0.7%
+  change rendered as "1% 1% -1%". Flip rates now print to one decimal.
+- **`load_receipt` mis-read pretty-printed receipts.** Taking the last line of the file
+  works for a ledger and yields a lone `}` for a `report.json`. It now parses the whole
+  file first and only falls back to JSONL.
+
+### Changed
+- `diff` still always exits 0. It reports; it does not gate. Gating stays `gate`'s job, so
+  a comparison in CI cannot fail a build by accident.
 
 ## [1.3.2] - 2026-09-20
 
@@ -171,6 +211,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.4.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.4.0
 [1.3.2]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.2
 [1.3.1]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.1
 [1.3.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.0

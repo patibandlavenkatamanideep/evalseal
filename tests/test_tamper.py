@@ -136,3 +136,23 @@ def test_tampering_with_a_legacy_record_is_still_caught(tmp_path):
 
     ok, message = verify_chain(ledger)
     assert not ok and "TAMPER DETECTED" in message
+
+
+def test_artifacts_are_written_utf8_not_locale_encoded(tmp_path):
+    """Regression: report.md carries "·" and "⚠", which cp1252 cannot encode.
+
+    `Path.write_text` defaults to the locale encoding, so on a Windows runner this
+    raised UnicodeEncodeError and `evalseal run` exited 1 — while passing on POSIX.
+    """
+    from evalseal.report import to_markdown, write_json, write_markdown
+
+    target = LocalCallableTarget(scripted({"q": ["yes", "no", "yes", "yes", "yes"]}))
+    record = run_eval(make_dataset("q"), target, RegexScorer("yes"), n_repeats=5)
+    assert any(ord(ch) > 127 for ch in to_markdown(record)), "fixture must exercise non-ASCII"
+
+    md, js = tmp_path / "report.md", tmp_path / "report.json"
+    write_markdown(record, md)
+    write_json(record, js)
+
+    assert "·" in md.read_text(encoding="utf-8")
+    assert json.loads(js.read_text(encoding="utf-8"))["results"][0]["case_id"]

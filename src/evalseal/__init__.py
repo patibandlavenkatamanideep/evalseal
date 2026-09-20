@@ -27,7 +27,7 @@ from .provenance import file_hash, git_provenance, text_hash
 from .report import to_junit, to_markdown
 from .signing import generate_keypair, sign_head, verify_signatures
 
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 
 __all__ = [
     "Aggregate", "Case", "CaseResult", "CaseStats", "Cassette", "Dataset",

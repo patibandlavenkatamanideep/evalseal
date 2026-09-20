@@ -63,7 +63,7 @@ def load_dotenv(path: Path = Path(".env")) -> None:
     """Load KEY=VALUE lines from ./.env. Variables already in the environment win."""
     if not path.is_file():
         return
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -84,7 +84,7 @@ def _load_suite(path: Path | None) -> dict:
     Explicit flags still win, so a suite is a default, not a cage."""
     if path is None:
         return {}
-    suite = json.loads(path.read_text())
+    suite = json.loads(path.read_text(encoding="utf-8"))
     unknown = set(suite) - {
         "dataset", "target", "scorer", "n_repeats", "concurrency", "cassette",
         "fail_on", "max_retries", "timeout", "ledger", "junit_xml", "sign_key",
@@ -210,8 +210,10 @@ def run(
     except CassetteFormatError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=1) from e
-    target = _build_target(json.loads(target_config.read_text()), cass, max_retries, timeout)
-    scorer = _build_scorer(json.loads(scorer_config.read_text()), cass, max_retries, timeout)
+    target_cfg = json.loads(target_config.read_text(encoding="utf-8"))
+    scorer_cfg = json.loads(scorer_config.read_text(encoding="utf-8"))
+    target = _build_target(target_cfg, cass, max_retries, timeout)
+    scorer = _build_scorer(scorer_cfg, cass, max_retries, timeout)
 
     total = len(ds.cases) * n
     show_progress = not quiet and sys.stderr.isatty()

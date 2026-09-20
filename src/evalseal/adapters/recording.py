@@ -66,7 +66,7 @@ class Cassette:
             self._entries = self._load()
 
     def _load(self) -> dict[str, dict]:
-        raw = json.loads(self.path.read_text())
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict) or raw.get("version") != FORMAT_VERSION:
             raise CassetteFormatError(
                 f"{self.path} was written by an incompatible evalseal version "
@@ -109,4 +109,4 @@ class Cassette:
     def _write(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"version": FORMAT_VERSION, "entries": self._entries}
-        self.path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+        self.path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")

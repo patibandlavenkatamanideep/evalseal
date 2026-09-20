@@ -20,7 +20,7 @@ class Dataset:
 
     @classmethod
     def from_jsonl(cls, path: str | Path) -> Dataset:
-        raw = Path(path).read_text()
+        raw = Path(path).read_text(encoding="utf-8")
         cases = []
         seen: set[str] = set()
         for lineno, line in enumerate(raw.splitlines(), start=1):

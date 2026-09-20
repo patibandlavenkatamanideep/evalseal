@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -44,10 +45,13 @@ def generate_keypair(private_path: Path, public_path: Path) -> str:
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     ))
-    private_path.chmod(0o600)
+    if os.name != "nt":
+        # POSIX modes do not exist on Windows; NTFS inherits the parent directory's ACL
+        # instead. Callers on Windows should keep keys somewhere already restricted.
+        private_path.chmod(0o600)
     pub_b64 = public_key_b64(private.public_key())
     public_path.parent.mkdir(parents=True, exist_ok=True)
-    public_path.write_text(pub_b64 + "\n")
+    public_path.write_text(pub_b64 + "\n", encoding="utf-8")
     return pub_b64
 
 
@@ -68,7 +72,7 @@ def load_private_key(path: Path) -> Ed25519PrivateKey:
 def load_public_key(value: str) -> Ed25519PublicKey:
     """Accept either a path to a key file or the base64 key itself."""
     candidate = Path(value)
-    text = candidate.read_text() if candidate.is_file() else value
+    text = candidate.read_text(encoding="utf-8") if candidate.is_file() else value
     return Ed25519PublicKey.from_public_bytes(base64.b64decode(text.strip()))
 
 
@@ -92,7 +96,7 @@ def sign_head(ledger: Path = LEDGER_PATH, key_path: Path = Path("evalseal.key"))
         "signed_at": datetime.now(UTC).isoformat(),
     }
     path = signatures_path(ledger)
-    with path.open("a") as f:
+    with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, sort_keys=True) + "\n")
     return entry
 
@@ -101,7 +105,11 @@ def load_signatures(ledger: Path = LEDGER_PATH) -> list[dict]:
     path = signatures_path(ledger)
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def verify_signatures(ledger: Path = LEDGER_PATH, expected_public_key: str | None = None

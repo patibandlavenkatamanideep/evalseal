@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -52,6 +53,7 @@ def test_sign_then_verify(tmp_path):
     assert verify_signatures(ledger, pub)[0]        # base64 key works too
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes do not exist on Windows")
 def test_private_key_is_not_world_readable(tmp_path):
     key, _, _ = _keys(tmp_path)
     assert key.stat().st_mode & 0o077 == 0

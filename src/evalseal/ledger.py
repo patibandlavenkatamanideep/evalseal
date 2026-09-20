@@ -87,7 +87,7 @@ def load_all(path: Path = LEDGER_PATH) -> list[RunRecord]:
         return []
     return [
         RunRecord.model_validate_json(line)
-        for line in path.read_text().splitlines()
+        for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
 
@@ -123,7 +123,7 @@ def seal_and_append(
             record.prev_hash = head
         record.hash = _content_hash(record)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a") as f:
+        with path.open("a", encoding="utf-8") as f:
             f.write(record.model_dump_json() + "\n")
             f.flush()
             os.fsync(f.fileno())                   # survive a crash, not just a close

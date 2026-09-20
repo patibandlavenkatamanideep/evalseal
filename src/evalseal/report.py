@@ -6,8 +6,11 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from .models import CaseResult, RunRecord
 
 
+# Every artifact is written UTF-8 explicitly. Path.write_text defaults to the locale
+# encoding, which on a Windows console is cp1252 and cannot encode the "·" and "⚠" this
+# report uses — that crashed `evalseal run` on Windows while passing everywhere else.
 def write_json(record: RunRecord, path: str | Path = "report.json") -> None:
-    Path(path).write_text(record.model_dump_json(indent=2))
+    Path(path).write_text(record.model_dump_json(indent=2), encoding="utf-8")
 
 
 def verdict_sequence(case: CaseResult) -> str:
@@ -79,7 +82,7 @@ def to_markdown(record: RunRecord) -> str:
 
 
 def write_markdown(record: RunRecord, path: str | Path = "report.md") -> None:
-    Path(path).write_text(to_markdown(record))
+    Path(path).write_text(to_markdown(record), encoding="utf-8")
 
 
 # Stability classes that count as a failure under each policy.
@@ -151,4 +154,4 @@ def to_junit(record: RunRecord, fail_on: str = "unstable") -> str:
 
 
 def write_junit(record: RunRecord, path: str | Path, fail_on: str = "unstable") -> None:
-    Path(path).write_text(to_junit(record, fail_on))
+    Path(path).write_text(to_junit(record, fail_on), encoding="utf-8")

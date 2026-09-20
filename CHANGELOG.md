@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 while the version is 0.x, a minor bump may break formats.
 
+## [1.3.2] - 2026-09-20
+
+### Fixed
+- **`evalseal run` crashed on Windows.** Artifacts were written with `Path.write_text`,
+  which uses the *locale* encoding — cp1252 on a Windows console, which cannot encode the
+  `·` and `⚠` the report contains. The run exited 1 with `UnicodeEncodeError: 'charmap'`.
+  Every text artifact EvalSeal reads or writes is now explicitly UTF-8. Found by the
+  Windows CI job added in 1.3.1, on its first run.
+- **Key permissions on Windows.** `chmod(0o600)` is a no-op there; the code now skips it
+  and says why (NTFS inherits the parent directory's ACL), and the test skips rather than
+  asserting something untrue about the platform.
+
+### Changed
+- **Releases are gated on Windows and macOS, not Linux alone.** 1.3.1 published the
+  Unicode bug above precisely because the release workflow only ran `pytest` on Ubuntu.
+  Publishing now waits for the test suite to pass on all three platforms.
+
 ## [1.3.1] - 2026-09-20
 
 ### Added
@@ -154,6 +171,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.3.2]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.2
 [1.3.1]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.1
 [1.3.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.0
 [1.2.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.2.0

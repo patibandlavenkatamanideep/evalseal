@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 while the version is 0.x, a minor bump may break formats.
 
+## [1.3.1] - 2026-09-20
+
+### Added
+- **Ledgers sealed by older versions verify again.** A record written under schema 1.0 or
+  1.1 is re-hashed the way its own schema would have hashed it, so upgrading no longer
+  strands an existing ledger. `verify` says which older schemas it accepted. Tampering
+  with a legacy record is still caught — there is a test that edits one and expects
+  `TAMPER DETECTED`. The fixture was produced by running 1.2.0 for real, not hand-written.
+- **Windows and macOS in CI.** The ledger lock uses `msvcrt` on Windows and `fcntl`
+  elsewhere, so the concurrency guarantee was previously only exercised on Linux.
+- **Tamper test suite** covering a changed score, a changed judge prompt hash, a broken
+  `prev_hash`, duplicated `prev_hash` (siblings), a deleted record, and a re-hashed forgery
+  that still breaks its successor.
+- **`docs/github-action-example.yml`**, a copy-pasteable workflow that replays a cassette,
+  verifies the ledger, gates on thresholds and uploads the per-case report.
+- A console quickstart in the README showing the per-case table, verify, and a failing gate.
+
 ## [1.3.0] - 2026-09-20
 
 ### Fixed
@@ -137,6 +154,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.3.1]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.1
 [1.3.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.0
 [1.2.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.2.0
 [1.1.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.1.0

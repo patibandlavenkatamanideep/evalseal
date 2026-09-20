@@ -13,10 +13,71 @@ LEDGER_PATH = Path(".evalseal/ledger.jsonl")
 GENESIS = "GENESIS"
 
 
-def _content_hash(record: RunRecord) -> str:
-    # Hash everything except the hash field itself.
+# Fields introduced by each schema version. Loading an older record into today's models
+# fills these with defaults, which would change its hash and look like tampering. To
+# verify an old record we hash it as the version that sealed it would have: strip every
+# field added after that version, then hash.
+#
+# "results[]" applies the named keys to each case result.
+_FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
+    "1.1": [
+        ("manifest", "run_config", "concurrency"),
+    ],
+    "1.2": [
+        ("manifest", "suite"),
+        ("manifest", "code"),
+        ("manifest", "environment"),
+        ("manifest", "scorer", "judge_prompt_hash"),
+        ("manifest", "scorer", "judge_prompt"),
+        ("manifest", "dataset", "path"),
+        ("manifest", "dataset", "case_ids"),
+        ("results[]", "verdicts"),
+        ("results[]", "pass_count"),
+        ("results[]", "fail_count"),
+        ("results[]", "other_count"),
+        ("results[]", "flip_count"),
+        ("results[]", "stability_label"),
+    ],
+}
+
+
+def _schema_tuple(version: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(part) for part in version.split("."))
+    except ValueError:
+        return (0,)
+
+
+def _drop(payload: dict, path: tuple[str, ...]) -> None:
+    """Remove one field, following a dotted path; `results[]` maps over every case."""
+    if path[0] == "results[]":
+        for case in payload.get("results", []):
+            case.pop(path[1], None)
+        return
+    node: object = payload
+    for key in path[:-1]:
+        if not isinstance(node, dict):
+            return
+        node = node.get(key)
+    if isinstance(node, dict):
+        node.pop(path[-1], None)
+
+
+def _content_hash(record: RunRecord, as_schema: str | None = None) -> str:
+    """Hash a record as the given schema version would have hashed it.
+
+    `as_schema=None` means today's schema. Passing an older version strips the fields
+    that version did not have, which is what makes a 1.1-sealed ledger still verify.
+    """
     payload = record.model_dump(mode="json")
     payload.pop("hash", None)
+    if as_schema is not None and as_schema != SCHEMA_VERSION:
+        target = _schema_tuple(as_schema)
+        for version, fields in _FIELDS_ADDED_IN.items():
+            if _schema_tuple(version) > target:
+                for path in fields:
+                    _drop(payload, path)
+        payload.setdefault("manifest", {})["schema_version"] = as_schema
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(blob.encode()).hexdigest()
 
@@ -87,19 +148,30 @@ def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
         return (False, f"{genesis_count} records claim GENESIS; the ledger is not linear.")
 
     prev = GENESIS
+    legacy: set[str] = set()
     for i, r in enumerate(recs):
         if r.prev_hash != prev:
             return (False, f"Broken chain at record {i}: prev_hash mismatch.")
         if _content_hash(r) != r.hash:
-            # An older schema hashes different fields, so say that rather than cry tamper.
-            if r.manifest.schema_version != SCHEMA_VERSION:
+            # Re-hash it the way its own schema would have, so an older ledger still
+            # verifies instead of being mistaken for a tampered one.
+            sealed_under = r.manifest.schema_version
+            if sealed_under != SCHEMA_VERSION and _content_hash(r, sealed_under) == r.hash:
+                legacy.add(sealed_under)
+            elif sealed_under not in _FIELDS_ADDED_IN and sealed_under != SCHEMA_VERSION:
                 return (False, (
-                    f"Record {i} was sealed under schema {r.manifest.schema_version}; this build "
-                    f"seals {SCHEMA_VERSION} and cannot verify it. Start a new ledger, or verify "
-                    f"it with the version that wrote it."
+                    f"Record {i} was sealed under schema {sealed_under}, which this build does "
+                    f"not know how to re-hash. Verify it with the version that wrote it."
                 ))
-            return (False, f"TAMPER DETECTED at record {i}: content hash does not match.")
+            else:
+                return (False, f"TAMPER DETECTED at record {i}: content hash does not match.")
         prev = r.hash
+    if legacy:
+        older = ", ".join(sorted(legacy))
+        return (True, (
+            f"Chain intact: {len(recs)} record(s). "
+            f"{len(legacy)} older schema version(s) verified under their own rules ({older})."
+        ))
     return (True, f"Chain intact: {len(recs)} record(s).")
 
 

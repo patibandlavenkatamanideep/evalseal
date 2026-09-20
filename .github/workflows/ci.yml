@@ -36,10 +36,19 @@ jobs:
           pip-audit --strict --progress-spinner off -r deps.txt
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.11", "3.12", "3.13"]
+        include:
+          # The ledger lock uses msvcrt on Windows and fcntl everywhere else, so the
+          # concurrency guarantee is only tested if Windows is in the matrix.
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -48,6 +57,7 @@ jobs:
       - name: Tests (no API key — cassettes replay)
         run: pytest -q --cov=evalseal --cov-fail-under=90
       - name: Demo run reproduces from cassette
+        if: runner.os != 'Windows'
         run: |
           if [ ! -f tests/cassettes/run.json ]; then
             echo "::warning::tests/cassettes/run.json not recorded yet; skipping demo replay."
@@ -64,23 +74,27 @@ jobs:
           # Anything else means the replay itself broke.
           if [ "$code" -ne 0 ] && [ "$code" -ne 3 ]; then exit "$code"; fi
       - name: GSM8K suite reproduces from cassette
+        if: runner.os != 'Windows'
         run: |
           if [ ! -f tests/cassettes/gsm8k.json ]; then
             echo "::warning::gsm8k cassette not recorded; skipping."; exit 0
           fi
           evalseal run --suite examples/gsm8k/suite.json --ledger .evalseal/gsm8k.jsonl --quiet
       - name: Code-QA suite reproduces from cassette
+        if: runner.os != 'Windows'
         run: |
           if [ ! -f tests/cassettes/codeqa.json ]; then
             echo "::warning::codeqa cassette not recorded; skipping."; exit 0
           fi
           evalseal run --suite examples/codeqa/suite.json --ledger .evalseal/codeqa.jsonl --quiet
       - name: Signing round trip
+        if: runner.os != 'Windows'
         run: |
           evalseal keygen --private-key ci.key --public-key ci.pub
           evalseal sign --ledger .evalseal/gsm8k.jsonl --key ci.key
           evalseal verify --ledger .evalseal/gsm8k.jsonl --public-key ci.pub
       - name: Ledger integrity
+        if: runner.os != 'Windows'
         run: evalseal verify
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()

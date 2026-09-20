@@ -1,0 +1,56 @@
+# Drop-in GitHub Action for gating a pull request on eval reproducibility.
+#
+# It replays a committed cassette, so it needs no API key and costs nothing. Swap the
+# replay for a live run (and add your key as a secret) when you want fresh numbers.
+name: Eval reproducibility
+
+on: [pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install evalseal
+
+      # Replay the committed cassette. Exit 3 means cases violated --fail-on; the
+      # gate below decides whether that should fail the build, so tolerate it here.
+      - name: Run the eval
+        run: |
+          set +e
+          evalseal run --suite evals/suite.json --quiet --show-cases --unstable-only
+          code=$?
+          if [ "$code" -ne 0 ] && [ "$code" -ne 3 ]; then exit "$code"; fi
+
+      # The receipt must be internally consistent before its numbers mean anything.
+      - name: Verify the ledger
+        run: evalseal verify
+
+      # Thresholds. --expect-config fails the build if the rubric, judge prompt, judge
+      # model or dataset changed, because that moves the score without the model moving.
+      - name: Gate
+        run: |
+          evalseal gate \
+            --min-score 0.85 \
+            --max-flip-rate 0.20 \
+            --critical b01,b05
+        # Add once you have pinned a fingerprint from `evalseal report --json`:
+        #   --expect-config sha256:...
+
+      - name: Publish the per-case report
+        if: always()
+        run: evalseal report --json > evalseal-report.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evalseal-report
+          path: |
+            evalseal-report.json
+            report.md
+          if-no-files-found: ignore

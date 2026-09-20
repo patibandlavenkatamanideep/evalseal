@@ -25,6 +25,31 @@ evalseal run \
   --n 5
 ```
 
+### Two minutes, no API key
+
+```console
+$ evalseal run --suite examples/borderline_judge/suite.json --show-cases --unstable-only
+Aggregate: 20 cases · mean 0.92 · 15 stable / 2 borderline / 3 unstable
+
+ case_id  runs  pass  fail  flips  flip_rate  majority  stability  judge_prompt_hash
+ b01      5     3     2     2      40%        PASS      unstable   sha256:457d7c3
+ b10      5     3     2     2      40%        PASS      unstable   sha256:457d7c3
+ b16      5     3     2     2      40%        PASS      unstable   sha256:457d7c3
+ b05      5     4     1     1      20%        PASS      unstable   sha256:457d7c3
+ b19      5     4     1     1      20%        PASS      unstable   sha256:457d7c3
+
+3 case(s) fail --fail-on unstable: b01, b10, b16
+
+$ evalseal verify
+Chain intact: 1 record(s).
+
+$ evalseal gate --min-score 0.85 --max-flip-rate 0.10
+FAIL 5 case(s) exceed --max-flip-rate 0.10 (worst: b01 at 40%)
+```
+
+Exit codes: `0` passed, `3` a gate or stability policy failed, `1` the tool failed.
+A ready-to-copy workflow is in [docs/github-action-example.yml](docs/github-action-example.yml).
+
 ## Real flip rates
 
 Recorded 2026-09-15 and committed in `tests/cassettes/run.json`: `gemini-2.5-flash` as both

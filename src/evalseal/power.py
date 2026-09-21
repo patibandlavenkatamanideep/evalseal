@@ -287,9 +287,14 @@ def analytic_deterministic_items(mdd: float, alpha: float = DEFAULT_ALPHA) -> in
     """Items needed under the deterministic model, in closed form.
 
     Every flipped item is discordant and all move the same way, so significance needs
-    `min_discordant_items` of them, and a fraction `mdd` of the suite flips. Hence
-    ceil(min_discordant / mdd): at alpha=0.05 and a 5-point shift, ceil(6/0.05) = 120
-    items. Used to cross-check the simulator, which should land on the same answer.
+    `min_discordant_items` of them, and the simulator flips `round(mdd * n)` items. The
+    answer is therefore the smallest n whose rounded flip count reaches that floor.
+
+    At alpha=0.05 and a 5-point shift that is 110 items, not the ceil(6/0.05) = 120 the
+    continuous version suggests: round(0.05 * 110) is 6 because 5.5 rounds to even. The
+    rounding has to match the simulator's or the two disagree by one item at the
+    boundary and the difference looks like a bug. Used to cross-check the simulator,
+    which must land on the same answer.
     """
     if mdd <= 0:
         raise ValueError("mdd must be positive")

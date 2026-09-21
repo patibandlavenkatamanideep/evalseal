@@ -111,7 +111,8 @@ def load_receipt(source: str | Path) -> RunRecord:
         return RunRecord.model_validate_json(lines[-1])
 
 
-def _mean_flip_rate(record: RunRecord) -> float:
+def mean_flip_rate(record: RunRecord) -> float:
+    """Mean per-case flip rate. One definition, so every surface prints one number."""
     if not record.results:
         return 0.0
     return round(sum(c.flip_rate for c in record.results) / len(record.results), 4)
@@ -127,8 +128,13 @@ def _unstable(record: RunRecord) -> list[str]:
     return sorted(c.case_id for c in record.results if c.flip_rate > 0)
 
 
-def _half_width(record: RunRecord) -> float:
-    """Widest per-case CI half-width: the noise the run itself exhibits."""
+def noise_floor(record: RunRecord) -> float:
+    """Widest per-case CI half-width: the noise the run itself exhibits.
+
+    Deliberately the widest and not the mean. A score move smaller than the shakiest
+    case in the run is not evidence of anything, and the conservative floor is the one
+    that keeps a reader from over-reading a delta.
+    """
     return max(((c.ci95[1] - c.ci95[0]) / 2 for c in record.results), default=0.0)
 
 
@@ -169,6 +175,9 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
     # exactly what a benchmark compares.
     comparable = evaluator_fingerprint(before) == evaluator_fingerprint(after)
 
+    # The floor is the noisier of the two runs: comparing against the quieter one would
+    # call a move real on the strength of the run that happened to behave.
+    floor = round(max(noise_floor(before), noise_floor(after)), 4)
     unstable_b, unstable_a = _unstable(before), _unstable(after)
     ids_b = {c.case_id for c in before.results}
     ids_a = {c.case_id for c in after.results}
@@ -185,9 +194,9 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
         ],
         score_before=before.aggregate.mean_score,
         score_after=after.aggregate.mean_score,
-        noise_floor=round(max(_half_width(before), _half_width(after)), 4),
-        flip_rate_before=_mean_flip_rate(before),
-        flip_rate_after=_mean_flip_rate(after),
+        noise_floor=floor,
+        flip_rate_before=mean_flip_rate(before),
+        flip_rate_after=mean_flip_rate(after),
         unstable_before=unstable_b,
         unstable_after=unstable_a,
         newly_unstable=sorted(set(unstable_a) - set(unstable_b)),

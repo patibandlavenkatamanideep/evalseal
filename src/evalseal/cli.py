@@ -20,8 +20,9 @@ from .adapters.scorer import (
     RegexScorer,
 )
 from .adapters.target import OpenAICompatibleTarget
-from .diffing import diff_records, load_receipt
+from .diffing import diff_records, load_receipt, mean_flip_rate
 from .executor import run_eval
+from .htmlreport import write_diff_html, write_html
 from .ledger import (
     LEDGER_PATH,
     config_fingerprint,
@@ -161,6 +162,9 @@ def run(
     junit_xml: Path | None = typer.Option(
         None, help="Also write JUnit XML here, for CI test reporting."
     ),
+    html: Path | None = typer.Option(
+        None, "--html", help="Also write a self-contained HTML receipt here."
+    ),
     sign_key: Path | None = typer.Option(
         None, help="Ed25519 private key; signs the sealed record after the run."
     ),
@@ -265,6 +269,8 @@ def run(
     write_markdown(record)
     if junit_xml is not None:
         write_junit(record, junit_xml, fail_on)
+    if html is not None:
+        write_html(record, html)
     if sign_key is not None:
         entry = sign_head(ledger, sign_key)
         console.print(
@@ -341,12 +347,38 @@ def sign(
     )
 
 
-@app.command()
+def _resolve_record(token: str, ledger: Path) -> RunRecord:
+    """A receipt path or a ledger index, whichever the user typed.
+
+    Indices are resolved against the ledger only after the path lookup fails, so a file
+    literally named `0` still wins - the filesystem is the less surprising reading.
+    """
+    path = Path(token)
+    if path.exists():
+        return load_receipt(path)
+    try:
+        index = int(token)
+    except ValueError:
+        raise typer.BadParameter(
+            f"{token!r} is neither an existing file nor a ledger index"
+        ) from None
+    recs = load_all(ledger)
+    if not -len(recs) <= index < len(recs):
+        raise typer.BadParameter(
+            f"index {index} out of range; ledger has {len(recs)} record(s)"
+        )
+    return recs[index]
+
+
+@app.command(context_settings={"ignore_unknown_options": True})
 def diff(
     a: str = typer.Argument(..., help="Baseline: a receipt file, or a ledger index."),
     b: str = typer.Argument(..., help="Candidate: a receipt file, or a ledger index."),
     ledger: Path = LedgerOpt,
     as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    html: Path | None = typer.Option(
+        None, "--html", help="Write a self-contained HTML drift report here."
+    ),
 ):
     """Compare two runs: score, stability, and whether they are comparable at all.
 
@@ -355,25 +387,15 @@ def diff(
     work. Exit status is always 0: this command reports, it does not gate. Use
     `evalseal gate` to fail a build.
     """
-    def resolve(token: str) -> RunRecord:
-        path = Path(token)
-        if path.exists():
-            return load_receipt(path)
-        try:
-            index = int(token)
-        except ValueError:
-            raise typer.BadParameter(
-                f"{token!r} is neither an existing file nor a ledger index"
-            ) from None
-        recs = load_all(ledger)
-        if not -len(recs) <= index < len(recs):
-            raise typer.BadParameter(
-                f"index {index} out of range; ledger has {len(recs)} record(s)"
-            )
-        return recs[index]
-
-    before, after = resolve(a), resolve(b)
+    before = _resolve_record(a, ledger)
+    after = _resolve_record(b, ledger)
     result = diff_records(before, after)
+
+    if html is not None:
+        write_diff_html(result, html)
+        console.print(f"[green]HTML drift report -> {html}[/green]")
+        if not as_json:
+            raise typer.Exit(code=0)
 
     if as_json:
         console.print_json(json.dumps(result.to_dict()))
@@ -383,20 +405,42 @@ def diff(
     raise typer.Exit(code=0)
 
 
-@app.command()
+@app.command(context_settings={"ignore_unknown_options": True})
 def report(
+    source: str | None = typer.Argument(
+        None, help="A receipt file or ledger index; defaults to the latest sealed record."
+    ),
     ledger: Path = LedgerOpt,
     index: int = typer.Option(-1, help="Ledger index to report on; -1 = latest."),
     unstable_only: bool = typer.Option(
         False, "--unstable-only", help="List only cases that flipped."
     ),
     as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    html: Path | None = typer.Option(
+        None, "--html", help="Write a self-contained HTML receipt here."
+    ),
 ):
-    """Per-case verdict distribution for a sealed record."""
-    recs = load_all(ledger)
-    if not -len(recs) <= index < len(recs):
-        raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
-    record = recs[index]
+    """Per-case verdict distribution for a sealed record.
+
+    `evalseal report receipt.json --html out.html` and `evalseal report --index -2` both
+    work: the positional argument takes a receipt path or a ledger index, and without one
+    the latest sealed record is used.
+    """
+    if source is not None:
+        record = _resolve_record(source, ledger)
+    else:
+        recs = load_all(ledger)
+        if not -len(recs) <= index < len(recs):
+            raise typer.BadParameter(
+                f"index {index} out of range; ledger has {len(recs)} record(s)"
+            )
+        record = recs[index]
+
+    if html is not None:
+        write_html(record, html, unstable_only=unstable_only)
+        console.print(f"[green]HTML receipt -> {html}[/green]")
+        if not as_json:
+            raise typer.Exit(code=0)
 
     if as_json:
         cases = [
@@ -420,9 +464,7 @@ def report(
         payload = {
             "summary": {
                 "mean_score": record.aggregate.mean_score,
-                "flip_rate": round(
-                    sum(c.flip_rate for c in record.results) / len(record.results), 4
-                ),
+                "flip_rate": mean_flip_rate(record),
                 "n_cases": record.aggregate.n_cases,
                 "n_stable": record.aggregate.n_stable,
                 "n_unstable": record.aggregate.n_unstable,

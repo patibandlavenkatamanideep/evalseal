@@ -209,7 +209,7 @@ Any two sealed records work, whether they are receipt files or ledgers:
 
 ```bash
 evalseal diff report-before.json report-after.json     # two receipts
-evalseal diff --ledger .evalseal/runs.jsonl -- 0 -1    # first vs latest
+evalseal diff --ledger .evalseal/runs.jsonl 0 -1       # first vs latest
 evalseal diff runs-a.jsonl runs-b.jsonl                # heads of two ledgers
 evalseal diff before.json after.json --json            # for CI
 ```
@@ -241,16 +241,41 @@ actually live.
 `flip_rate`, `unstable_cases`, `cases`, `config_changes`, `provenance`) for a pipeline to
 assert on. `diff` always exits 0: it reports, it does not gate. Gating is `gate`'s job.
 
+## A receipt you can attach to a pull request
+
+Terminal output is for the person who ran the eval. `--html` is for everyone else.
+
+```bash
+evalseal run --suite examples/gsm8k/suite.json --html receipt.html
+evalseal report receipt.json --html receipt.html      # from a receipt you already have
+evalseal diff 0 -1 --html drift.html                  # the drift report, same styling
+```
+
+Both pages are a single file with no stylesheet, script, font or image to fetch, so a
+report archived as a CI artifact renders the same way a year later on a machine with no
+network. Nothing in them reads the clock: the same record produces byte-identical HTML,
+which means the receipt can itself be hashed and attached to the chain. The only
+timestamp shown is the one sealed into the record.
+
+The receipt leads with four numbers - mean score, noise floor, mean flip rate, case
+counts - then gives every case a verdict strip: one cell per repeat, in run order, red
+where the verdict disagreed with the majority. `FPPFP` tells you a case flipped; the strip
+tells you *when*, which is what you need to know before blaming the model.
+
+Prompts and responses are never written into either page, only their hashes. A receipt is
+meant to be forwarded, and a file that quietly carries your dataset is a leak waiting to
+happen. Verify what the page claims with `evalseal verify`.
+
 ## Commands
 
 | command | what it does | exit code |
 |---|---|---|
-| `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `report.json` + `report.md`. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error |
+| `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `report.json` + `report.md`; `--html` also writes a receipt. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error |
 | `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures. | `0` intact · `1` tampered or broken |
-| `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - and reports comparability, score change against the noise floor, and which cases started or stopped flipping. `--json` for CI. | `0` |
+| `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - and reports comparability, score change against the noise floor, and which cases started or stopped flipping. `--json` for CI, `--html` to share. | `0` |
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
-| `evalseal report` | Prints the per-case verdict distribution for a sealed record. | `0` |
+| `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
 | `evalseal gate` | Applies CI thresholds to a sealed record. | `0` passed · `3` gate failed |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
@@ -422,6 +447,11 @@ if result.comparable and result.score_verdict == "REAL CHANGE":
 
 `load_receipt` reads either shape: a `report.json` receipt, or a ledger, whose head it
 takes. `DiffResult.to_dict()` is what `--json` prints.
+
+`to_html(record)` and `diff_to_html(result)` return those pages as strings, with
+`write_html` / `write_diff_html` to put them on disk. `mean_flip_rate(record)` and
+`noise_floor(record)` are the two summary statistics every surface shares, so a dashboard
+built on the library prints the same numbers the CLI does.
 
 The package ships type information (PEP 561), so mypy and pyright see the annotations.
 

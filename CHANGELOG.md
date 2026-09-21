@@ -5,6 +5,42 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 The sealed record format carries its own `schema_version`; a record written by an
 older version still verifies.
 
+## [1.5.0] - 2026-09-21
+
+### Added
+- **A shareable HTML receipt.** `evalseal run --html receipt.html`,
+  `evalseal report <receipt|index> --html`, and `evalseal diff A B --html` write a
+  single self-contained page. No stylesheet, script, font or image is fetched, so a
+  report archived as a CI artifact renders the same way a year later on a machine with
+  no network.
+- **The HTML is deterministic.** Nothing in it reads the clock or the environment; the
+  only timestamp shown is the one sealed into the record. The same record produces
+  byte-identical bytes, so the page can itself be hashed and attached to the chain.
+- **Per-case verdict strips.** Each case gets one cell per repeat, in run order, marked
+  where the verdict disagreed with the majority. `FPPFP` says a case flipped; the strip
+  says when, which is the part that points at a cause.
+- **`evalseal report` takes a receipt path or a ledger index** as a positional argument,
+  the same tokens `diff` accepts. Without one it still uses the latest sealed record, so
+  existing invocations are unchanged.
+- **`to_html`, `diff_to_html`, `write_html` and `write_diff_html`** are exported from the
+  package, along with `mean_flip_rate()` and `noise_floor()` - the two summary statistics
+  every surface now shares, so a dashboard built on the library prints the same numbers
+  the CLI does.
+
+### Fixed
+- **`evalseal diff 0 -1` did not work**, although the command's own `--help` and the
+  README both gave it as an example. Click read the bare `-1` as an unknown option and
+  refused the command; the documented workaround was a `--` separator. `diff` and
+  `report` now accept negative ledger indices directly. A genuine unknown option is
+  still an error.
+
+### Changed
+- Prompts, responses and the judge prompt are never written into an HTML page, only their
+  hashes - including when the record was sealed with `--store-judge-prompt`. A receipt is
+  meant to be forwarded, and a forwarded file that carries the dataset is a leak.
+- `mean flip rate` and the noise floor had three separate implementations across `diff`,
+  `report --json` and the reporting code. They now have one each.
+
 ## [1.4.0] - 2026-09-20
 
 ### Added
@@ -211,6 +247,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.5.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.5.0
 [1.4.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.4.0
 [1.3.2]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.2
 [1.3.1]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.1

@@ -12,7 +12,7 @@ from ..models import ParamsSource
 from .recording import Cassette
 
 # Transient conditions: the same request may well succeed a moment later.
-RETRY_STATUSES = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
+RETRY_STATUSES = frozenset({408, 409, 425, 429, 500, 502, 503, 504, 529})
 MAX_BACKOFF_SECONDS = 30.0
 
 
@@ -25,6 +25,9 @@ class TargetResponse:
     base_url: str
     effective_params: dict[str, Any]
     params_source: ParamsSource
+    # A response cut off at the token limit is not a wrong answer, it is an absent one.
+    # Scored naively it looks like a model failure, so the run says so instead.
+    truncated: bool = False
 
 
 @runtime_checkable
@@ -71,6 +74,46 @@ def backoff_seconds(attempt: int, response: httpx.Response | None = None) -> flo
     return min(2.0 ** attempt, MAX_BACKOFF_SECONDS)
 
 
+def _require_key(env_var: str) -> str:
+    key = os.environ.get(env_var)
+    if not key:
+        raise RuntimeError(f"Recording needs an API key in ${env_var}.")
+    return key
+
+
+def post_with_retries(
+    *,
+    url: str,
+    headers: dict[str, str],
+    body: dict[str, Any],
+    max_retries: int,
+    timeout: float,
+    sleep: Callable[[float], None],
+) -> dict:
+    """One real HTTP call, retrying transient failures with backoff.
+
+    Shared by every provider adapter. A second copy of this loop would drift, and the
+    copy that drifted would be the provider with the fewest tests pointed at it.
+    """
+    for attempt in range(max_retries + 1):
+        last_response: httpx.Response | None = None
+        try:
+            with httpx.Client(timeout=timeout) as client:
+                response = client.post(url, headers=headers, json=body)
+            if response.status_code not in RETRY_STATUSES:
+                response.raise_for_status()
+                return response.json()
+            last_response = response
+        except httpx.TransportError:
+            if attempt == max_retries:
+                raise
+        if attempt == max_retries:
+            assert last_response is not None
+            last_response.raise_for_status()
+        sleep(backoff_seconds(attempt, last_response))
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 @dataclass
 class OpenAICompatibleTarget:
     """Calls any OpenAI-compatible /chat/completions endpoint, through the cassette."""
@@ -113,30 +156,116 @@ class OpenAICompatibleTarget:
                 "top_p": None,
             },
             params_source=params_source,
+            truncated=raw["choices"][0].get("finish_reason") == "length",
         )
 
     def _post(self, body: dict[str, Any]) -> dict:
-        """One real HTTP call, retrying transient failures with backoff."""
-        key = os.environ.get(self.api_key_env)
-        if not key:
-            raise RuntimeError(f"Recording needs an API key in ${self.api_key_env}.")
-        url = f"{self.base_url.rstrip('/')}/chat/completions"
-        headers = {"Authorization": f"Bearer {key}"}
+        key = _require_key(self.api_key_env)
+        return post_with_retries(
+            url=f"{self.base_url.rstrip('/')}/chat/completions",
+            headers={"Authorization": f"Bearer {key}"},
+            body=body,
+            max_retries=self.max_retries,
+            timeout=self.timeout,
+            sleep=self.sleep,
+        )
 
-        for attempt in range(self.max_retries + 1):
-            last_response: httpx.Response | None = None
-            try:
-                with httpx.Client(timeout=self.timeout) as client:
-                    response = client.post(url, headers=headers, json=body)
-                if response.status_code not in RETRY_STATUSES:
-                    response.raise_for_status()
-                    return response.json()
-                last_response = response
-            except httpx.TransportError:
-                if attempt == self.max_retries:
-                    raise
-            if attempt == self.max_retries:
-                assert last_response is not None
-                last_response.raise_for_status()
-            self.sleep(backoff_seconds(attempt, last_response))
-        raise AssertionError("unreachable")  # pragma: no cover
+
+@dataclass
+class AnthropicTarget:
+    """Calls the Anthropic Messages API natively, through the cassette.
+
+    Not an OpenAI shim. The wire format differs in ways that matter to a receipt:
+    `max_tokens` is required rather than optional, the system prompt is a top-level
+    field rather than a message, the reply is a list of content blocks rather than a
+    string, there is no `system_fingerprint` to pin a backend with, and an overload is
+    529 rather than 503. A shim papers over each of those, and a receipt that records
+    what a shim assumed is a receipt about the shim.
+
+    Implemented on httpx rather than the SDK: the cassette records the raw response
+    envelope, and that is also what gets replayed, so there is no client library
+    sitting between the recording and what a reader can verify.
+    """
+    model: str
+    cassette: Cassette
+    base_url: str = "https://api.anthropic.com/v1"
+    max_tokens: int = 1024                # required by the API; never a silent default
+    temperature: float | None = None      # None means "we did not set it"
+    top_p: float | None = None
+    system: str | None = None
+    api_key_env: str = "ANTHROPIC_API_KEY"
+    anthropic_version: str = "2023-06-01"
+    max_retries: int = 5
+    timeout: float = 60.0
+    sleep: Callable[[float], None] = field(default=time.sleep, repr=False)
+
+    @property
+    def kind(self) -> str:
+        return "anthropic"
+
+    def generate(self, prompt: str) -> TargetResponse:
+        params_source: ParamsSource = (
+            "explicit" if self.temperature is not None else "provider_default"
+        )
+        body: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if self.system is not None:
+            body["system"] = self.system
+        if self.temperature is not None:
+            body["temperature"] = self.temperature
+        if self.top_p is not None:
+            body["top_p"] = self.top_p
+
+        # Keyed on the full effective body, exactly as the OpenAI adapter is, so a
+        # cassette entry means the same thing whichever provider recorded it.
+        raw = self.cassette.call({"url": self.base_url, "body": body}, lambda: self._post(body))
+
+        return TargetResponse(
+            text=extract_text(raw),
+            requested_model=self.model,
+            served_model=raw.get("model"),
+            # Anthropic exposes no backend identifier. Reporting None is honest;
+            # inventing one from the model name would fake a pin that does not exist.
+            system_fingerprint=None,
+            base_url=self.base_url,
+            effective_params={
+                "temperature": self.temperature,
+                "seed": None,             # the API has no seed parameter
+                "top_p": self.top_p,
+                "max_tokens": self.max_tokens,
+            },
+            params_source=params_source,
+            truncated=raw.get("stop_reason") == "max_tokens",
+        )
+
+    def _post(self, body: dict[str, Any]) -> dict:
+        key = _require_key(self.api_key_env)
+        return post_with_retries(
+            url=f"{self.base_url.rstrip('/')}/messages",
+            headers={
+                "x-api-key": key,
+                "anthropic-version": self.anthropic_version,
+                "content-type": "application/json",
+            },
+            body=body,
+            max_retries=self.max_retries,
+            timeout=self.timeout,
+            sleep=self.sleep,
+        )
+
+
+def extract_text(raw: dict) -> str:
+    """Join the text blocks of a Messages reply, skipping any other block type.
+
+    The reply is a list, not a string. Taking `content[0]` works until the first
+    response that opens with a thinking or tool_use block, and then it silently scores
+    an empty answer.
+    """
+    blocks = raw.get("content") or []
+    return "".join(
+        b.get("text", "") for b in blocks
+        if isinstance(b, dict) and b.get("type") == "text"
+    )

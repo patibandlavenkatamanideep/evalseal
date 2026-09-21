@@ -13,10 +13,12 @@ from .adapters.scorer import (
     strip_decoration,
 )
 from .adapters.target import (
+    AnthropicTarget,
     LocalCallableTarget,
     OpenAICompatibleTarget,
     Target,
     TargetResponse,
+    extract_text,
 )
 from .analyze import CaseStats, analyze_case, classify_stability, flip_rate, wilson_ci
 from .diffing import (
@@ -50,11 +52,12 @@ from .provenance import file_hash, git_provenance, text_hash
 from .report import render_diff, to_junit, to_markdown
 from .signing import generate_keypair, sign_head, verify_signatures
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 __all__ = [
     "Aggregate", "Case", "CaseResult", "CaseStats", "Cassette", "Dataset",
-    "AnswerMatchScorer", "ExactMatchScorer", "LLMJudgeScorer", "LocalCallableTarget",
+    "AnswerMatchScorer", "AnthropicTarget", "ExactMatchScorer", "LLMJudgeScorer",
+    "LocalCallableTarget", "extract_text",
     "OpenAICompatibleTarget",
     "DiffResult", "ProvenanceManifest", "RegexScorer", "RunRecord", "ScoreResult",
     "Scorer", "Target",

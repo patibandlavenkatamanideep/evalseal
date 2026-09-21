@@ -5,6 +5,42 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 The sealed record format carries its own `schema_version`; a record written by an
 older version still verifies.
 
+## [1.7.0] - 2026-09-21
+
+### Added
+- **A native Anthropic target**, not an OpenAI shim. `provider: "anthropic"` in a target
+  config speaks the Messages API directly: `max_tokens` required rather than optional,
+  the system prompt as a top-level field rather than a message, a reply that is a list
+  of content blocks rather than a string, no `system_fingerprint`, and HTTP 529 for
+  overload. A shim papers over each of those, and a receipt that records what a shim
+  assumed is a receipt about the shim. Built on httpx, so the cassette records the raw
+  response envelope and the base install gains no dependency.
+- **`judge_provider`** does the same for an LLM judge, which is now configured through
+  the same code path as a target rather than a second, smaller vocabulary.
+- **Truncation is reported.** A reply cut off at the token limit is an absent answer,
+  not a wrong one, and scoring it naively turns a configuration mistake into a finding
+  about the model. `TargetResponse.truncated` carries it and the run warns:
+  `TARGET RESPONSE TRUNCATED: 3 of 100 call(s) hit the token limit`. This covers the
+  OpenAI shape too, where `finish_reason: "length"` means the same thing.
+- **HTTP 529 is retried.** Anthropic signals overload with 529, which is in no standard
+  retry set, so an overloaded provider would have failed the run outright.
+- `AnthropicTarget` and `extract_text` are exported, and `api.anthropic.com` counts as a
+  canonical endpoint rather than raising a proxy warning.
+- An example config and guide in `examples/anthropic/`.
+
+### Changed
+- **One retry loop instead of two.** `post_with_retries` is shared by both adapters. A
+  second copy would drift, and the copy that drifted would be the provider with the
+  fewest tests pointed at it.
+- `system_fingerprint` is reported as `None` for Anthropic and stays that way. Deriving
+  one from the model name would fake a pin that does not exist, and `diff` would then
+  claim two runs shared a backend on no evidence.
+
+### Note
+- The adapter is covered by 23 tests against the documented wire format but is **not yet
+  backed by a recorded live run**, unlike every other suite in this repo. Recording one
+  needs `ANTHROPIC_API_KEY`; see `examples/anthropic/`.
+
 ## [1.6.0] - 2026-09-21
 
 ### Added
@@ -288,6 +324,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.7.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.7.0
 [1.6.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.6.0
 [1.5.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.5.0
 [1.4.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.4.0

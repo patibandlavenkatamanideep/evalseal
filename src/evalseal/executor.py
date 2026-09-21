@@ -27,7 +27,8 @@ from .models import (
 )
 from .provenance import environment_provenance, git_provenance, text_hash
 
-_CANONICAL_HOSTS = {"api.openai.com", "generativelanguage.googleapis.com"}
+_CANONICAL_HOSTS = {"api.openai.com", "api.anthropic.com",
+                    "generativelanguage.googleapis.com"}
 _LOCAL_SCHEMES = {"local"}
 
 
@@ -62,7 +63,7 @@ def _provenance_warnings(tp: TargetProvenance, role: str = "TARGET") -> list[str
     parsed = urlparse(tp.base_url)
     if parsed.scheme not in _LOCAL_SCHEMES and parsed.hostname not in _CANONICAL_HOSTS:
         w.append(
-            f"{role} NON-CANONICAL ENDPOINT: {tp.base_url} — responses may be proxied/altered."
+            f"{role} NON-CANONICAL ENDPOINT: {tp.base_url} - responses may be proxied/altered."
         )
     if tp.params_source == "provider_default" and tp.effective_params.temperature is None:
         w.append(
@@ -70,6 +71,22 @@ def _provenance_warnings(tp: TargetProvenance, role: str = "TARGET") -> list[str
             "verdicts near the decision boundary may not be reproducible."
         )
     return w
+
+
+def _truncation_warnings(responses: list[TargetResponse], role: str) -> list[str]:
+    """A reply cut off at the token limit is an absent answer, not a wrong one.
+
+    Scored naively it is indistinguishable from the model getting it wrong, which turns
+    a configuration mistake into a finding about the model.
+    """
+    n = sum(1 for r in responses if r.truncated)
+    if not n:
+        return []
+    return [
+        f"{role} RESPONSE TRUNCATED: {n} of {len(responses)} call(s) hit the token "
+        "limit. Those answers are incomplete, not incorrect; raise max_tokens before "
+        "reading anything into the score."
+    ]
 
 
 def _drift_warnings(responses: list[TargetResponse], role: str) -> list[str]:
@@ -188,9 +205,11 @@ def run_eval(
     for tr in target_resps:
         warnings += _provenance_warnings(_to_provenance(tr), "TARGET")
     warnings += _drift_warnings(target_resps, "TARGET")
+    warnings += _truncation_warnings(target_resps, "TARGET")
     for jr in judge_resps:
         warnings += _provenance_warnings(_to_provenance(jr), "JUDGE")
     warnings += _drift_warnings(judge_resps, "JUDGE")
+    warnings += _truncation_warnings(judge_resps, "JUDGE")
 
     git = git_provenance()
     judge_prompt = getattr(scorer, "last_judge_prompt", None)

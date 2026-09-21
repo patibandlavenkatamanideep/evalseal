@@ -1,6 +1,6 @@
 [project]
 name = "evalseal"
-version = "1.6.0"
+version = "1.7.0"
 description = "Reproducibility and provenance receipts for LLM evaluations."
 readme = "README.md"
 requires-python = ">=3.11"

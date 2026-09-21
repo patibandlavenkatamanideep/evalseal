@@ -20,7 +20,7 @@ from .adapters.scorer import (
     LLMJudgeScorer,
     RegexScorer,
 )
-from .adapters.target import OpenAICompatibleTarget
+from .adapters.target import AnthropicTarget, OpenAICompatibleTarget
 from .diffing import diff_records, load_receipt, mean_flip_rate
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
@@ -108,14 +108,42 @@ def _load_suite(path: Path | None) -> dict:
 
 
 def _build_target(
-    cfg: dict, cassette: Cassette, max_retries: int, timeout: float
-) -> OpenAICompatibleTarget:
+    cfg: dict, cassette: Cassette, max_retries: int, timeout: float,
+    prefix: str = "",
+) -> AnthropicTarget | OpenAICompatibleTarget:
+    """Build a target from config. `provider` picks the wire format, defaulting to the
+    OpenAI-compatible one so every existing config and suite file keeps working.
+
+    `prefix` lets the judge reuse this with its own `judge_*` keys, so a judge is
+    configured exactly like a target rather than through a second, smaller vocabulary.
+    """
+    provider = cfg.get(f"{prefix}provider", cfg.get("provider", "openai"))
+    model = cfg[f"{prefix}model"]
+
+    if provider == "anthropic":
+        return AnthropicTarget(
+            model=model,
+            cassette=cassette,
+            base_url=cfg.get("base_url", "https://api.anthropic.com/v1"),
+            max_tokens=cfg.get(f"{prefix}max_tokens", cfg.get("max_tokens", 1024)),
+            temperature=cfg.get(f"{prefix}temperature"),
+            top_p=cfg.get(f"{prefix}top_p"),
+            system=cfg.get("system"),
+            api_key_env=cfg.get("api_key_env", "ANTHROPIC_API_KEY"),
+            max_retries=max_retries,
+            timeout=timeout,
+        )
+    if provider != "openai":
+        raise typer.BadParameter(
+            f"unknown provider {provider!r}; expected 'openai' or 'anthropic'"
+        )
     return OpenAICompatibleTarget(
-        model=cfg["model"],
+        model=model,
         cassette=cassette,
         base_url=cfg.get("base_url", "https://api.openai.com/v1"),
-        temperature=cfg.get("temperature"),   # omit in config to surface the "unset" warning
-        seed=cfg.get("seed"),
+        temperature=cfg.get(f"{prefix}temperature"),  # omit to surface the "unset" warning
+        seed=cfg.get(f"{prefix}seed"),
+        api_key_env=cfg.get("api_key_env", "EVALSEAL_API_KEY"),
         max_retries=max_retries,
         timeout=timeout,
     )
@@ -129,15 +157,7 @@ def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: floa
     if cfg["type"] == "answer_match":
         return AnswerMatchScorer(tolerance=cfg.get("tolerance", 1e-6))
     if cfg["type"] == "llm_judge":
-        judge = OpenAICompatibleTarget(
-            model=cfg["judge_model"],
-            cassette=cassette,
-            base_url=cfg.get("base_url", "https://api.openai.com/v1"),
-            temperature=cfg.get("judge_temperature"),  # leave unset to demonstrate flips
-            seed=cfg.get("judge_seed"),
-            max_retries=max_retries,
-            timeout=timeout,
-        )
+        judge = _build_target(cfg, cassette, max_retries, timeout, prefix="judge_")
         return LLMJudgeScorer(judge=judge, rubric=cfg["rubric"])
     raise typer.BadParameter(f"unknown scorer type {cfg['type']!r}")
 

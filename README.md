@@ -481,6 +481,41 @@ tracked target).
 - **Hashes detect change, not incorrectness.** A sealed record with a wrong rubric is
   sealed just as firmly as one with a right rubric.
 
+## Two providers, two wire formats
+
+`provider` in a target config picks the wire format. Left out, it means `openai`, so
+every config written before this existed keeps working.
+
+```json
+{ "provider": "anthropic", "model": "claude-haiku-4-5-20251001", "max_tokens": 512 }
+```
+
+The Anthropic adapter speaks the Messages API directly rather than through an
+OpenAI-compatible shim, because the differences are exactly the kind a receipt is
+supposed to record: `max_tokens` is required rather than optional, the system prompt is
+a top-level field rather than a message, the reply is a list of content blocks rather
+than a string, there is no `system_fingerprint` to pin a backend with, and an overload
+is HTTP 529 rather than 503. A shim papers over each of those, and a receipt that
+records what a shim assumed is a receipt about the shim.
+
+It is built on httpx rather than the SDK, so the cassette records the raw response
+envelope and that is also what replays. No client library sits between the recording and
+what a reader can verify, and the base install gains no dependency.
+
+Two things this reports that a shim cannot:
+
+- **`system_fingerprint` is `None`, and stays `None`.** Anthropic publishes no backend
+  identifier. Reporting nothing is honest; deriving one from the model name would fake a
+  pin, and `diff` would then claim two runs shared a backend on no evidence.
+- **A reply cut off at `max_tokens` is flagged as truncated.** An incomplete answer
+  scored naively is indistinguishable from a wrong one, which turns a configuration
+  mistake into a finding about the model. The run warns instead. The same check now
+  covers the OpenAI shape, where `finish_reason: "length"` means the same thing.
+
+Status, stated plainly: the adapter is implemented and covered by 23 tests against the
+documented wire format, but unlike the suites above it is **not yet backed by a recorded
+live run**. See [examples/anthropic/](examples/anthropic/) to record one.
+
 ## Using it as a library
 
 ```python

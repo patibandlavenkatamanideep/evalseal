@@ -81,18 +81,49 @@ class PairedComparison:
         return self.discordant_regressed + self.discordant_improved
 
     @property
-    def significant(self) -> bool:
+    def ci_excludes_zero(self) -> bool:
         lo, hi = self.ci95
-        return self.p_value < self.alpha and not (lo <= 0.0 <= hi)
+        return not (lo <= 0.0 <= hi)
+
+    @property
+    def significant(self) -> bool:
+        """Both criteria have to agree, so the verdict never out-claims either one."""
+        return self.p_value < self.alpha and self.ci_excludes_zero
+
+    @property
+    def mean_moved_without_majorities(self) -> bool:
+        """The mean score moved, but no item changed which way it mostly goes.
+
+        This is the blind spot of a test built on majority verdicts, and it is a real
+        pattern rather than an edge case: a shift that lowers every item's pass rate
+        from 0.90 to 0.85 moves the suite mean by 0.05 and flips almost no majorities.
+        Worse, repeating each item more times makes it *harder* to see, because extra
+        repeats sharpen each item toward its own majority and remove the discordance
+        the test feeds on. Reporting the disagreement is more useful than resolving it
+        silently in either direction.
+        """
+        return (
+            self.test == "exact_mcnemar"
+            and self.ci_excludes_zero
+            and self.p_value >= self.alpha
+        )
 
     def summary(self) -> str:
         """One line a reader can act on, with the reason attached."""
         if self.verdict == INCONCLUSIVE:
-            return (
+            note = (
                 f"inconclusive at this N: delta {self.delta:+.4f}, "
                 f"95% CI [{self.ci95[0]:+.4f}, {self.ci95[1]:+.4f}], p={self.p_value:.4g}. "
                 "Not evidence the runs are the same; evidence this experiment cannot tell."
             )
+            if self.mean_moved_without_majorities:
+                note += (
+                    f" The interval excludes zero but only {self.n_discordant} item(s) "
+                    "changed majority verdict, so the shift is within items rather than "
+                    "across them. More repeats would make this harder to detect, not "
+                    "easier; more items is the dial that helps."
+                )
+            return note
         return (
             f"{self.verdict}: delta {self.delta:+.4f}, "
             f"95% CI [{self.ci95[0]:+.4f}, {self.ci95[1]:+.4f}], p={self.p_value:.4g}"

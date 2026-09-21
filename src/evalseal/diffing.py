@@ -203,9 +203,14 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
     comparable = evaluator_fingerprint(before) == evaluator_fingerprint(after)
 
     paired = compare_runs(before, after)
-    unstable_b, unstable_a = _unstable(before), _unstable(after)
     ids_b = {c.case_id for c in before.results}
     ids_a = {c.case_id for c in after.results}
+    # Stability movement is only meaningful for items present in both runs. A case that
+    # was dropped from the dataset would otherwise show up as "now stable", which reads
+    # as an improvement when what happened is that the item is gone.
+    shared = ids_b & ids_a
+    unstable_b = [c for c in _unstable(before) if c in shared]
+    unstable_a = [c for c in _unstable(after) if c in shared]
 
     return DiffResult(
         comparable=comparable,
@@ -222,8 +227,8 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
         paired=paired,
         flip_rate_before=mean_flip_rate(before),
         flip_rate_after=mean_flip_rate(after),
-        unstable_before=unstable_b,
-        unstable_after=unstable_a,
+        unstable_before=_unstable(before),
+        unstable_after=_unstable(after),
         newly_unstable=sorted(set(unstable_a) - set(unstable_b)),
         now_stable=sorted(set(unstable_b) - set(unstable_a)),
         still_unstable=sorted(set(unstable_a) & set(unstable_b)),

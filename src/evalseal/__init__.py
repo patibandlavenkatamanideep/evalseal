@@ -21,6 +21,7 @@ from .adapters.target import (
     extract_text,
 )
 from .analyze import CaseStats, analyze_case, classify_stability, flip_rate, wilson_ci
+from .decompose import CaseDecomposition, Decomposition, decompose
 from .diffing import (
     DiffResult,
     diff_records,
@@ -55,11 +56,12 @@ from .policy import (
     evaluate,
     load_policy,
 )
+from .power import PowerEstimate, estimate_from_record, min_discordant_items
 from .provenance import file_hash, git_provenance, text_hash
 from .report import render_diff, to_junit, to_markdown
 from .signing import generate_keypair, sign_head, verify_signatures
 
-__version__ = "1.7.0"
+__version__ = "2.0.0"
 
 __all__ = [
     "Aggregate", "Case", "CaseResult", "CaseStats", "Cassette", "Dataset",
@@ -73,6 +75,8 @@ __all__ = [
     "extract_answer", "file_hash", "load_receipt", "render_diff",
     "flip_rate", "git_provenance", "mean_flip_rate", "per_case_halfwidth",
     "PairedComparison", "compare_runs", "exact_mcnemar",
+    "CaseDecomposition", "Decomposition", "decompose",
+    "PowerEstimate", "estimate_from_record", "min_discordant_items",
     "paired_bootstrap_ci", "paired_permutation_p",
     "diff_to_html", "to_html", "write_diff_html", "write_html",
     "Check", "Policy", "PolicyError", "PolicyResult", "evaluate", "load_policy",

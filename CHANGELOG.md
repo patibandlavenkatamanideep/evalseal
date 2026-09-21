@@ -5,6 +5,80 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 The sealed record format carries its own `schema_version`; a record written by an
 older version still verifies.
 
+## [2.0.0] - 2026-09-21
+
+Breaking. The statistics changed, and with them the vocabulary `diff` uses, the
+stability classes, and two exported names. Sealed records written by earlier versions
+still verify: `verify` re-hashes stored content and does not re-derive stability.
+
+### Fixed
+
+- **`diff` used a per-item statistic as a suite-level threshold.** It compared the
+  difference in mean score against the widest per-case Wilson half-width and called that
+  a "noise floor". At N=5 a perfect item spans [0.57, 1.00], so the bar sat at 0.217,
+  while a mean over 40 items is far better determined than any single item in it. Almost
+  every real shift came back "within noise", which reads as reassurance. A recorded
+  example: 8 of 40 items regressing is a delta of 0.20 with p = 0.0078, and the old rule
+  called it noise.
+- **The comparison ignored pairing.** Both runs cover the same items, so the two runs are
+  not independent samples.
+- **Fixed flip-rate thresholds could not mean what they looked like.** `BORDERLINE_MAX_FLIP
+  = 0.20` reads as a 20% tolerance, but at N=5 the only reachable flip rates are 0, 0.2
+  and 0.4, so the cutoff encoded the single outcome "one of five runs disagreed".
+- **Three unanimous runs were reported STABLE.** 3/3 gives a Wilson interval of
+  [0.44, 1.00], which is also what you would see from an item that passes 70% of the
+  time. The coarse label now agrees with the `insufficient_runs` label the finer
+  taxonomy already gave it.
+
+### Added
+
+- **A paired comparison in `diff`.** Binary scorers get an exact McNemar test on the
+  items that changed majority verdict; float scorers get a paired permutation test. Both
+  get a 95% CI for the difference in mean score from a cluster bootstrap that resamples
+  whole items and carries all of an item's repeats together. Output is delta, CI,
+  p-value, discordant-item counts, and a verdict.
+- **`evalseal power`.** Simulates how many items or repeats it would take to detect a
+  difference. It reports the hard floor first: at alpha 0.05 at least six items must
+  change verdict in the same direction before any paired result can be significant,
+  because 2 x 0.5^6 = 0.031 and 2 x 0.5^5 = 0.063. Item models are explicit
+  (`deterministic`, `bernoulli`, or `--from-receipt` using a real run's per-item rates),
+  and the closed form for the deterministic case cross-checks the simulator.
+- **`evalseal decompose`.** Two arms over one suite, holding the task fixed: judge a
+  single fixed target response N times, versus sample the target N times and judge each
+  once. This separates judge variance from target variance, which comparing two
+  different suites cannot do. Each arm records to its own cassette.
+- **A reported disagreement between the two criteria.** When the bootstrap interval
+  excludes zero but McNemar does not agree, `diff` says so: the shift is within items
+  rather than across them, and more repeats would make it harder to see, not easier.
+
+### Changed
+
+- **The verdict vocabulary.** `REAL CHANGE` and `within noise` are gone. A comparison is
+  `regression`, `improvement`, or `inconclusive`, and inconclusive states in words that
+  it is not a claim the two runs are the same.
+- **Stability classes follow the Wilson interval of the pass proportion.** UNSTABLE when
+  it contains 0.5, STABLE when it excludes 0.5 and every run agreed, BORDERLINE in
+  between. A consequence worth stating: **BORDERLINE cannot occur at N=5**, because 4/5
+  gives [0.38, 0.96] and straddles 0.5. It becomes reachable at larger N, where 18/20
+  gives [0.70, 0.97].
+- **`drift.max_score_regression` in a policy now requires the paired test to support a
+  regression** as well as the drop exceeding the budget. The old allowance added a
+  per-case half-width of 0.217 to the budget, which passed almost anything.
+- **Renamed:** `noise_floor()` is now `per_case_halfwidth()`, and the `noise_floor` field
+  in `diff --json` is now `score.per_case_halfwidth`. The number is unchanged; the name
+  now says what it measures.
+- **`classify_stability(rate)` is now `classify_stability(successes, n_runs, flip_count)`.**
+- `diff --json` gains a `paired` object with every statistic above.
+
+### Compatibility
+
+- 0.1.x cassettes remain unconvertible, for the reason already documented: they record
+  arrival order, not which repeat produced a response.
+- Older-schema ledgers still verify and are still reported as an older schema rather than
+  as tampering.
+- Stability strings are sealed at write time, so a record sealed before 2.0 keeps the
+  classification it was sealed with. Re-running a suite reclassifies it.
+
 ## [1.7.0] - 2026-09-21
 
 ### Added
@@ -324,6 +398,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[2.0.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.0
 [1.7.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.7.0
 [1.6.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.6.0
 [1.5.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.5.0

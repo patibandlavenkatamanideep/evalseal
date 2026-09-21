@@ -29,7 +29,7 @@ evalseal run \
 
 ```console
 $ evalseal run --suite examples/borderline_judge/suite.json --show-cases --unstable-only
-Aggregate: 20 cases · mean 0.92 · 15 stable / 2 borderline / 3 unstable
+Aggregate: 20 cases · mean 0.92 · 15 stable / 0 borderline / 5 unstable
 
  case_id  runs  pass  fail  flips  flip_rate  majority  stability  judge_prompt_hash
  b01      5     3     2     2      40%        PASS      unstable   sha256:457d7c3
@@ -38,7 +38,7 @@ Aggregate: 20 cases · mean 0.92 · 15 stable / 2 borderline / 3 unstable
  b05      5     4     1     1      20%        PASS      unstable   sha256:457d7c3
  b19      5     4     1     1      20%        PASS      unstable   sha256:457d7c3
 
-3 case(s) fail --fail-on unstable: b01, b10, b16
+5 case(s) fail --fail-on unstable: b01, b05, b10, b16, b19
 
 $ evalseal verify
 Chain intact: 1 record(s).
@@ -63,12 +63,21 @@ the target and the judge, temperature left at the provider default, 20 arguable 
 | b01 | Is a hot dog a sandwich? | `FPPFP` | 0.60 | [0.23, 0.88] | 40% | UNSTABLE |
 | b10 | Blockchain for a child in exactly 20 words | `FPFPP` | 0.60 | [0.23, 0.88] | 40% | UNSTABLE |
 | b16 | "Do we only use 10% of our brains?" in a jokey tone | `PPFFP` | 0.60 | [0.23, 0.88] | 40% | UNSTABLE |
-| b05 | A borderline-polite refusal to a coworker | `PFPPP` | 0.80 | [0.38, 0.96] | 20% | BORDERLINE |
-| b19 | A technically accurate haiku about recursion | `PPFPP` | 0.80 | [0.38, 0.96] | 20% | BORDERLINE |
+| b05 | A borderline-polite refusal to a coworker | `PFPPP` | 0.80 | [0.38, 0.96] | 20% | UNSTABLE |
+| b19 | A technically accurate haiku about recursion | `PPFPP` | 0.80 | [0.38, 0.96] | 20% | UNSTABLE |
 | 15 others | | `PPPPP` | 1.00 | [0.57, 1.00] | 0% | STABLE |
 
 A perfect 5-for-5 case reports `[0.57, 1.00]`, not `[1.00, 1.00]`: five identical runs do
 not establish certainty, and the interval says so.
+
+Every case that disagreed with itself is UNSTABLE, including the two that dissented only
+once. Stability is decided by where the 95% Wilson interval of the pass proportion sits:
+4/5 gives [0.38, 0.96], which straddles 0.5, so five runs do not establish which way that
+case goes. **BORDERLINE cannot occur at N=5 at all** - only 5/5 and 0/5 clear 0.5. Before
+2.0 a single dissent in five was called BORDERLINE because the flip rate was 0.20 and the
+cutoff was 0.20, which reads as a 20% tolerance band. At five runs the only reachable flip
+rates are 0, 0.2 and 0.4, so that cutoff was never a band; it was the single outcome "one
+of five runs disagreed" wearing a percentage.
 
 Treat the k-th repeat of every case as one ordinary single-run eval, and the five
 "single runs" of this identical eval scored **0.90, 0.95, 0.85, 0.90 and 1.00**. A single
@@ -175,13 +184,28 @@ evalseal diff --ledger .evalseal/compare.jsonl -- 0 1
 Comparable: yes. Same grading setup, so the scores mean the same thing.
 
  metric              before  after  change
- ───────────────────────────────────────────────────────────────────────────────
- score               0.975   0.975  no change (within noise, noise floor ±0.217)
+ ───────────────────────────────────────────────────────────
+ score               0.975   0.975  no change (inconclusive)
  mean flip rate      0.0%    0.0%   +0.0%
  cases that flipped  0       0      +0
 
-Other differences: served model gemini-2.5-flash to gemini-3.1-flash-lite, sealed
-hash sha256:44c37b257f73e to sha256:cf13839f41540
+Paired test over 40 shared item(s).
+
+ quantity                               value
+ ──────────────────────────────────────────────────────────────────
+ difference in mean score               +0.0000
+ 95% CI (cluster bootstrap over items)  [+0.0000, +0.0000]
+ p-value (exact mcnemar)                1
+ discordant items                       0 (0 regressed, 0 improved)
+ verdict                                inconclusive
+
+Inconclusive is not the same as no difference. The test did not reach
+significance, which is a statement about this experiment's power, not about
+the two runs being the same.
+
+ • Widest per-case CI half-width (per_case_halfwidth): ±0.217. This describes
+   one item at this N, not the suite mean; before 2.0 it was used as the
+   threshold for a change.
 ```
 
 Both models scored 0.975, both perfectly stable, and both missed the *same* problem - the
@@ -189,10 +213,27 @@ broken one. On this suite the two models are indistinguishable, which says less 
 models than about the suite: 40 problems this easy cannot separate them. That is a useful
 thing to learn before quoting a benchmark number as evidence one model beats another.
 
-**That noise floor is why N matters.** At N=5 a perfectly stable case still carries a
-±0.217 interval, so a one-case difference (0.025) is correctly reported as noise rather
-than a finding. Raising N narrows the floor and buys the power to call smaller differences
-real: ±0.217 at N=5 becomes roughly ±0.08 at N=20.
+**The comparison is paired, because both runs cover the same items.** Every item is
+measured twice, so the question is which items changed verdict, not how two independent
+samples compare. Binary scorers get an exact McNemar test on the discordant items; the
+interval comes from a cluster bootstrap that resamples whole items and carries all of an
+item's repeats with them.
+
+Here nothing was discordant: the two models produced identical per-item results, so there
+is no evidence of a difference and none of sameness either. That is what `inconclusive`
+means, and it is why the word "noise" is gone.
+
+**Before 2.0 this line was wrong in a way worth naming.** `diff` compared the suite-level
+mean difference against the widest *per-case* Wilson half-width - 0.217 at N=5 - and
+called anything smaller "within noise". Those are quantities about different things: a
+per-item interval says how little five repeats pin down one item, while a mean over 40
+items is far better determined than any item in it. The effect was to report almost every
+real shift as noise. Eight of forty items regressing is a difference of 0.20 with
+p = 0.0078, and the old rule called it noise. The number itself still has a meaning and is
+still reported, under the name `per_case_halfwidth`.
+
+The old text here also advised raising N to narrow that floor. **That advice was wrong**,
+and `evalseal power` is in the tool partly to keep it from being given again - see below.
 
 ### Comparability comes before the delta
 
@@ -214,32 +255,84 @@ evalseal diff runs-a.jsonl runs-b.jsonl                # heads of two ledgers
 evalseal diff before.json after.json --json            # for CI
 ```
 
+Pointing `diff` at the judge suite and the arithmetic suite, both replayed from committed
+cassettes, gets the refusal it should:
+
 ```
 Not directly comparable: evaluator configuration changed.
 
- what changed  before                            after
- ──────────────────────────────────────────────────────────────────────────────────
- dataset       sha256:b2639589bcf0b3161b5fc144…  sha256:95c3248301dd733c4e3c24cf07…
+ what changed  before                          after
+ ──────────────────────────────────────────────────────────────────────────────
+ scorer type   llm_judge                       answer_match
+ judge model   gemini-2.5-flash                None
+ judge prompt  sha256:457d7c3841ce0f2d1e2b03…  None
+ rubric        sha256:8d95f8c65711cb262abcaf…  None
+ dataset       sha256:1d94ddad418a97f1e39e86…  sha256:c9623577a124d8688bd81ba6…
+ suite         sha256:271f373da83684958c57ef…  sha256:4af862fcb84ed2e65e635ef6…
 
  metric              before  after  change
- ──────────────────────────────────────────────────────────────────────────────
- score               0.987   0.993  +0.007 (not comparable, noise floor ±0.400)
- mean flip rate      1.3%    0.7%   -0.7%
- cases that flipped  3       2      -1
+ ──────────────────────────────────────────────────────────
+ score               0.920   0.975  +0.055 (not comparable)
+ mean flip rate      8.0%    0.0%   -8.0%
+ cases that flipped  5       0      -5
 
- • Now stable: cq015
- • Still unstable: cq043, cq052
+ • Cases added: gsm001, gsm002, …            (40 ids, elided here)
+ • Cases removed: b01, b02, …                (20 ids, elided here)
 ```
 
-The score went up by 0.007 and EvalSeal declines to call that an improvement, because the
-dataset underneath it changed. What it will tell you is which *cases* moved: `cq015`
-stopped flipping, `cq043` and `cq052` still flip. That case-level drift is the part worth
-acting on - it points at a specific question to go read, which is where eval defects
-actually live.
+0.920 to 0.975 looks like an improvement and is not one: the grader changed from an LLM
+judge to arithmetic and the dataset changed with it. The two runs also share no items at
+all, so there is nothing to pair and no test to run. `diff` reports the delta because
+hiding it would be its own kind of lie, and marks it `not comparable` so it cannot be
+quoted as a result.
+
+Cases that leave the dataset are reported as removed, never as "now stable". Dropping a
+flaky case is not the same as fixing it, and a diff that conflates them rewards deleting
+the hard items.
 
 `--json` emits the same content as a machine-readable object (`comparable`, `score`,
 `flip_rate`, `unstable_cases`, `cases`, `config_changes`, `provenance`) for a pipeline to
 assert on. `diff` always exits 0: it reports, it does not gate. Gating is `gate`'s job.
+
+## "Inconclusive" - so how big would the experiment need to be?
+
+`diff` returns `inconclusive` often, and honestly. `evalseal power` answers the question
+that follows:
+
+```console
+$ evalseal power --from-receipt 0 --ledger .evalseal/compare.jsonl --mdd 0.05
+Power 0.0% to detect a 0.050 drop from 0.975, with 40 item(s) at N=5 (model:
+from_receipt, 2000 simulated experiments, alpha 0.05).
+
+A paired test needs at least 6 items to change verdict in the same direction
+before any result can be significant at alpha 0.05: 2 x 0.5^6 = 0.0312. A suite
+where fewer than 6 items can move cannot produce a significant result at any
+number of repeats.
+
+For 80% power you would need about 110 items at N=5.
+Adding repeats does not help here. Repeats sharpen each item toward its own
+majority verdict; when a shift does not move items across that boundary, more
+repeats remove the disagreement the test feeds on. More items is the dial that
+works.
+```
+
+**The six-item floor is the most useful number here.** Under an exact paired test, n
+items all moving the same way gives p = 2 x 0.5^n. That is 0.0625 at five items and
+0.03125 at six, so six is the smallest count that can clear alpha 0.05 - and a 40-item
+suite scoring 0.975 has only one failing item to begin with. No amount of repeating will
+make such a suite able to separate two models.
+
+**Raising N is usually the wrong dial, and the README used to advise it.** Repeats sharpen
+each item toward its own majority verdict. That helps only when a change pushes items
+across the 50% line; when it lowers every item's pass rate from 0.90 to 0.85, extra
+repeats *remove* the disagreement the test feeds on and power falls. The simulator shows
+both regimes, and the tests assert both.
+
+The item model is an explicit choice rather than a hidden default, because it drives the
+answer more than the arithmetic does: `deterministic` (items pass or fail every time - what
+gsm8k and codeqa actually look like, and where repeats do nothing), `bernoulli` (every
+repeat an independent coin flip - the optimistic end), or `--from-receipt` to use a real
+run's observed per-item rates. Method and assumptions are in `src/evalseal/power.py`.
 
 ## A receipt you can attach to a pull request
 
@@ -257,7 +350,7 @@ network. Nothing in them reads the clock: the same record produces byte-identica
 which means the receipt can itself be hashed and attached to the chain. The only
 timestamp shown is the one sealed into the record.
 
-The receipt leads with four numbers - mean score, noise floor, mean flip rate, case
+The receipt leads with four numbers - mean score, per-case halfwidth, mean flip rate, case
 counts - then gives every case a verdict strip: one cell per repeat, in run order, red
 where the verdict disagreed with the majority. `FPPFP` tells you a case flipped; the strip
 tells you *when*, which is what you need to know before blaming the model.
@@ -272,7 +365,9 @@ happen. Verify what the page claims with `evalseal verify`.
 |---|---|---|
 | `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `report.json` + `report.md`; `--html` also writes a receipt. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error |
 | `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures. | `0` intact · `1` tampered or broken |
-| `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - and reports comparability, score change against the noise floor, and which cases started or stopped flipping. `--json` for CI, `--html` to share. | `0` |
+| `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - item by item: comparability, a paired test on the score difference, and which cases started or stopped flipping. `--json` for CI, `--html` to share. | `0` |
+| `evalseal power` | Estimates how many items or repeats it would take to detect a difference you care about. `--from-receipt` uses a real run's per-item rates. | `0` |
+| `evalseal decompose` | For `llm_judge` suites: splits flips into the judge's share and the target's, by judging one fixed response N times versus sampling the target N times. | `0` |
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
 | `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
@@ -357,7 +452,7 @@ cases:
 drift:
   baseline: baselines/main.json   # relative to this file
   require_comparable: true        # refuse to compare across a changed rubric or dataset
-  max_score_regression: 0.02      # allowance is this PLUS the noise floor of the two runs
+  max_score_regression: 0.02      # and the paired test must support a regression
   allow_new_unstable: false       # a case that starts flipping fails the build
   allow_removed_cases: false      # quietly dropping a hard case is not an improvement
 ```
@@ -387,8 +482,10 @@ fails wrongly, it is that it silently checks nothing:
   that is not there, or `cases.critical` names a case the dataset no longer has, the gate
   fails and says so.
 
-`max_score_regression` is measured against the noise floor as well as the stated budget, so
-a drop the runs themselves cannot distinguish from noise never fails a build. Policy rules
+`max_score_regression` fails a build only when the drop exceeds the budget *and* the paired
+test supports a regression, so a drop the experiment cannot distinguish from noise never
+fails one. Before 2.0 the allowance was the budget plus a per-case half-width of 0.217,
+which passed almost anything. Policy rules
 and command-line flags are additive: a flag can tighten a checked-in policy, never silently
 loosen it. `--json` emits every check for a pipeline to assert on. YAML needs
 `pip install 'evalseal[yaml]'`; JSON policies need nothing extra.
@@ -435,10 +532,19 @@ distribution, worst first, stamped with the judge prompt that produced it:
 `PPFP` is 1/4 = 25%, not 2 transitions out of 3. The definition was chosen because it does
 not depend on the order runs happened to execute in, which matters once runs are concurrent.
 
-**Stability classes** are based on the flip rate, the share of a case's N verdicts that
-disagree with its majority: `STABLE` (0), `BORDERLINE` (≤ 20%), `UNSTABLE` (> 20%). Each
-case also carries a finer `stability_label`: `stable_pass`, `stable_fail`, `unstable`, or
-`insufficient_runs` when N < 5, because a flip rate from three runs is not worth reading.
+**Stability classes** follow the 95% Wilson interval of the case's pass proportion, not a
+flip-rate cutoff. `UNSTABLE` when the interval contains 0.5, so the direction of the
+verdict is not established at this N. `STABLE` when it excludes 0.5 and every run agreed.
+`BORDERLINE` in between: the majority is established, but the case did disagree with
+itself. At N=5 only 5/5 and 0/5 clear 0.5, so **BORDERLINE is unreachable there** and
+becomes reachable at larger N (18/20 gives [0.70, 0.97]). Each case also carries a finer
+`stability_label`: `stable_pass`, `stable_fail`, `unstable`, or `insufficient_runs` when
+N < 5.
+
+Before 2.0 these were flip-rate thresholds - 0 for STABLE, up to 0.20 for BORDERLINE. At
+five runs the only reachable flip rates are 0, 0.2 and 0.4, so "at most 20%" was never a
+tolerance band; it was the single outcome "one of five runs disagreed", written as a
+percentage that invites reading it as a 20% error budget.
 
 **Confidence intervals** use the Wilson score interval for binary verdicts and a seeded
 percentile bootstrap for float scores. Both are deterministic. Wilson is used because the

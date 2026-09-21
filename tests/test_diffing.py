@@ -185,3 +185,18 @@ def test_load_receipt_rejects_an_empty_file(tmp_path):
     empty.write_text("")
     with pytest.raises(ValueError, match="empty"):
         load_receipt(empty)
+
+
+def test_a_removed_case_is_not_reported_as_having_become_stable():
+    """Dropping a flaky case from the dataset is not the same as fixing it.
+
+    `now_stable` is a set difference over the unstable ids, so a case that left the
+    dataset entirely used to appear there, which reads as an improvement.
+    """
+    before = _run({"keep": ["yes"], "dropped": ["yes", "no", "yes", "no", "yes"]})
+    after = _run({"keep": ["yes"]})
+
+    result = diff_records(before, after)
+    assert result.cases_removed == ["dropped"]
+    assert result.now_stable == []
+    assert "dropped" in result.unstable_before      # still reported as it was

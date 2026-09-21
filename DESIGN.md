@@ -28,13 +28,17 @@ because an unsigned ledger is still useful to whoever produced it.
 | module | role |
 |---|---|
 | `analyze.py` | Pure functions: Wilson / bootstrap CI, flip rate, stability class. No I/O. |
+| `paired.py` | Exact McNemar, paired permutation, cluster bootstrap. Pure functions. |
+| `power.py` | Simulated power: how many items or repeats a difference would need. |
+| `decompose.py` | Two-arm experiment separating judge variance from target variance. |
 | `adapters/recording.py` | Cassette keyed by SHA-256 of the effective request + repeat index. |
 | `adapters/target.py` | `Target` protocol; `LocalCallableTarget` (tests), `OpenAICompatibleTarget`. |
 | `adapters/scorer.py` | Exact, regex, and LLM-judge scorers. The judge is a `Target`. |
 | `executor.py` | N-run loop (optionally concurrent), provenance capture and gap warnings. |
 | `ledger.py` | Hash-linked append-only JSONL; `verify_chain`. |
 | `signing.py` | Ed25519 keypairs, signing the ledger head, verifying signatures. |
-| `report.py`, `cli.py` | `report.md` / `report.json` / JUnit; `run`, `verify`, `diff`, `keygen`, `sign`. |
+| `policy.py` | Policy files: thresholds, critical cases, drift rules against a baseline. |
+| `report.py`, `htmlreport.py`, `cli.py` | Markdown / JSON / JUnit / HTML; the commands. |
 
 ## Decisions
 
@@ -58,6 +62,45 @@ are retried with exponential backoff capped at 30s, preferring the provider's `R
 A 400 or 401 is not retried: repeating a malformed or unauthorized request cannot help.
 Because every response is cassette-backed as it arrives, an exhausted retry is resumable —
 re-run the same command and recording continues where it stopped.
+
+**Two runs of one suite are paired, and the old threshold was not a threshold.** Until
+2.0 `diff` compared the suite-level mean difference against the widest *per-case* Wilson
+half-width and called it a noise floor. Those describe different things: at N=5 a perfect
+item spans [0.57, 1.00], so the bar sat at 0.217, while a mean over 40 items is far
+better determined than any item in it. The rule therefore reported almost every real
+shift as "within noise", which reads as reassurance. Both runs cover the same items, so
+the comparison is paired: an exact McNemar test on the items that changed majority
+verdict, and a cluster bootstrap that resamples whole items with all their repeats
+attached. Resampling individual repeats would treat one item's repeats as independent
+observations of the suite and give an interval that is too narrow. The old quantity
+survives as `per_case_halfwidth`, which is what it measures.
+
+**The verdict is never "no difference".** A test that does not reach significance has
+not shown two runs are the same; it has failed to show they differ, which at N=5 is the
+usual outcome. `diff` says "inconclusive" and `evalseal power` answers the question that
+follows: at least six items must change verdict in the same direction before any paired
+comparison can be significant at alpha 0.05, because 2 x 0.5^6 = 0.031 and
+2 x 0.5^5 = 0.063. A suite where fewer than six items can move cannot produce a
+significant result at any number of repeats.
+
+**Stability is decided by an interval, not by a flip-rate cutoff.** The old rule called a
+flip rate of 0 STABLE, up to 0.20 BORDERLINE, and more UNSTABLE. At N=5 the only
+reachable flip rates are 0, 0.2 and 0.4, so "at most 20%" was never a tolerance band - it
+was the single outcome "one of five runs disagreed", dressed as a percentage that invites
+reading it as a 20% error budget. Classes now follow the Wilson interval of the pass
+proportion: UNSTABLE when it contains 0.5, so the direction is not established; STABLE
+when it excludes 0.5 and every run agreed; BORDERLINE in between. A visible consequence
+is that three unanimous runs no longer count as STABLE - 3/3 gives [0.44, 1.00], which is
+what you would also expect from an item that passes 70% of the time.
+
+**Comparing two suites cannot attribute variance.** The README once argued from a
+judge-graded suite flipping on 5 of 20 cases and an arithmetic-graded suite flipping on
+none of 40 that the variance came from the judge. The suites differ in grader *and* in
+task, so the comparison is confounded. `evalseal decompose` runs the experiment that
+separates them on one suite: one arm samples the target once and judges that fixed
+response N times, the other samples the target N times and judges each once. Each arm
+records to its own cassette, because one shared file would let them collide whenever the
+target's first response equals a later one.
 
 **Binary verdicts get a Wilson interval, not a bootstrap.** Resampling five identical
 verdicts only ever produces the same value, so the bootstrap reports a width-zero interval
@@ -140,11 +183,21 @@ still failing on a broken replay.
   a repeated response would break that assumption and narrow the interval unfairly.
 - **Flip rate needs N ≥ 5 to mean much.** At N=3 a single dissent already reads as 33%.
   Use a larger N on the cases you care about.
-- **Stability thresholds are conventions.** `BORDERLINE_MAX_FLIP = 0.20` is a named
-  constant chosen for auditability, not a statistically derived cutoff.
-- **The `diff` noise floor is conservative.** It uses the widest per-case CI half-width
-  across both runs. That rarely claims a false "REAL CHANGE", but it will miss small real
-  shifts in the aggregate. A paired test across cases would be more powerful.
+- **BORDERLINE is unreachable at N=5.** Stability now follows the Wilson interval of the
+  pass proportion rather than a flip-rate cutoff, and five runs can only produce
+  "unanimous" (5/5 or 0/5, whose intervals clear 0.5) or "not established". The middle
+  class needs a larger N to exist. That is what five observations support, not a gap in
+  the rule.
+- **A paired test cannot see a sub-majority shift.** McNemar works on items that change
+  majority verdict. A change that lowers every item's pass rate from 0.90 to 0.85 moves
+  the suite mean by 0.05 and flips almost no majorities, so the test reports nothing.
+  Worse, raising N makes this *harder* to see, because extra repeats sharpen each item
+  toward its own majority and remove the discordance the test feeds on. `diff` reports
+  the disagreement when the bootstrap interval excludes zero and McNemar does not agree,
+  rather than resolving it silently.
+- **Power is estimated on the test, not on the full rule.** `evalseal power` simulates
+  the McNemar criterion. `diff` additionally requires the bootstrap interval to exclude
+  zero, which is slightly stricter, so reported power is a mild upper bound.
 - **Float scores use a median-crossing pseudo-flip.** This gives a variance signal
   without a threshold, but it is a heuristic. All built-in scorers are binary.
 - **Identical prompts in different cases share cassette entries.** The key is the request

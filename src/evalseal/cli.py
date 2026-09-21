@@ -21,6 +21,8 @@ from .adapters.scorer import (
     RegexScorer,
 )
 from .adapters.target import AnthropicTarget, OpenAICompatibleTarget
+from .decompose import decompose as run_decompose
+from .decompose import render as render_decomposition
 from .diffing import diff_records, load_receipt, mean_flip_rate
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
@@ -34,6 +36,16 @@ from .ledger import (
 )
 from .models import FailOn, RunRecord, SuiteProvenance
 from .policy import PolicyError, evaluate, load_policy
+from .power import (
+    BERNOULLI,
+    DETERMINISTIC,
+    analytic_deterministic_items,
+    estimate,
+    estimate_from_record,
+    min_discordant_items,
+    required_items,
+    required_repeats,
+)
 from .provenance import file_hash
 from .report import (
     case_rows,
@@ -628,4 +640,189 @@ def gate(
         f"{record.aggregate.n_unstable} unstable case(s) · "
         f"config {config_fingerprint(record)[:20]}..."
     )
+    raise typer.Exit(code=0)
+
+
+@app.command(context_settings={"ignore_unknown_options": True})
+def power(
+    baseline: float = typer.Option(
+        0.9, min=0.0, max=1.0, help="Accuracy the suite scores today."
+    ),
+    items: int = typer.Option(40, min=1, help="Number of cases in the suite."),
+    repeats: int = typer.Option(5, min=1, help="Repeats per case."),
+    mdd: float = typer.Option(
+        0.05, min=0.0001, max=1.0,
+        help="Minimum detectable difference: the drop you want to be able to see.",
+    ),
+    model: str = typer.Option(
+        DETERMINISTIC,
+        help=f"Item model: {DETERMINISTIC} (items pass or fail every time) "
+             f"or {BERNOULLI} (every repeat is an independent coin flip).",
+    ),
+    from_receipt: str | None = typer.Option(
+        None, "--from-receipt",
+        help="Use the per-item pass rates of a real run instead of a synthetic model.",
+    ),
+    ledger: Path = LedgerOpt,
+    target_power: float = typer.Option(
+        0.8, min=0.0, max=1.0, help="Power to solve for when reporting what it would take."
+    ),
+    alpha: float = typer.Option(0.05, min=0.0001, max=0.5, help="Significance level."),
+    trials: int = typer.Option(2000, min=100, help="Simulated experiments per estimate."),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+):
+    """How big an experiment would have to be to detect a difference you care about.
+
+    `diff` answers "inconclusive at this N" honestly and often. This answers the next
+    question: how many items, or how many repeats, would it take? The method is
+    simulation against the same exact McNemar test `diff` uses; `evalseal power --help`
+    and the module docstring describe the item models and their assumptions.
+    """
+    if from_receipt is not None:
+        record = _resolve_record(from_receipt, ledger)
+        est = estimate_from_record(
+            record, mdd, n_repeats=repeats, alpha=alpha, trials=trials)
+    else:
+        if model not in (DETERMINISTIC, BERNOULLI):
+            raise typer.BadParameter(
+                f"unknown model {model!r}; expected {DETERMINISTIC!r} or {BERNOULLI!r}"
+            )
+        est = estimate(baseline, items, repeats, mdd,
+                       model=model, alpha=alpha, trials=trials)
+
+    floor = min_discordant_items(alpha)
+    need_items = required_items(
+        est.baseline, est.n_repeats, mdd, target_power,
+        model=DETERMINISTIC if est.model == "from_receipt" else est.model, alpha=alpha)
+    need_repeats = required_repeats(
+        est.baseline, est.n_items, mdd, target_power, model=BERNOULLI, alpha=alpha)
+
+    payload = {
+        **est.to_dict(),
+        "target_power": target_power,
+        "min_discordant_items": floor,
+        "required_items": need_items,
+        "required_repeats_bernoulli": need_repeats,
+        "analytic_items_deterministic": analytic_deterministic_items(mdd, alpha),
+    }
+    if as_json:
+        console.print_json(json.dumps(payload))
+        raise typer.Exit(code=0)
+
+    console.print(
+        f"[bold]Power {est.power:.1%}[/bold] to detect a {mdd:.3f} drop "
+        f"from {est.baseline:.3f}, with {est.n_items} item(s) at N={est.n_repeats} "
+        f"(model: {est.model}, {est.trials} simulated experiments, alpha {alpha})."
+    )
+    console.print(
+        f"\nA paired test needs at least [bold]{floor}[/bold] items to change verdict "
+        f"in the same direction before any result can be significant at alpha {alpha}: "
+        f"2 x 0.5^{floor} = {2 * 0.5 ** floor:.4f}. A suite where fewer than {floor} "
+        "items can move cannot produce a significant result at any number of repeats."
+    )
+    if need_items is not None:
+        console.print(
+            f"\nFor {target_power:.0%} power you would need about "
+            f"[bold]{need_items}[/bold] items at N={est.n_repeats}."
+        )
+    else:
+        console.print(
+            f"\nNo item count up to the search limit reaches {target_power:.0%} power "
+            "for this difference."
+        )
+    if need_repeats is not None:
+        console.print(
+            f"Raising repeats to [bold]{need_repeats}[/bold] would reach it with "
+            f"{est.n_items} items, but only if items behave like independent coin "
+            "flips near the 50% boundary."
+        )
+    else:
+        console.print(
+            "Adding repeats does not help here. Repeats sharpen each item toward its "
+            "own majority verdict; when a shift does not move items across that "
+            "boundary, more repeats remove the disagreement the test feeds on. "
+            "More items is the dial that works."
+        )
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def decompose(
+    suite: Path | None = typer.Option(
+        None, exists=True, dir_okay=False, help="Suite file, as `run` takes."
+    ),
+    dataset: Path | None = typer.Option(None, exists=True, dir_okay=False),
+    target_config: Path | None = typer.Option(None, exists=True, dir_okay=False),
+    scorer_config: Path | None = typer.Option(None, exists=True, dir_okay=False),
+    n: int | None = typer.Option(None, min=2, help="Repeats per arm."),
+    cassette: Path | None = typer.Option(
+        None, help="Base cassette path; each arm gets its own file beside it."
+    ),
+    max_retries: int | None = typer.Option(None, min=0),
+    timeout: float | None = typer.Option(None, min=1.0),
+    out: Path | None = typer.Option(None, "--out", help="Write the Markdown report here."),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+):
+    """Split an LLM-judged suite's flips into the judge's share and the target's.
+
+    Two arms over the same suite, holding the task fixed: one samples the target once
+    and judges that fixed response N times, the other samples the target N times and
+    judges each once. Comparing them separates grader variance from model variance,
+    which two different suites side by side cannot do.
+    """
+    cfg = _load_suite(suite)
+    dataset = dataset or (Path(cfg["dataset"]) if "dataset" in cfg else None)
+    target_config = target_config or (Path(cfg["target"]) if "target" in cfg else None)
+    scorer_config = scorer_config or (Path(cfg["scorer"]) if "scorer" in cfg else None)
+    if dataset is None or target_config is None or scorer_config is None:
+        raise typer.BadParameter(
+            "need --dataset, --target-config and --scorer-config (or --suite)")
+
+    scorer_cfg = json.loads(scorer_config.read_text(encoding="utf-8"))
+    if scorer_cfg.get("type") != "llm_judge":
+        raise typer.BadParameter(
+            f"decompose only applies to an llm_judge scorer, not {scorer_cfg.get('type')!r}. "
+            "With a deterministic grader there is no judge variance to separate out."
+        )
+
+    n = n or cfg.get("n_repeats", 5)
+    base = cassette or Path(cfg.get("cassette", "tests/cassettes/decompose.json"))
+    max_retries = max_retries if max_retries is not None else cfg.get("max_retries", 5)
+    timeout = timeout or cfg.get("timeout", 60.0)
+    target_cfg = json.loads(target_config.read_text(encoding="utf-8"))
+    ds = Dataset.from_jsonl(dataset)
+
+    # Separate cassettes: one shared file would let the arms collide whenever the
+    # target's first response equals a later one, coupling the two measurements.
+    arms = {}
+    for arm in ("judge_only", "full"):
+        path = base.with_name(f"{base.stem}.{arm}{base.suffix}")
+        cas = Cassette(path, record=os.environ.get("EVALSEAL_RECORD") == "1")
+        arms[arm] = (
+            _build_target(target_cfg, cas, max_retries, timeout),
+            _build_scorer(scorer_cfg, cas, max_retries, timeout),
+        )
+
+    try:
+        result = run_decompose(
+            ds,
+            judge_only_target=arms["judge_only"][0],
+            judge_only_scorer=arms["judge_only"][1],
+            full_target=arms["full"][0],
+            full_scorer=arms["full"][1],
+            n_repeats=n,
+        )
+    except CassetteFormatError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1) from None
+
+    if as_json:
+        console.print_json(json.dumps(result.to_dict()))
+        raise typer.Exit(code=0)
+
+    text = render_decomposition(result)
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+        console.print(f"[green]Decomposition -> {out}[/green]")
+    console.print(Markdown(text))
     raise typer.Exit(code=0)

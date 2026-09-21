@@ -55,6 +55,11 @@ class DiffResult:
     cases_removed: list[str] = field(default_factory=list)
 
     @property
+    def evaluator_changes(self) -> list[FieldChange]:
+        """The subset of config changes that actually affect comparability."""
+        return [c for c in self.config_changes if c.name in EVALUATOR_FIELDS]
+
+    @property
     def score_delta(self) -> float:
         return round(self.score_after - self.score_before, 6)
 
@@ -136,6 +141,13 @@ def noise_floor(record: RunRecord) -> float:
     that keeps a reader from over-reading a delta.
     """
     return max(((c.ci95[1] - c.ci95[0]) / 2 for c in record.results), default=0.0)
+
+
+# Which of the fields below decide comparability. Kept beside `_config_fields` so the
+# two cannot drift apart: `evaluator_fingerprint` is the authority, this names the same
+# ground in a form a reader can be shown.
+EVALUATOR_FIELDS = frozenset({"scorer type", "judge model", "judge prompt", "rubric",
+                              "dataset"})
 
 
 def _config_fields(record: RunRecord) -> dict[str, str | None]:

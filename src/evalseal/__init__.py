@@ -38,11 +38,19 @@ from .ledger import (
 )
 from .locking import ledger_lock
 from .models import Aggregate, CaseResult, ProvenanceManifest, RunRecord
+from .policy import (
+    Check,
+    Policy,
+    PolicyError,
+    PolicyResult,
+    evaluate,
+    load_policy,
+)
 from .provenance import file_hash, git_provenance, text_hash
 from .report import render_diff, to_junit, to_markdown
 from .signing import generate_keypair, sign_head, verify_signatures
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 __all__ = [
     "Aggregate", "Case", "CaseResult", "CaseStats", "Cassette", "Dataset",
@@ -55,6 +63,7 @@ __all__ = [
     "extract_answer", "file_hash", "load_receipt", "render_diff",
     "flip_rate", "git_provenance", "mean_flip_rate", "noise_floor",
     "diff_to_html", "to_html", "write_diff_html", "write_html",
+    "Check", "Policy", "PolicyError", "PolicyResult", "evaluate", "load_policy",
     "ledger_lock", "strip_decoration", "text_hash", "wilson_ci",
     "last_hash", "load_all", "run_eval", "seal_and_append", "slot", "to_junit",
     "to_markdown", "generate_keypair", "sign_head", "verify_chain",

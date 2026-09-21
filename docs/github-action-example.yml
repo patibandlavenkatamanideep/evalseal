@@ -16,7 +16,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install evalseal
+      # The [yaml] extra is only needed for a YAML policy file; a JSON one
+      # works with a plain `pip install evalseal`.
+      - run: pip install 'evalseal[yaml]'
 
       # Replay the committed cassette. Exit 3 means cases violated --fail-on; the
       # gate below decides whether that should fail the build, so tolerate it here.
@@ -31,26 +33,27 @@ jobs:
       - name: Verify the ledger
         run: evalseal verify
 
-      # Thresholds. --expect-config fails the build if the rubric, judge prompt, judge
-      # model or dataset changed, because that moves the score without the model moving.
+      # Thresholds live in evals/evalseal.yml, so loosening one shows up in review
+      # rather than in a shell line nobody reads. Every rule that ran is printed.
       - name: Gate
-        run: |
-          evalseal gate \
-            --min-score 0.85 \
-            --max-flip-rate 0.20 \
-            --critical b01,b05
-        # Add once you have pinned a fingerprint from `evalseal report --json`:
-        #   --expect-config sha256:...
+        run: evalseal gate --policy evals/evalseal.yml
+
+      # Or, without a policy file:
+      #   evalseal gate --min-score 0.85 --max-flip-rate 0.20 --critical b01,b05
 
       - name: Publish the per-case report
         if: always()
-        run: evalseal report --json > evalseal-report.json
+        run: |
+          evalseal report --json > evalseal-report.json
+          evalseal report --html evalseal-report.html
 
+      # A self-contained page: no network needed to read it months from now.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: evalseal-report
           path: |
             evalseal-report.json
+            evalseal-report.html
             report.md
           if-no-files-found: ignore

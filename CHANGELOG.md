@@ -5,6 +5,47 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 The sealed record format carries its own `schema_version`; a record written by an
 older version still verifies.
 
+## [1.6.0] - 2026-09-21
+
+### Added
+- **Policy files.** `evalseal gate --policy evalseal.yml` moves thresholds out of CI
+  shell lines and into a file that lives in the repo, so loosening one shows up in review
+  and `git log` says who did it. Rules cover the run (`min_score`, `max_flip_rate`,
+  `max_unstable_cases`, `fail_on`, `verify_ledger`, `expect_evaluator`, `expect_config`),
+  individual cases (`critical`, per-case `min_score`), and drift against a baseline.
+- **Drift rules in the gate.** `drift.baseline` points at a receipt or ledger and the gate
+  can then require the two runs be comparable, cap a score regression, forbid a case from
+  newly starting to flip, or forbid a case from quietly leaving the dataset. The
+  regression allowance is the stated budget *plus* the noise floor of the two runs, so a
+  drop neither run can distinguish from noise never fails a build.
+- **Every rule that ran is printed, passed or failed.** A gate that speaks up only on
+  failure cannot be told apart from a gate that checked nothing, which is what a policy
+  becomes after a year in a repo. `--json` emits the same checks for a pipeline.
+- **`Policy`, `PolicyResult`, `Check`, `load_policy` and `evaluate`** are exported, so a
+  harness can apply the same rules the CLI applies.
+- **`DiffResult.evaluator_changes`**, the subset of config changes that actually decide
+  comparability, beside the `EVALUATOR_FIELDS` the fingerprint is built from.
+- An example policy in `examples/evalseal.yml`, and a `[yaml]` extra. YAML policies need
+  `pip install 'evalseal[yaml]'`; JSON policies need nothing extra.
+
+### Fixed
+- **Case ids were eaten by the console.** Rich reads `cases.min_score[gsm001]` as markup
+  and printed `cases.min_score`, dropping exactly the identifier a reader needs. Gate
+  output is escaped now.
+- **A misleading comparability message.** The drift check listed every changed config
+  field, so a run that changed only the target model reported "evaluator changes: target
+  model" while passing. It now names only fields that decide comparability, or says the
+  grading setup matched.
+
+### Changed
+- **A policy that cannot be understood fails the build.** An unknown key such as
+  `min_scor: 0.9` is refused with exit 2 rather than ignored, and a rule that cannot run -
+  a missing drift baseline, a critical case the dataset no longer has - is a failure
+  rather than a skip. The usual way a quality gate fails is not that it fails wrongly, it
+  is that it silently checks nothing and the green build gets read as evidence.
+- Policy rules and command-line flags are additive: a flag can tighten a checked-in
+  policy, never silently loosen it.
+
 ## [1.5.0] - 2026-09-21
 
 ### Added
@@ -247,6 +288,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[1.6.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.6.0
 [1.5.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.5.0
 [1.4.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.4.0
 [1.3.2]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.3.2

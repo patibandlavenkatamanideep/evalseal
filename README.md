@@ -276,7 +276,7 @@ happen. Verify what the page claims with `evalseal verify`.
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
 | `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
-| `evalseal gate` | Applies CI thresholds to a sealed record. | `0` passed · `3` gate failed |
+| `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
 HTTP 429/408/5xx and connection errors, honouring `Retry-After`), `--timeout`, and
@@ -332,6 +332,66 @@ evalseal gate --expect-config sha256:407033d3836b8   # evaluator must not have c
 type, rubric hash, judge prompt hash, judge model and parameters, dataset and suite hashes.
 A change there moves the score without the model changing, so a gate that ignores it will
 eventually mistake evaluator drift for model drift.
+
+### A policy file instead of a wall of flags
+
+A gate spelled out in CI flags is a gate nobody reads. `--policy` moves the thresholds into
+a file that lives in the repo, so loosening one shows up in review and `git log` says who
+did it:
+
+```yaml
+# evalseal.yml
+version: 1
+
+run:
+  min_score: 0.95
+  max_flip_rate: 0.20        # per case, not the average
+  max_unstable_cases: 1
+  verify_ledger: true        # the hash chain has to check out (default)
+
+cases:
+  critical: [gsm016]         # these must not flip at all
+  min_score:
+    gsm001: 1.0
+
+drift:
+  baseline: baselines/main.json   # relative to this file
+  require_comparable: true        # refuse to compare across a changed rubric or dataset
+  max_score_regression: 0.02      # allowance is this PLUS the noise floor of the two runs
+  allow_new_unstable: false       # a case that starts flipping fails the build
+  allow_removed_cases: false      # quietly dropping a hard case is not an improvement
+```
+
+```console
+$ evalseal gate --policy evalseal.yml
+ok   run.verify_ledger: Chain intact: 2 record(s).
+ok   run.min_score: mean score 0.975 vs floor 0.950
+ok   run.max_flip_rate: 0 case(s) over 20%
+ok   run.max_unstable_cases: 0 unstable vs limit 1
+ok   cases.critical: 0 critical case(s) flipped
+ok   cases.min_score[gsm001]: 1.000 vs floor 1.000
+PASS mean 0.975 · 0 unstable case(s) · config sha256:5a5c7d55d5368...
+```
+
+Every rule that ran is printed, passed or failed. A gate that speaks up only on failure
+cannot be told apart from a gate that checked nothing, and the second one is the common
+case once a policy has been in a repo for a year.
+
+Two refusals are deliberate, because the usual way a quality gate fails is not that it
+fails wrongly, it is that it silently checks nothing:
+
+- **An unknown key is an error.** `min_scor: 0.9` is refused with exit 2, not ignored. A
+  threshold that quietly does nothing is worse than no threshold, because the build going
+  green gets read as evidence.
+- **A rule that cannot run is a failure, not a skip.** If `drift.baseline` names a file
+  that is not there, or `cases.critical` names a case the dataset no longer has, the gate
+  fails and says so.
+
+`max_score_regression` is measured against the noise floor as well as the stated budget, so
+a drop the runs themselves cannot distinguish from noise never fails a build. Policy rules
+and command-line flags are additive: a flag can tighten a checked-in policy, never silently
+loosen it. `--json` emits every check for a pipeline to assert on. YAML needs
+`pip install 'evalseal[yaml]'`; JSON policies need nothing extra.
 
 ### Gating a run directly
 
@@ -447,6 +507,18 @@ if result.comparable and result.score_verdict == "REAL CHANGE":
 
 `load_receipt` reads either shape: a `report.json` receipt, or a ledger, whose head it
 takes. `DiffResult.to_dict()` is what `--json` prints.
+
+Policies are a library too, so a harness can apply the same rules the CLI does:
+
+```python
+from pathlib import Path
+from evalseal import evaluate, load_policy
+
+policy = load_policy("evalseal.yml")
+result = evaluate(policy, record, ledger=Path(".evalseal/ledger.jsonl"))
+for check in result.checks:
+    print("ok " if check.passed else "FAIL", check.rule, check.detail)
+```
 
 `to_html(record)` and `diff_to_html(result)` return those pages as strings, with
 `write_html` / `write_diff_html` to put them on disk. `mean_flip_rate(record)` and

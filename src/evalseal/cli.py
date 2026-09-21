@@ -9,6 +9,7 @@ import httpx
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape as rich_escape
 from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
 from .adapters.dataset import Dataset
@@ -32,6 +33,7 @@ from .ledger import (
     verify_chain,
 )
 from .models import FailOn, RunRecord, SuiteProvenance
+from .policy import PolicyError, evaluate, load_policy
 from .provenance import file_hash
 from .report import (
     case_rows,
@@ -510,13 +512,37 @@ def gate(
     verify_ledger: bool = typer.Option(
         True, help="Also require the hash chain to verify."
     ),
+    policy: Path | None = typer.Option(
+        None, "--policy", exists=True, dir_okay=False,
+        help="A policy file (.json/.yml) of thresholds, critical cases and drift rules.",
+    ),
+    as_json: bool = typer.Option(
+        False, "--json", help="Emit every check as machine-readable JSON."
+    ),
 ):
-    """Apply CI thresholds to a sealed record. Exit 3 means the gate failed."""
+    """Apply CI thresholds to a sealed record. Exit 3 means the gate failed.
+
+    Thresholds come from flags, from `--policy evalseal.yml`, or both: the two sets are
+    additive, so a flag can tighten a checked-in policy but never silently loosen it.
+    """
     recs = load_all(ledger)
     if not -len(recs) <= index < len(recs):
         raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
     record = recs[index]
     failures: list[str] = []
+
+    policy_checks = []
+    if policy is not None:
+        try:
+            loaded = load_policy(policy)
+            result = evaluate(loaded, record, ledger=ledger, policy_dir=policy.parent)
+        except PolicyError as e:
+            # A broken policy is a broken build. Falling back to "no thresholds" would
+            # turn a typo into a green check.
+            console.print(f"[red]Policy error:[/red] {e}")
+            raise typer.Exit(code=2) from None
+        policy_checks = result.checks
+        failures += [f"{c.rule}: {c.detail}" for c in result.violations]
 
     if verify_ledger:
         ok, msg = verify_chain(ledger)
@@ -555,9 +581,26 @@ def gate(
                 f"(expected {expect_config[:20]}..., got {actual[:20]}...)"
             )
 
+    if as_json:
+        console.print_json(json.dumps({
+            "passed": not failures,
+            "checks": [c.to_dict() for c in policy_checks],
+            "failures": failures,
+            "mean_score": record.aggregate.mean_score,
+            "sealed_hash": record.hash,
+        }))
+        raise typer.Exit(code=EXIT_UNSTABLE if failures else 0)
+
+    # Print what passed as well as what failed: a gate that only speaks up on failure
+    # cannot be told apart from a gate that checked nothing.
+    for check in policy_checks:
+        if check.passed:
+            console.print(
+                f"[green]ok  [/green] {rich_escape(check.rule)}: {rich_escape(check.detail)}")
+
     if failures:
         for f in failures:
-            console.print(f"[red]FAIL[/red] {f}")
+            console.print(f"[red]FAIL[/red] {rich_escape(f)}")
         raise typer.Exit(code=EXIT_UNSTABLE)
 
     console.print(

@@ -23,6 +23,6 @@ cases:
 # drift:
 #   baseline: baselines/main.json
 #   require_comparable: true   # refuse to compare across a changed rubric or dataset
-#   max_score_regression: 0.02 # allowance is this PLUS the noise floor of the two runs
+#   max_score_regression: 0.02 # fails only if the paired test also supports a regression
 #   allow_new_unstable: false  # a case that starts flipping fails the build
 #   allow_removed_cases: false # quietly dropping a hard case is not an improvement

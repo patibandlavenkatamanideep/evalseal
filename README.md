@@ -112,9 +112,62 @@ Put the two runs side by side:
 | borderline_judge | LLM judge | 20 | **5 (25%)** |
 | gsm8k | numeric answer match | 40 | **0** |
 
-That contrast is the finding. On this model and these tasks, the irreproducibility came
-from the *judge*, not the model. Which is exactly the kind of claim a single run cannot
-make, and the reason to measure rather than assume.
+**This contrast cannot tell you where the variance came from, and until 2.0 the README
+claimed it could.** It said the irreproducibility came from the judge rather than the
+model. The two suites differ in the grader *and* in the task - arguable open-ended prompts
+against GSM8K arithmetic - so the comparison is confounded. A difference in flip rate is
+equally consistent with an unreliable judge, with open-ended prompts drawing more variable
+answers out of the model, or with both. The design cannot separate them, so the claim was
+not supported by the evidence offered for it.
+
+`evalseal decompose` runs the experiment that can, on one suite with the task held fixed.
+
+## Where the variance actually comes from
+
+Two arms over `borderline_judge`, same 20 cases, N=5 each. The first samples the target
+**once** and then judges that single frozen response five times, so nothing but the judge
+can vary. The second samples the target five times and judges each once, which is an
+ordinary run and contains both sources.
+
+```bash
+evalseal decompose --dataset examples/borderline_judge/dataset.jsonl \
+  --target-config examples/borderline_judge/target.json \
+  --scorer-config examples/borderline_judge/scorer.json \
+  --cassette tests/cassettes/decompose_borderline.json --n 5
+```
+
+Recorded live on 2026-09-21 against `gemini-2.5-flash` and committed, so the replay above
+needs no key:
+
+| arm | what varies | mean flip rate | cases that flipped |
+|---|---|---|---|
+| judge_only | the judge only, on one frozen response | **6.0%** | 3 of 20 |
+| target_and_judge | the target and the judge | **5.0%** | 3 of 20 |
+
+| case | judge_only | target_and_judge |
+|---|---|---|
+| b16 | 40% (`PFPFF`) | 40% (`PFFPP`) |
+| b19 | 40% (`PFPFP`) | 40% (`PFFFP`) |
+| b01 | 40% (`PFPFP`) | 0% (`PPPPP`) |
+| b10 | 0% (`PPPPP`) | 20% (`FFFPF`) |
+
+**The judge, grading one unchanging string five times, disagrees with itself about as
+often as the whole pipeline does.** That is the claim the old two-suite table was reaching
+for, and this time the task is held fixed while it is made.
+
+What this does *not* show, stated plainly because the previous version of this section
+over-read its evidence:
+
+- **The arms are not ordered.** judge_only came out higher than target_and_judge (6.0% vs
+  5.0%). They are two independent five-run samples of 20 cases, so that gap is noise, not
+  a finding that freezing the target increases variance. The same goes for b01 flipping in
+  one arm and b10 in the other.
+- **judge_only is a lower bound, not a share.** It measures the judge's variance at one
+  particular response. Another draw from the target might be easier or harder to grade
+  consistently, so this does not average over the target's output distribution.
+- **Three flipping cases is below the floor for a significant paired test.** At alpha 0.05
+  six items must move in the same direction, so nothing here is significant - it is a
+  description of one recorded experiment, not an inference about judges generally.
 
 One problem (`gsm016`) was wrong in all five runs - consistently, not randomly. Reading it
 shows why: it says ten stalls, then refers to "the twenty stalls". GSM8K's reference answer
@@ -570,6 +623,9 @@ tracked target).
   reports siblings explicitly if a ledger acquires them another way.
 - **Repeat-run instability measurement.** Per-case verdict sequences, counts, flip rates
   and Wilson intervals, rather than one aggregate number.
+- **A paired comparison between two runs.** Both runs cover the same items, so `diff`
+  tests them item by item: an exact McNemar test on the items that changed verdict, and a
+  cluster bootstrap over items for the interval.
 - **Evaluator config fingerprinting.** The receipt seals the judge prompt hash, rubric
   hash, scorer type, judge model and parameters, dataset and suite hashes, EvalSeal
   version, git commit and dirty flag, Python version and platform.
@@ -586,6 +642,14 @@ tracked target).
   processes on one machine. On NFS or SMB the guarantee weakens or disappears.
 - **Hashes detect change, not incorrectness.** A sealed record with a wrong rubric is
   sealed just as firmly as one with a right rubric.
+- **A paired test cannot see a shift that leaves majorities alone.** McNemar works on
+  items that change verdict. A change lowering every item's pass rate from 0.90 to 0.85
+  moves the suite mean and flips almost nothing, and raising N makes it harder to see
+  rather than easier. `diff` reports the disagreement when the bootstrap interval
+  excludes zero and McNemar does not agree, instead of resolving it silently.
+- **"Inconclusive" is not "the same".** It means this experiment lacked the power to
+  tell, which at N=5 on a small suite is the usual outcome. `evalseal power` says what it
+  would take.
 
 ## Two providers, two wire formats
 

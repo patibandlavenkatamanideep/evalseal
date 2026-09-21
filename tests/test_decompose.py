@@ -173,3 +173,55 @@ def test_cli_gives_each_arm_its_own_cassette(tmp_path, monkeypatch):
     assert payload["n_cases"] == 1
     assert len(payload["cases"][0]["judge_only_verdicts"]) == 5
     assert len(payload["cases"][0]["full_verdicts"]) == 5
+
+
+# --- the recorded experiment behind the README claim ------------------------------
+
+def test_the_recorded_decomposition_replays_to_the_numbers_in_the_readme(tmp_path):
+    """Guards the README's "where the variance comes from" section.
+
+    Recorded live against gemini-2.5-flash on 2026-09-21 and committed, so this replays
+    with no key and no network. If the numbers here move, the README is wrong.
+    """
+    import shutil
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    base = tmp_path / "decompose_borderline.json"
+    for arm in ("judge_only", "full"):
+        src = repo / "tests" / "cassettes" / f"decompose_borderline.{arm}.json"
+        shutil.copy(src, tmp_path / f"decompose_borderline.{arm}.json")
+
+    result = runner.invoke(app, [
+        "decompose",
+        "--dataset", str(repo / "examples/borderline_judge/dataset.jsonl"),
+        "--target-config", str(repo / "examples/borderline_judge/target.json"),
+        "--scorer-config", str(repo / "examples/borderline_judge/scorer.json"),
+        "--cassette", str(base), "--n", "5", "--json",
+    ])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+
+    assert payload["n_cases"] == 20
+    assert payload["mean_judge_only_flip_rate"] == pytest.approx(0.06)
+    assert payload["mean_full_flip_rate"] == pytest.approx(0.05)
+    assert payload["n_flipped_judge_only"] == 3
+    assert payload["n_flipped_full"] == 3
+
+    by_id = {c["case_id"]: c for c in payload["cases"]}
+    # The judge disagrees with itself on a frozen response for these two cases.
+    assert by_id["b16"]["judge_only_flip_rate"] == pytest.approx(0.4)
+    assert by_id["b19"]["judge_only_flip_rate"] == pytest.approx(0.4)
+    assert by_id["b16"]["full_flip_rate"] == pytest.approx(0.4)
+    assert by_id["b19"]["full_flip_rate"] == pytest.approx(0.4)
+    # And the two arms disagree on these, which is sampling noise, not a finding.
+    assert by_id["b01"]["judge_only_flip_rate"] == pytest.approx(0.4)
+    assert by_id["b01"]["full_flip_rate"] == 0.0
+    assert by_id["b10"]["judge_only_flip_rate"] == 0.0
+    assert by_id["b10"]["full_flip_rate"] == pytest.approx(0.2)
+
+
+def test_the_recorded_decomposition_is_below_the_significance_floor():
+    """Three flipping cases cannot reach significance; the README says so."""
+    from evalseal.power import min_discordant_items
+    assert min_discordant_items(0.05) > 3

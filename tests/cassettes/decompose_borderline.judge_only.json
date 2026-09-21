@@ -1,0 +1,2525 @@
+{
+  "entries": {
+    "0069f631ea30498417f9c95933ccf2fbba0d2b4ba00c08b128f0d7805bc0b81d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981333,
+      "id": "k_Kwaob2FM2M_uMP84S4kAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 234,
+        "total_tokens": 654
+      }
+    },
+    "01459474906502f2d9cd9999715e28e842bdbdb1f47d2494727ab86ff252f16e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981212,
+      "id": "GfKwaoKCJci939IPhP_vkAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 82,
+        "total_tokens": 620
+      }
+    },
+    "043aa039dfc68ce83e29b93a2fe498d6c2c0cb7c3ce6dc0bbadd42fd04d27a22": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981150,
+      "id": "2_GwaqKgGMaZ1MkPoeylqAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 349,
+        "total_tokens": 1134
+      }
+    },
+    "058c3121d7abe30c4739072d34b199b0c463c77c7710120ce03d7e06fe0b2c49": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Merde !",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981402,
+      "id": "1vKwaumvKeeu_PUProKB8Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 20,
+        "total_tokens": 525
+      }
+    },
+    "05a1ad6a80ca986b9e9e89990f0988b1916df0a430d07124eb373ff2a1d630d4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981386,
+      "id": "yPKwauXMBfq8jrEPlrbGsA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 109,
+        "total_tokens": 481
+      }
+    },
+    "09a6a95e1aef5b1a41c0f667628812f144ac298747e865822592c75d0c2e05c0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981312,
+      "id": "fvKwaon6MKnK_uMP8tKO-AI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 142,
+        "total_tokens": 536
+      }
+    },
+    "0aa61af97c7c99643e2f9f6effb8eb5d67c1776f136caaa0aad82ecc525de591": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Problem breaks down,\nCalls itself for the next step,\nBase case ends the chain.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981438,
+      "id": "-PKwaszODNO2jrEP_YWD-QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 19,
+        "prompt_tokens": 12,
+        "total_tokens": 1223
+      }
+    },
+    "0eece4bc197376b7745969a6bbf5a92a1928a8e1d83264c5d1b0036d28ddc190": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981115,
+      "id": "uvGwauDEH7Oc1MkP_JvVuQQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 106,
+        "total_tokens": 292
+      }
+    },
+    "101a80f1a57794b40a533f791605770a0def0b8e4926986178554f3fb940040a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981219,
+      "id": "IPKwapP6H-W2_PUPl8XL4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 82,
+        "total_tokens": 534
+      }
+    },
+    "10af862764f8ebea4d3710348644f65b085a73a6aff2b03c3d547486c63763ad": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981122,
+      "id": "wfGwaoe6Cbri_uMP5Lr38AY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 106,
+        "total_tokens": 290
+      }
+    },
+    "111343c2e5c22a3e4aba93f04ffdf493679475cec0e9854265f1a9539f8f6bba": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Antarctica",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981231,
+      "id": "KPKwarnYOIXbjMcPxfORgQ8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 12,
+        "total_tokens": 601
+      }
+    },
+    "113d75b7b71f14c204849fd517e0e5cd7c9f7f7c1395bc7636b6640131756080": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981108,
+      "id": "sPGwarWZK4G8jrEPjO7aoQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 88,
+        "total_tokens": 698
+      }
+    },
+    "123e386c0347252c1fa8d77aa1015790ee88b96e6e2aeb231d777dd6114b69dc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981238,
+      "id": "M_KwarelO-LD_PUPrPXR0As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 198
+      }
+    },
+    "127384468e9b32d633ecd9bedda8ed452db2c14e25085bc41e7596facea664f0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981348,
+      "id": "ovKwapC8E-C8_uMP3tr3OA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 69,
+        "total_tokens": 449
+      }
+    },
+    "131b1728c14510f4cfad8738709c066e184274233e848034dad6973ed0f58159": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981374,
+      "id": "u_Kwau-jCea5sOIP7azhuQU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 615
+      }
+    },
+    "14402e0e1aef4bc2b0bbb705c98cd1ae9330fe5480b6090181c0805ad3366e65": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981365,
+      "id": "svKwaoKAIq3C_PUP7LP14Qw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 601
+      }
+    },
+    "160d4c510dd61a216e53cc0d0738db016fa4c8ea9b0bbc85679184d68205a1cf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981354,
+      "id": "qfKwatDZKLyljrEP-b2HqAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 69,
+        "total_tokens": 244
+      }
+    },
+    "1b96e0552f7c928b7d62ea0ea38fbd073ecb0bea5dc7233f68fae2a98db9d55e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "While botanically a fruit, a tomato is culinarily treated as a vegetable.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981209,
+      "id": "F_KwauP8Fcbjugff75moBA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 17,
+        "prompt_tokens": 12,
+        "total_tokens": 305
+      }
+    },
+    "1c81abcbb4571baf39dbe1553eac3fb775ff6cedf43739123d966769b755e84e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981157,
+      "id": "4vGwaqHALcbD_PUP2cmS4Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 349,
+        "total_tokens": 1015
+      }
+    },
+    "1dde100484fd91159048cfdb03ad713ac929ccfa2c5e520a98bbf0d2f6958968": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981368,
+      "id": "tfKwavC7Idjv-8YP0J3nmQg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 583
+      }
+    },
+    "1e44065fa2fe7b2270d0454cf985d0da743e03c80909ab5c8353bf5ba819b2a4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981098,
+      "id": "pfGwauXEIb7W-sAPy-ONwQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 88,
+        "total_tokens": 995
+      }
+    },
+    "1fe87196b8ef62230bd7dba3fee039bb220342284f7b4c14b81ee6d91e5df4a5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, glass is an amorphous solid.\n\n**Caveat:** It is often mistakenly referred to as a \"supercooled liquid\" due to its non-crystalline structure and extremely high viscosity, but it does not flow over geological timescales like a true liquid.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981416,
+      "id": "4_Kwaom5O8_e-sAP6IqW4Ao",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 51,
+        "prompt_tokens": 14,
+        "total_tokens": 906
+      }
+    },
+    "21f7a35a9d99e8139043740f228d326670f5a73681d71699ffcc0a2312e6c7da": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981282,
+      "id": "X_KwasybKP2z-8YPuOSviAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 97,
+        "total_tokens": 603
+      }
+    },
+    "220abb806acd56bd3961f9d20e1f67e0256717d75aac8ba6c5f464cc8b73f448": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981422,
+      "id": "6_KwasvTPI2s1MkPi7PamQM",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 118,
+        "total_tokens": 666
+      }
+    },
+    "2584193a7b6650c963dc691ce3cf8fb8fe79e68f3598dfc601455f3396eabdef": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981241,
+      "id": "NvKwaqL4J_Sp_PUPvMCDwAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 193
+      }
+    },
+    "268297175ca8c214323c46c21ce4328dff4cd61383ed786fc020163770701c2e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981165,
+      "id": "6fGwarDCLtjTjMcPjqbR6Q4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 349,
+        "total_tokens": 1085
+      }
+    },
+    "292c0ed377e9eb7ad2065437c07ec7c577ae2a34f7259a272c0c8b74d7062b03": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981260,
+      "id": "RfKwaqWcIOeu_PUProKB8Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 753
+      }
+    },
+    "2bb188598e4efa7d8ce137866b852a40d2e7bd9e38ef457c28bc68c756e58cb7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "There are typically seven continents.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981346,
+      "id": "nvKwaqyuMbPf_uMPxoaFkAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 6,
+        "prompt_tokens": 10,
+        "total_tokens": 564
+      }
+    },
+    "2e4ff70528c45c1600b80325eaebe95a094cf9ffd0df67393a484304c72bda74": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981377,
+      "id": "vvKwas2UE56tjrEPmZGfmAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 581
+      }
+    },
+    "2f267d553d9d84353a2845b1ac458a5fa5d94af42ebbe16783d4ef15134686aa": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981216,
+      "id": "HfKwar_6A82CjrEP2sC_kQ0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 82,
+        "total_tokens": 516
+      }
+    },
+    "2f5770474b761d012041d79781f5f60a639052e0d53eaf25ce929a62f5c0260f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981193,
+      "id": "BfKwauCyPPv6-8YP6r35sAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 540,
+        "total_tokens": 1201
+      }
+    },
+    "30d1d4e7af23c6c0eaffbac23ef3cfa2061f99e18c65e812cd519ac8ebe37c02": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981189,
+      "id": "AvKwatuiMeqv_PUPoeeg2Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 540,
+        "total_tokens": 1048
+      }
+    },
+    "3388c657fce9e686214b852f361ec853033a406e934ca4c2d663d55e30744979": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981186,
+      "id": "_vGwar7GL9Wq-8YPo5qLsAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 540,
+        "total_tokens": 1288
+      }
+    },
+    "33f52ae01982978154be91a528c14eeaa6068bcf1375604439009c005de5c121": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981452,
+      "id": "CvOwarD3Iayz1MkPmsrNmAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 84,
+        "total_tokens": 388
+      }
+    },
+    "34dd2ae6a0c01fba8e5337e7d1f20bfe71808536f62d32835c4937ec3551d514": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981235,
+      "id": "MvKwapCiLKK-_uMP6YDiuQQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 214
+      }
+    },
+    "379b282b028137aeafd9ab8b619046d89b805d4ecb4f0dd78da7f522cd53276c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981182,
+      "id": "_fGwapG8Eu7YjMcP38H10Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 540,
+        "total_tokens": 710
+      }
+    },
+    "37a283f8beed6e4b60226a050ac7a31bba4a96cf1000d3536c6e689904180324": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981353,
+      "id": "pvKwas3JDtS__uMPvOfWsAQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 69,
+        "total_tokens": 592
+      }
+    },
+    "381d68a4032c487e388ee2e513ed1bc39910c93a0f6efd44f2c3d9926bf81a25": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981271,
+      "id": "VfKwaonhLOub_uMP_d6l-AY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 399
+      }
+    },
+    "3ab4934d77dfc66f55e68c69eb5a12947e39c38cdd145f9d9d2513a8a424c32c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981220,
+      "id": "I_KwaoOaIKyz1MkPmsrNmAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 82,
+        "total_tokens": 299
+      }
+    },
+    "3bf380fd828e44ecae44328cb3b9f84465cdb2f9e8c12ab2d2139cff82681e4c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981299,
+      "id": "cvKwas3eLpSp1MkPmIOY0QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 246
+      }
+    },
+    "41976a508c7ca8d274922531681ed1a0ef822d224ab4e0581a1a02c46bd16960": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981310,
+      "id": "fPKwas29POiJ-sAPnoq4oAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 142,
+        "total_tokens": 428
+      }
+    },
+    "43e46e6e4b9e9e54584862812439bd6617ed0c88338a3263a1574e58b01f0f02": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981154,
+      "id": "3_GwaoCABf6__uMPk4Lo-QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 349,
+        "total_tokens": 1078
+      }
+    },
+    "456ead3c93308d1d2511d4054b19c9431d6b09ef4af14f3d5ebb6f8d37c9e5c5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981285,
+      "id": "YvKwaorBIMaZ1MkPoeylqAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 97,
+        "total_tokens": 588
+      }
+    },
+    "4830964ee3ed578a0a839e3c173ecc6c9cea3d1649f0193db7ce506d2c34d91f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981339,
+      "id": "mfKwaue7C5ys1MkP0ISLiQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 234,
+        "total_tokens": 512
+      }
+    },
+    "4efe5d542395bc0e04f05528559c288bc213e700c0bd9852b8c175ccdfeeac35": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981303,
+      "id": "dPKwas_GAp_QjMcPs_2D2Q4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 256
+      }
+    },
+    "502dbd4089e35d402f6471afb13cdde39c473863e4bbea8239514662804c343c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981443,
+      "id": "AfOwapONAvazjrEPg9e_uQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 84,
+        "total_tokens": 615
+      }
+    },
+    "50e5c5b5005fa6cefaaa49e35b03610046e045294479f7b0c8292d3f9d92d11b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981319,
+      "id": "hPKwasLsILCf1MkP8-TEyAQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 142,
+        "total_tokens": 675
+      }
+    },
+    "53f1405c7002e669897a0dbebccee64a33cb1636d6e4930786218a00b088e188": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "World War I was caused by a complex interplay of militarism, entangling alliances, imperialism, intense nationalism, and the assassination of Archduke Franz Ferdinand, which triggered a domino effect among European powers.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981114,
+      "id": "t_GwapHrO82o_uMPv-rWyQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 40,
+        "prompt_tokens": 13,
+        "total_tokens": 433
+      }
+    },
+    "54112024a93f6146aa02b3cb84873b8ae4b713f46f6ec61870c3ca0afba4d091": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981298,
+      "id": "cfKwapXOFv2r_PUPj4XyyQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 269
+      }
+    },
+    "55f68d42ebca71fcc9e33672e3c79b1d4c8deae5944499c4568c8cd0627f65f4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981292,
+      "id": "ZfKwarb3E82o_uMPv-rWyQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 97,
+        "total_tokens": 612
+      }
+    },
+    "57b92f94035b6b6b845728b6f304f04a1aa87feae7d789462fbf861104d992e2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981161,
+      "id": "5vGwaqKtBuDF_PUP8MO6uAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 349,
+        "total_tokens": 1070
+      }
+    },
+    "5931e23c39658520a45b3f34e8b7cab8c80e19216062e11eaa0f5fe9730a174c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No, Napoleon was not short; at approximately 5'6\" (1.68 m), he was about average height for a Frenchman of his time, and the perception of his shortness was largely due to British propaganda and different measurement systems.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981248,
+      "id": "PPKwaqX3MuWV39IPtsrZmQQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 50,
+        "prompt_tokens": 9,
+        "total_tokens": 562
+      }
+    },
+    "599a782fcd091ad1de4fc282aae85fe606a3b2252c2f37598e13be3ecadfae3c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981403,
+      "id": "2vKwasawFvas_PUP36Ws4As",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 247
+      }
+    },
+    "5a6e1acc4cdbc944d51af3edb30a18ffe928f99880c2b0fa86830869e0f71cd5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981269,
+      "id": "T_Kwaq3FA6Gz39IPuunKoQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 795
+      }
+    },
+    "5b1ad5798447c724a65a87753c499c3d175d12b42fdf31b34c22448f46087ca3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981139,
+      "id": "0fGwaqHNI5GZ_uMPn4WLgAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 113,
+        "total_tokens": 531
+      }
+    },
+    "5b43ef3d2eea90c6c76dbe95c94c3d0ec9b1016aaef93593fd5e83bc9284c802": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981119,
+      "id": "vfGwapvDGLPf_uMPxoaFkAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 106,
+        "total_tokens": 506
+      }
+    },
+    "5d9c7965932dec3383569a13374710e331dcd4a04dc79c7d688eeef04481c0ff": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981180,
+      "id": "-PGwapDOAe7YjMcP38H10Qo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 540,
+        "total_tokens": 1421
+      }
+    },
+    "61cc7fe721908909eebd726df5e150d2ad33bcaac1e1a939d8cb60062c64b97d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981425,
+      "id": "7_Kwas3wDY2z1MkPnq6R0QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 118,
+        "total_tokens": 609
+      }
+    },
+    "6265a82cac040f6487b5dc09ab393cfa7a81ee6ef84e9400bd6ba13139933ac6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Machine learning is a collection of statistical and computational methods that enable models to automatically learn patterns and relationships from empirical data for the purpose of prediction, classification, or decision-making on new, unseen observations.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981362,
+      "id": "rPKwav_TKqnh_uMPqoTmoAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 40,
+        "prompt_tokens": 19,
+        "total_tokens": 1115
+      }
+    },
+    "67ebc6480c2816dc1ff5b09ed7f64fbed858fdff63cd0f01132319ae67fca507": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981336,
+      "id": "lvKwaoP-A-3VjMcP2qLRsAI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 234,
+        "total_tokens": 746
+      }
+    },
+    "6850b06663dfe14ef0c77d7d3500aa409dbb4df6f7fffdb1951fb1a4d47452cc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "No single person invented the light bulb, but Thomas Edison is widely credited for developing the first practical and commercially successful incandescent bulb.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981455,
+      "id": "DPOwauXjIvq8jrEPlrbGsA0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 25,
+        "prompt_tokens": 11,
+        "total_tokens": 447
+      }
+    },
+    "685efe1c7b02df0dc9e1728cdbe5fb63b7267e9264fe1f2111a6c7f6b5f4a808": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981458,
+      "id": "D_OwauiQJrjV_uMP2v3TsQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 569
+      }
+    },
+    "694df9356345b52cd83f4e8ef05fb3a3b774eb2a3ae205bb5222c178f6d89f30": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981093,
+      "id": "n_GwavDeDsbD_PUP2cmS4Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 88,
+        "total_tokens": 1264
+      }
+    },
+    "6b52dba4d609f222b2ca98e123cd06666a2bc8bb06bc54173113f64f9bf360b4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Here are a few options, playing with slightly different angles of \"borderline\":\n\n**Option 1 (Focus on workload/priorities):**\n\n> \"Hi [Coworker's Name],\n>\n> Thanks for thinking of me for this. Regrettably, my current workload is quite demanding, and I'm already fully committed to my existing priorities for the day/week. I won't be able to take that on.\n>\n> Hope you manage to find someone.\n>\n> Best,\"\n\n*Why it's borderline:* Acknowledges the request without enthusiasm, uses slightly formal language (\"regrettably,\" \"fully committed\"), states unavailability as a fact rather than a strong apology, and \"Hope you manage to find someone\" places the burden squarely back on them without offering assistance.\n\n**Option 2 (Slightly more direct, less justification):**\n\n> \"Hey [Coworker's Name],\n>\n> I appreciate the ask. However, at this time, that's just not going to be feasible for me. My bandwidth is completely tied up with other projects.\n>\n> Thanks,\"\n\n*Why it's borderline:* \"I appreciate the ask\" is minimal politeness. \"Just not going to be feasible for me\" is firm and implies the request itself might be the issue, not just your availability. \"My bandwidth is completely tied up\" is a common corporate excuse that subtly closes the door. No further offer of help or sympathy.\n\n**Option 3 (A bit weary, implying inconvenience):**\n\n> \"Hi [Coworker's Name],\n>\n> Thanks for reaching out. Unfortunately, I'm pretty stretched thin this week with a few critical deadlines, so I won't be able to pitch in on that.\n>\n> Appreciate you understanding.\n>\n> Cheers,\"\n\n*Why it's borderline:* \"Pretty stretched thin\" conveys a sense of being put-upon. \"Won't be able to pitch in\" is definitive. \"Appreciate you understanding\" puts the onus on *them* to accept your refusal, rather than you apologizing for it.\n\nChoose the one that best fits your relationship with the coworker and the nature of the request!",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981175,
+      "id": "7fGwasz7GueJ-sAP766g0Q4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 472,
+        "prompt_tokens": 15,
+        "total_tokens": 2074
+      }
+    },
+    "71fae01f7fe4d640a1542ac614cca8a452a27f7739fc689c7af76ab34b8abc14": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981207,
+      "id": "FfKwasnSGrbD_PUP26yJgAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 95,
+        "total_tokens": 393
+      }
+    },
+    "71ff31ca2de22293d5561305b29373e9ec01ac11ea1822d28e457c889f7df0fe": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Prince Hamlet is urged by his father's ghost to avenge his murder by his uncle Claudius, who swiftly married Hamlet's mother and usurped the throne. Hamlet's feigned madness and indecision lead to a cascade of tragic events, culminating in a duel where almost all main characters, including Hamlet, Claudius, and Gertrude, die from poison and a fatal wound.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981308,
+      "id": "evKwarecKtq2_uMP85nbmAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 77,
+        "prompt_tokens": 12,
+        "total_tokens": 338
+      }
+    },
+    "753321aceedd9e9df9453510eded6ea8f4f86f883b5cd4689a93a6f54edd2290": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981199,
+      "id": "DfKwauGbJOqv_PUPoeeg2Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 95,
+        "total_tokens": 382
+      }
+    },
+    "7630ddf61968b1e28cb67afc5ef017781a6f9dcc835a62e5db3ad5f53b46affb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981201,
+      "id": "D_KwaufKJMC439IPktedyQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 95,
+        "total_tokens": 471
+      }
+    },
+    "7704fd881a8a5123a872a5a270b43729cb6285630e555f042415c308e7dce0c4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981431,
+      "id": "9fKwapyrA6eM39IP2MvR2Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 118,
+        "total_tokens": 673
+      }
+    },
+    "7c72d3d267997da2cd8bce5ee966a98bf7f38bf28774154832f0259639bb62ab": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981128,
+      "id": "xvGwasGvBM2o_uMPvurWyQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 113,
+        "total_tokens": 666
+      }
+    },
+    "7dcf0cb215eb0f9ae745bcf33433435328041ee89a659edfae55d6451813f3af": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981117,
+      "id": "u_GwavLXNM2M_uMP84S4kAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 106,
+        "total_tokens": 324
+      }
+    },
+    "834d08661a22302a072c3c7a8bbc248dcc2c73796011b8db0a70eaeea6d49658": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "It's a shared digital list. New entries are put in 'blocks' linked together. Once added, nobody can ever change them.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981276,
+      "id": "V_Kwatu4LJ6tjrEPmZGfmAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 28,
+        "prompt_tokens": 16,
+        "total_tokens": 876
+      }
+    },
+    "84d7a1993b78a4e2e7bf399fbea6082c57650e61a524d16094048683f08bc12b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Yes, if one broadly defines a sandwich as a filling served within a split roll or bread.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981087,
+      "id": "lvGwatGvIPCbjrEPptOssAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 19,
+        "prompt_tokens": 16,
+        "total_tokens": 1622
+      }
+    },
+    "87498e356d2855ffc9f999f526e47467aa40242d7c85425c6dc4019812f4ae89": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Canberra is Australia's capital, purpose-built for the role.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981297,
+      "id": "b_KwaqXsOeW2_PUPl8XL4AE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 15,
+        "prompt_tokens": 21,
+        "total_tokens": 192
+      }
+    },
+    "936f79f81f7d77ab8c703d0a374f4558106a1947f2b3d69c3d0c469200510021": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981224,
+      "id": "JfKwavLbDOrK_uMPs6zFoAY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 82,
+        "total_tokens": 658
+      }
+    },
+    "9b15ecd9ac17923019cdb1058601e60ab1d1c688e513dcc8838bd306275cc21c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981392,
+      "id": "zvKwapqVMeDF_PUP8MO6uAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 109,
+        "total_tokens": 342
+      }
+    },
+    "9c7945442b0e5662330b149fea75e1bd9edf2cfa0c4dc0d6d2d36aa1f39fd4a9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981398,
+      "id": "0_KwasXlOKbV_uMP1ePlgAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 109,
+        "total_tokens": 544
+      }
+    },
+    "9e95d4390cde39f21415b099950840eb889c6534dd885475e4a58f02b3e04544": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981137,
+      "id": "z_GwasrIA8W8_uMPs8_LiQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 113,
+        "total_tokens": 587
+      }
+    },
+    "a01cf75495cb761e7065c422ccdd11ee63b0fc14c5416dc3682ce20ea3eb8898": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981111,
+      "id": "tPGwauuPEPeN-8YPnqbPmAU",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 88,
+        "total_tokens": 789
+      }
+    },
+    "a0b623dd41a391cef9555b6dea545d12125fcb30693c335e2c0d625615b10007": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981331,
+      "id": "kPKwavX6H4G4_PUPl6fa-Qw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 234,
+        "total_tokens": 753
+      }
+    },
+    "a304cca87163e270830b1d3aa5624a978a8aebf70728c358751dd94f72fba9e9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981120,
+      "id": "v_GwavDbLt2MjrEP9tmWwQw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 106,
+        "total_tokens": 324
+      }
+    },
+    "a4b141fffcdc6ee426edc21b2cd5554dcbad5ed27cc0ecf5b57006d41fb3d277": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981466,
+      "id": "FfOwar2OGtWq-8YPo5qLsAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 1018
+      }
+    },
+    "a77f0d135a43b57c35f9a50a50a5f27fb99eb50e15fa4484197bc77ee7fdb41c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981445,
+      "id": "BPOwavfQC9Wq-8YPo5qLsAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 84,
+        "total_tokens": 410
+      }
+    },
+    "a973ed0a25488e0ada3907b18db49e6c4b6a0d7282724249a3e5a49239e61655": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981202,
+      "id": "EfKwaovVLd25_PUP2NXK4Qw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 95,
+        "total_tokens": 291
+      }
+    },
+    "ab9e2dfb4d126720bf8970bd3af1bea40e71bab23d6460e62a4fa0d27e8c0da8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981468,
+      "id": "GvOwasKrM9Wq-8YPo5qLsAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 408
+      }
+    },
+    "b04234586dad7d09dafbaa984f0d725efbb8c4d4772481c3c92ad9fc17c0cc0b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981440,
+      "id": "_vKwapTXOfT4jrEP_ua30A0",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 84,
+        "total_tokens": 397
+      }
+    },
+    "b6e88d6258255fbbfa7323640c76e867ad9766af7bc8c8818fff470c208c292a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Vaccines introduce a harmless version or component of a pathogen to your immune system. This \"trains\" your body to recognize and quickly fight off the actual threat if you encounter it, preventing severe illness or infection.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981125,
+      "id": "wvGwasXpGaG9_uMPivrV4Q4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 43,
+        "prompt_tokens": 17,
+        "total_tokens": 609
+      }
+    },
+    "b7d93cf27fed082e1bcf8a5850e44ef4fc82ac6a5547f4895f740bfd3111e23d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981395,
+      "id": "0PKwavHBGsC-_PUPis3HwQs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 109,
+        "total_tokens": 727
+      }
+    },
+    "ba4fec279aabf21c0c67fc47a41a67ef247169790d2c3a54d7767c32f6fe8b7d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981322,
+      "id": "h_KwaoelKrCf1MkP8-TEyAQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 142,
+        "total_tokens": 597
+      }
+    },
+    "baa139f73dc11a4033b98842dd803236621ddf25baac9a7a6b4d2a5daebe34d5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981405,
+      "id": "2_KwarHEMpCq1MkP3KOZ4A8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 254
+      }
+    },
+    "be27aaf5fbabcc99dafc1fec6e0fcf7eaa4f9dd2554d726682e2e52c0bb46629": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981470,
+      "id": "HPOwaoSlNbPf_uMPxoaFkAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 418
+      }
+    },
+    "c02bb588acb0d76478dd872f620fad705d87d43a021e66c1b2cd3d64b3b72d22": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Pluto's planetary status is one of the most debated topics in astronomy, largely depending on **which definition you subscribe to** and **when you ask**.\n\nFor decades, it was unequivocally considered the ninth planet, holding a special place in public imagination and textbooks. It orbits the Sun, is roughly spherical due to its own gravity, and has several moons\u2014qualities that certainly feel \"planet-like.\"\n\nHowever, in 2006, the International Astronomical Union (IAU) established a formal definition for \"planet,\" which Pluto famously did not fully meet. While it satisfies two criteria (orbiting the Sun and being massive enough to be nearly round), it failed the third: **clearing its orbital path of other debris.** This led to its reclassification as a \"dwarf planet,\" a separate category that also includes objects like Eris and Ceres.\n\nSo, is it a planet? Officially, no, according to the IAU's current framework. But many astronomers, and certainly a large segment of the public, continue to argue that the IAU's definition is flawed, arbitrary, or simply too narrow. Some prefer a geophysical definition, where any gravitationally rounded body orbiting a star is a planet, which would indeed include Pluto.\n\nUltimately, its status remains a lively point of discussion, straddling the line between a beloved traditional planet and a pioneering member of a new celestial classification.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981146,
+      "id": "0_Gwasn6NvKu_uMP_oy_4QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 286,
+        "prompt_tokens": 10,
+        "total_tokens": 1393
+      }
+    },
+    "c358e27013c4e066e1eee58ccbf1a30b9641348d8edcc74bee8c9145b0fa7217": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981262,
+      "id": "TfKwasAbv47UyQ-1yp-ZBQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 397
+      }
+    },
+    "c595846fa782cb80596e25f52e5cb6a53ba969d46682018fb61d67ff6b1e2685": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981356,
+      "id": "q_KwapCGCpye_uMPz_eX-QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 69,
+        "total_tokens": 268
+      }
+    },
+    "c855eee3b4867d8184a834dc8644bfbe8de160318f1d9bfe78ff1790fef8865a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981131,
+      "id": "yfGwasuUA_azjrEPg9e_uQo",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 113,
+        "total_tokens": 577
+      }
+    },
+    "cb07bb468779be7f8a31e5a663812bb6d2aca3b688cf58f4d2912344853733a6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981306,
+      "id": "efKwat3SE_Sp_PUPvMCDwAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 282
+      }
+    },
+    "d022ad4427db7d60960e6b6711130c7ab26df5144201b48437326179c24c2d39": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Mathematically, **yes, zero is an even number.**\n\nThe definition of an even number is any integer that can be divided by 2 with no remainder, or can be expressed in the form $2k$ where $k$ is an integer. Since $0 = 2 \\times 0$ (and 0 is an integer), zero perfectly fits this definition.\n\nThe \"hedging\" comes from common intuition or everyday usage where people often think of even numbers as 2, 4, 6, etc., or -2, -4, -6, etc. Zero is unique in being neither positive nor negative, which can sometimes lead to the incorrect assumption that it's \"neither\" even nor odd. However, in formal mathematics, there is no ambiguity: zero is firmly even.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981328,
+      "id": "ivKwaqOaKti_39IP5v3P0QY",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 166,
+        "prompt_tokens": 15,
+        "total_tokens": 1121
+      }
+    },
+    "d1a5f780a1c88fa4433df04bcc770c47eebc544ea67f668027446bf97fd6e4c5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981279,
+      "id": "XPKwas6EJ9eM_uMPu4zPoAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 97,
+        "total_tokens": 616
+      }
+    },
+    "d254fe42fff889a3b775e20d1ef199d591ec8129863e3fb392a08da81509f0a7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981461,
+      "id": "EvOwasudE9nD_PUPm72guQk",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 601
+      }
+    },
+    "d31de2296f543a1b8ae7dcc542873cdb892aba1483a8651c8efe1c78e7f6baf4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981390,
+      "id": "yvKwatWVG8y639IPk-Lm0Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 109,
+        "total_tokens": 798
+      }
+    },
+    "d44da821a0d60bc59ecc8e2b0ca6374d4c3542f880f49a81a29aa5bc43ce4041": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981205,
+      "id": "E_KwasKIEITijrEPrITx-Qs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 95,
+        "total_tokens": 394
+      }
+    },
+    "d52d6fa04a017bd56b10cbac37fab9031bd1eadac50c8c5f5759e5ab621f7665": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981295,
+      "id": "bfKwareQAb2o1MkP_uL_qAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 97,
+        "total_tokens": 616
+      }
+    },
+    "d6b3628724e3124424765d8bb34d4f6b206c0199baf1e5a8b6be08c91f39db38": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981349,
+      "id": "pPKwapXdMI2y_PUPhrrK-Aw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 69,
+        "total_tokens": 257
+      }
+    },
+    "d84f789099154f1ba5e5ccdbf330d920b8ea5f905a66fbabf7d986056752a19d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981370,
+      "id": "uPKwauevFteN_uMP7qf-kAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 574
+      }
+    },
+    "d8a7b8f7b6a147d1eb1f1952f0acb1da4cb96308cd031024fb7d6e0324969032": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981407,
+      "id": "3fKwap3bH5Cq1MkP3KOZ4A8",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 497
+      }
+    },
+    "e2ad8054798285f749601152400c14c9153034a22989200fd0dc90e45d53294b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981409,
+      "id": "4PKwauXPBYid_uMPo7eSkAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 390
+      }
+    },
+    "e4d3c5e234654f93367a2d72d34a44e393185377e2458da67182f707d3a91b01": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981428,
+      "id": "8vKwaqmnAqDUjMcPxtP12A4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 118,
+        "total_tokens": 599
+      }
+    },
+    "e57651cadfcd1f796703da3f3dc35ae78f4a7fea86eb4d2d95abd7065b5e8df0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Atmospheric gas molecules redirect shorter blue wavelengths of sunlight in many directions, causing the sky to appear blue to our eyes.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981197,
+      "id": "CvKwau_BAtWJ-sAPx5aJoQc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 24,
+        "prompt_tokens": 18,
+        "total_tokens": 631
+      }
+    },
+    "e7fe8576777b5b9733a017acb001744497cc9add4b803ef26e65f4bcab4dd2f0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981411,
+      "id": "4vKwar6_Dr7W-sAPy-ONwQ4",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 76,
+        "total_tokens": 303
+      }
+    },
+    "eaef2947b246f60364ab04a188f26638a946e3519916f0c59002e56bfea0e073": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981253,
+      "id": "QPKwau7VINSNjrEP8rzHGQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "total_tokens": 427
+      }
+    },
+    "eaf11fa8ccf6c7be176ac1c23c2637d31bf84e9a5f0e4e78634a2cc609dbf234": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981244,
+      "id": "OfKwaoS2E5GZ_uMPn4WLgAg",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 210
+      }
+    },
+    "ebe0fcce911aaddf9ca9ba62c97345d5dcb674d14cf459304690894d8b58d99d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981419,
+      "id": "6fKwarbMDanh_uMPqoTmoAc",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 118,
+        "total_tokens": 561
+      }
+    },
+    "ef507c745b3875f3621ce04a13e8e130ba4000334de799eaec7e5abc2f0010cf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981316,
+      "id": "gfKwap_bBtqPjrEPpKm68Ac",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 142,
+        "total_tokens": 790
+      }
+    },
+    "f089c0723f24be76a6fda750e710068d04064635418e15f3d8c372f0dd020c56": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981305,
+      "id": "d_KwarOgMJys1MkP0ISLiQE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 89,
+        "total_tokens": 279
+      }
+    },
+    "f339f420ecd1bfb1f6b0cb566a1a0d7190851ad7ef8c0a36cee83f0ff8d05d96": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "FAIL",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981449,
+      "id": "BvOwapWrD9Wq-8YPo5qLsAw",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 84,
+        "total_tokens": 723
+      }
+    },
+    "f3c1b7791a01a1856946a51c06d1b0f889697f4000921f34bd04899c54041fed": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "Haha, nope! If we only used 10%, I probably wouldn't spend half my day trying to remember why I walked into a room.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981383,
+      "id": "wfKwarGbIdTG_PUPoPvawAs",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 31,
+        "prompt_tokens": 25,
+        "total_tokens": 1135
+      }
+    },
+    "f6a10286137261f5416fb75fb02a2f88809f02ad0b496a120a790bdd9a29f8b7": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981134,
+      "id": "y_GwapmSK4i8_uMP7_LjyQI",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 113,
+        "total_tokens": 680
+      }
+    },
+    "f9a406e9f0005e27ff8ef6e8d8196e83aee4525bb033aa3e02eb40c8cf0e30ea": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981342,
+      "id": "m_Kwaq7lEIO21MkP1PGd0QQ",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 234,
+        "total_tokens": 873
+      }
+    },
+    "fb079a363edd394861d5d33f94431ec0f972bd666a9f422c63ad3f70110a695e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981104,
+      "id": "qvGwasHCFeDd-sAPsqzpsAE",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 88,
+        "total_tokens": 1251
+      }
+    },
+    "ffe6814400eb1a305802395d2bc225dc4b1f696e4d36cf4c8abd75c3685f397a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "PASS",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1789981234,
+      "id": "L_Kwat2vK82c1MkPjOWSEA",
+      "model": "gemini-2.5-flash",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 67,
+        "total_tokens": 215
+      }
+    }
+  },
+  "version": 2
+}

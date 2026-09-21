@@ -104,7 +104,7 @@ target's first response equals a later one.
 
 **Binary verdicts get a Wilson interval, not a bootstrap.** Resampling five identical
 verdicts only ever produces the same value, so the bootstrap reports a width-zero interval
-and `diff` inherits a noise floor of zero — certainty the data cannot support. The Wilson
+and every interval collapses to certainty the data cannot support. The Wilson
 score interval stays well-defined at the boundary (5/5 gives roughly [0.57, 1.00], in line
 with the rule of three, which bounds an unseen failure rate near 3/n). Float scores keep
 the seeded bootstrap, since no closed form fits an arbitrary score distribution. Both are

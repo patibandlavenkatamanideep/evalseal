@@ -352,3 +352,62 @@ def test_mcnemar_matches_scipy_style_enumeration():
         expected = min(1.0, 2.0 * sum(
             math.comb(n, i) * 0.5 ** n for i in range(k + 1)))
         assert exact_mcnemar(b, c) == pytest.approx(expected)
+
+
+# --- the surfaces that carry the result ---------------------------------------------
+
+def test_diff_json_carries_the_whole_paired_block(tmp_path):
+    """A pipeline has to be able to assert on the statistics, not scrape the prose."""
+    import json
+
+    from typer.testing import CliRunner
+
+    from evalseal.cli import app
+    from evalseal.ledger import seal_and_append
+
+    ids = [f"i{k:02d}" for k in range(20)]
+    ledger = tmp_path / "l.jsonl"
+    seal_and_append(_run(_always(ids)), ledger, relink=True)
+    seal_and_append(
+        _run({**_always(ids), **{i: ["no"] for i in ids[:15]}}), ledger, relink=True)
+
+    result = CliRunner().invoke(app, ["diff", "0", "-1", "--ledger", str(ledger), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+
+    paired = payload["paired"]
+    assert paired["test"] == "exact_mcnemar"
+    assert paired["verdict"] == "regression"
+    assert paired["n_discordant"] == 15
+    assert paired["discordant_regressed"] == 15
+    assert paired["p_value"] == pytest.approx(2 / 32768)
+    assert paired["n_items"] == 20
+    assert len(paired["ci95"]) == 2
+
+    # The old key is gone; the number survives under the name that describes it.
+    assert "noise_floor" not in payload["score"]
+    assert payload["score"]["per_case_halfwidth"] == pytest.approx(0.2172, abs=5e-4)
+    assert payload["score"]["verdict"] == "regression"
+
+
+def test_the_two_criteria_disagreeing_is_reported_rather_than_resolved():
+    """A shift that moves the mean without moving any majority.
+
+    Every item goes from 5/5 to 3/5: the mean drops 0.4 on every single item, so the
+    cluster bootstrap interval is far from zero, but no item changes which way it mostly
+    goes, so McNemar sees nothing. Silently calling that either way would be wrong; the
+    summary names the situation instead.
+    """
+    ids = [f"i{k:02d}" for k in range(20)]
+    before = _run(_always(ids))
+    after = _run({i: ["yes", "yes", "yes", "no", "no"] for i in ids})
+
+    result = compare_runs(before, after)
+    assert result.delta == pytest.approx(-0.4)
+    assert result.n_discordant == 0
+    assert result.p_value == 1.0
+    assert result.ci_excludes_zero
+    assert result.mean_moved_without_majorities
+    assert result.verdict == INCONCLUSIVE
+    assert "within items rather than across them" in result.summary()
+    assert "More repeats would make this harder" in result.summary()

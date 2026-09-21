@@ -70,6 +70,28 @@ still verify: `verify` re-hashes stored content and does not re-derive stability
 - **`classify_stability(rate)` is now `classify_stability(successes, n_runs, flip_count)`.**
 - `diff --json` gains a `paired` object with every statistic above.
 
+### Recorded evidence
+
+- **The judge-versus-model claim was confounded and is replaced.** The README argued from
+  a judge-graded suite flipping on 5 of 20 cases and an arithmetic-graded suite flipping
+  on none of 40 that the variance came from the judge. Those suites differ in grader *and*
+  in task, so the comparison cannot separate the two. `evalseal decompose`, recorded live
+  on 2026-09-21 against `gemini-2.5-flash` over `borderline_judge` and committed as
+  `tests/cassettes/decompose_borderline.{judge_only,full}.json`, runs the experiment that
+  can: judging one frozen target response five times gives a mean flip rate of **6.0%**
+  across 3 of 20 cases, against **5.0%** across 3 of 20 for the full pipeline. The judge
+  grading an unchanging string disagrees with itself about as often as the whole pipeline
+  does. The README now also states what that does not show - the two arms are independent
+  samples so their 6.0/5.0 gap is noise, judge_only measures the judge at one particular
+  response, and three flipping cases is below the six-item significance floor.
+- **`borderline_judge` reclassifies from 15 stable / 2 borderline / 3 unstable to
+  15 / 0 / 5.** The two cases that dissented once in five are UNSTABLE under the Wilson
+  rule. Mean score, verdict sequences and per-case intervals are unchanged.
+- `gsm8k` (0.975, 40 STABLE) and `codeqa` (1.000, 60 STABLE) are unchanged.
+- The README's incomparable-`diff` example was regenerated. The old one came from two
+  pre-correction `codeqa` runs whose cassettes no longer exist, so it could not be
+  reproduced; it is replaced by a diff between two committed suites.
+
 ### Compatibility
 
 - 0.1.x cassettes remain unconvertible, for the reason already documented: they record

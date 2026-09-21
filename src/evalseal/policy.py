@@ -246,14 +246,28 @@ def _drift_checks(rules: DriftRules, record: RunRecord, baseline: RunRecord) -> 
             else "same grading setup on both sides"))
 
     if rules.max_score_regression is not None:
-        # The noise floor is added to the allowance rather than replacing it: a drop the
-        # runs cannot distinguish from noise is not a regression to fail a build over.
-        allowed = rules.max_score_regression + result.noise_floor
+        # Two conditions, and both have to hold to fail a build. The paired test must
+        # actually support a regression, and the drop must exceed the stated budget.
+        # Before 2.0 the allowance was the budget plus a per-case half-width, which at
+        # N=5 is 0.217 - larger than most real regressions, so the rule passed almost
+        # anything. Requiring significance is both stricter where it matters and honest
+        # where the experiment cannot tell.
+        paired = result.paired
         drop = -result.score_delta
+        over_budget = drop > rules.max_score_regression
+        supported = paired is not None and paired.verdict == "regression"
+        detail = (
+            f"score moved {result.score_delta:+.4f} against a budget of "
+            f"{rules.max_score_regression:.3f}"
+        )
+        if paired is not None:
+            detail += (
+                f"; paired test says {paired.verdict} "
+                f"(p={paired.p_value:.4g}, 95% CI "
+                f"[{paired.ci95[0]:+.4f}, {paired.ci95[1]:+.4f}])"
+            )
         checks.append(Check(
-            "drift.max_score_regression", drop <= allowed,
-            f"score moved {result.score_delta:+.3f}; allowance "
-            f"{rules.max_score_regression:.3f} + noise floor {result.noise_floor:.3f}"))
+            "drift.max_score_regression", not (over_budget and supported), detail))
 
     if not rules.allow_new_unstable:
         new = result.newly_unstable

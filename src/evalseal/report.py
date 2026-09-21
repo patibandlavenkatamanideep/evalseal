@@ -183,7 +183,7 @@ def render_diff(result: DiffResult) -> str:
     lines.append("|---|---|---|---|")
     lines.append(
         f"| score | {result.score_before:.3f} | {result.score_after:.3f} | "
-        f"{arrow} ({result.score_verdict}, noise floor ±{result.noise_floor:.3f}) |"
+        f"{arrow} ({result.score_verdict}) |"
     )
     # One decimal: at whole percents a 1.3% -> 0.7% move renders as "1% 1% -1%".
     lines.append(
@@ -206,6 +206,46 @@ def render_diff(result: DiffResult) -> str:
     ):
         if cases:
             lines.append(f"- **{label}:** {', '.join(cases)}")
+
+    p = result.paired
+    if p is not None and result.comparable:
+        lines.append("")
+        lines.append(f"**Paired test over {p.n_items} shared item(s).**")
+        lines.append("")
+        lines.append("| quantity | value |")
+        lines.append("|---|---|")
+        lines.append(f"| difference in mean score | {p.delta:+.4f} |")
+        lines.append(f"| 95% CI (cluster bootstrap over items) "
+                     f"| [{p.ci95[0]:+.4f}, {p.ci95[1]:+.4f}] |")
+        lines.append(f"| p-value ({p.test.replace('_', ' ')}) | {p.p_value:.4g} |")
+        if p.test == "exact_mcnemar":
+            lines.append(
+                f"| discordant items | {p.n_discordant} "
+                f"({p.discordant_regressed} regressed, {p.discordant_improved} improved) |"
+            )
+        lines.append(f"| verdict | **{p.verdict}** |")
+        lines.append("")
+        if p.verdict == "inconclusive":
+            lines.append(
+                "Inconclusive is not the same as no difference. The test did not "
+                "reach significance, which is a statement about this experiment's "
+                "power, not about the two runs being the same."
+            )
+        if p.ambiguous_items:
+            lines.append(
+                f"- Excluded from the paired test (repeats split evenly, so no majority): "
+                f"{', '.join(p.ambiguous_items)}"
+            )
+        if p.items_only_in_before or p.items_only_in_after:
+            lines.append(
+                f"- Not paired: {len(p.items_only_in_before)} item(s) only in the "
+                f"baseline, {len(p.items_only_in_after)} only in the candidate."
+            )
+        lines.append(
+            f"- Widest per-case CI half-width (`per_case_halfwidth`): "
+            f"±{p.per_case_halfwidth:.3f}. This describes one item at this N, not the "
+            "suite mean; before 2.0 it was used as the threshold for a change."
+        )
 
     changed_provenance = [c for c in result.provenance if c.changed]
     if changed_provenance:

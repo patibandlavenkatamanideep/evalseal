@@ -27,11 +27,17 @@ def _record():
 
 
 def test_fail_on_policies_select_different_cases():
+    """At N=5 the "borderline" case is UNSTABLE too, so both policies select both.
+
+    Under the Wilson rule a 4/5 case is not borderline: five runs do not establish its
+    direction. BORDERLINE needs a larger N to exist at all, which is why the two
+    policies no longer differ on this fixture.
+    """
     rec = _record()
     assert [r.case_id for r in failing_cases(rec, "none")] == []
-    assert [r.stability for r in failing_cases(rec, "unstable")] == ["UNSTABLE"]
+    assert [r.stability for r in failing_cases(rec, "unstable")] == ["UNSTABLE", "UNSTABLE"]
     assert sorted(r.stability for r in failing_cases(rec, "borderline")) == [
-        "BORDERLINE", "UNSTABLE",
+        "UNSTABLE", "UNSTABLE",
     ]
 
 
@@ -40,17 +46,20 @@ def test_junit_marks_only_policy_violations_as_failures():
     root = fromstring(to_junit(rec, "unstable"))
     suite = root.find("testsuite")
     assert suite.get("tests") == "3"
-    assert suite.get("failures") == "1"
+    # Two cases are UNSTABLE at N=5: the 3/5 case and the 4/5 one.
+    assert suite.get("failures") == "2"
 
     by_name = {c.get("name"): c for c in suite.findall("testcase")}
     failed = [name for name, c in by_name.items() if c.find("failure") is not None]
-    assert len(failed) == 1
+    assert len(failed) == 2
     failure = by_name[failed[0]].find("failure")
     assert failure.get("type") == "UNSTABLE"
-    assert "flip rate 40%" in failure.get("message")
     assert "95% CI" in failure.text
+    messages = " ".join(
+        by_name[n].find("failure").get("message") for n in failed)
+    assert "flip rate 40%" in messages and "flip rate 20%" in messages
 
-    # Under the stricter policy the borderline case fails too.
+    # The stricter policy selects the same set, since BORDERLINE cannot occur at N=5.
     strict = fromstring(to_junit(rec, "borderline")).find("testsuite")
     assert strict.get("failures") == "2"
 

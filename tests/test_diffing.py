@@ -91,13 +91,33 @@ def test_added_and_removed_cases_are_listed():
     assert result.cases_removed == ["a"]
 
 
-def test_score_verdict_respects_the_noise_floor():
+def test_score_verdict_is_inconclusive_rather_than_a_claim_of_sameness():
     before = _run({"a": ["yes"]})
     after = _run({"a": ["yes"]})
-    assert diff_records(before, after).score_verdict == "within noise"
+    assert diff_records(before, after).score_verdict == "inconclusive"
 
     incomparable = diff_records(_run({"a": ["yes"]}, rubric="A"), _run({"a": ["yes"]}, rubric="B"))
     assert incomparable.score_verdict == "not comparable"
+
+
+def test_a_suite_wide_shift_is_now_detected_where_the_old_floor_hid_it():
+    """Eight of forty items regress: delta -0.2, under the 0.217 per-case half-width
+    that used to be the threshold. p = 2 * 0.5**8 = 0.0078."""
+    ids = [f"i{k:02d}" for k in range(40)]
+    before = _run({i: ["yes"] for i in ids})
+    after = _run({**{i: ["yes"] for i in ids}, **{i: ["no"] for i in ids[:8]}})
+
+    result = diff_records(before, after)
+    assert result.score_verdict == "regression"
+    assert result.paired.p_value < 0.01
+    assert abs(result.score_delta) < result.per_case_halfwidth
+
+
+def test_per_case_halfwidth_is_still_reported_under_its_own_name():
+    result = diff_records(_run({"a": ["yes"]}), _run({"a": ["yes"]}))
+    assert result.per_case_halfwidth == pytest.approx(0.2172, abs=5e-4)
+    assert "per_case_halfwidth" in result.to_dict()["score"]
+    assert "noise_floor" not in result.to_dict()["score"]
 
 
 def test_render_names_what_changed():

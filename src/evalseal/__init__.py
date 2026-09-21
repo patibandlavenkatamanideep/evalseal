@@ -26,7 +26,7 @@ from .diffing import (
     diff_records,
     load_receipt,
     mean_flip_rate,
-    noise_floor,
+    per_case_halfwidth,
 )
 from .executor import run_eval
 from .htmlreport import diff_to_html, to_html, write_diff_html, write_html
@@ -40,6 +40,13 @@ from .ledger import (
 )
 from .locking import ledger_lock
 from .models import Aggregate, CaseResult, ProvenanceManifest, RunRecord
+from .paired import (
+    PairedComparison,
+    compare_runs,
+    exact_mcnemar,
+    paired_bootstrap_ci,
+    paired_permutation_p,
+)
 from .policy import (
     Check,
     Policy,
@@ -64,7 +71,9 @@ __all__ = [
     "TargetResponse", "__version__", "analyze_case", "classify_stability",
     "config_fingerprint", "diff_records", "evaluator_fingerprint",
     "extract_answer", "file_hash", "load_receipt", "render_diff",
-    "flip_rate", "git_provenance", "mean_flip_rate", "noise_floor",
+    "flip_rate", "git_provenance", "mean_flip_rate", "per_case_halfwidth",
+    "PairedComparison", "compare_runs", "exact_mcnemar",
+    "paired_bootstrap_ci", "paired_permutation_p",
     "diff_to_html", "to_html", "write_diff_html", "write_html",
     "Check", "Policy", "PolicyError", "PolicyResult", "evaluate", "load_policy",
     "ledger_lock", "strip_decoration", "text_hash", "wilson_ci",

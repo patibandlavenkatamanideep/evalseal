@@ -9,11 +9,16 @@ def test_stable_case():
     assert s.majority_verdict == 1
 
 
-def test_borderline_case():
-    # one dissenter in five -> 0.2 flip rate -> BORDERLINE
+def test_one_dissenter_in_five_is_unstable_not_borderline():
+    """4/5 gives Wilson [0.38, 0.96], which straddles 0.5.
+
+    Under the old rule this was BORDERLINE, because 1 flip in 5 is a 0.2 flip rate and
+    the cutoff was 0.20. But five runs cannot establish which way this item goes, and
+    calling that "borderline" reads as "nearly fine" when it means "unknown".
+    """
     s = analyze_case([1, 1, 1, 1, 0], binary=True)
     assert abs(s.flip_rate - 0.2) < 1e-9
-    assert s.stability == "BORDERLINE"
+    assert s.stability == "UNSTABLE"
 
 
 def test_unstable_case():
@@ -39,10 +44,32 @@ def test_flip_rate_helper():
     assert abs(rate - 1 / 3) < 1e-9
 
 
-def test_classify_boundaries():
-    assert classify_stability(0.0) == "STABLE"
-    assert classify_stability(0.20) == "BORDERLINE"
-    assert classify_stability(0.21) == "UNSTABLE"
+def test_classify_is_driven_by_where_the_wilson_interval_sits():
+    """Unanimous and clear of 0.5 is STABLE, in either direction."""
+    assert classify_stability(5, 5, flip_count=0) == "STABLE"      # [0.566, 1.000]
+    assert classify_stability(0, 5, flip_count=0) == "STABLE"      # [0.000, 0.434]
+    # Anything else at N=5 straddles 0.5, so the direction is not established.
+    for k in (1, 2, 3, 4):
+        assert classify_stability(k, 5, flip_count=5 - max(k, 5 - k)) == "UNSTABLE"
+
+
+def test_borderline_needs_more_runs_than_five_to_exist():
+    """The middle class is reachable only once N is large enough to support it.
+
+    At N=20, 18/20 gives Wilson [0.70, 0.97]: clear of 0.5, so the majority verdict is
+    established, but two runs disagreed. That is what BORDERLINE is for, and N=5 simply
+    cannot produce it.
+    """
+    assert classify_stability(18, 20, flip_count=2) == "BORDERLINE"
+    assert classify_stability(20, 20, flip_count=0) == "STABLE"
+    assert classify_stability(11, 20, flip_count=9) == "UNSTABLE"
+
+    reachable_at_5 = {classify_stability(k, 5, 5 - max(k, 5 - k)) for k in range(6)}
+    assert "BORDERLINE" not in reachable_at_5
+
+
+def test_an_empty_run_is_unstable_rather_than_an_error():
+    assert classify_stability(0, 0) == "UNSTABLE"
 
 
 def test_wilson_does_not_collapse_at_the_boundary():

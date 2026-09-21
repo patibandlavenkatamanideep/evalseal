@@ -49,23 +49,31 @@ def test_verify_on_empty_ledger(tmp_path):
     assert "0 record(s)" in result.output
 
 
-def test_diff_flags_real_change(tmp_path):
+def test_a_single_item_going_from_all_fail_to_all_pass_is_still_inconclusive(tmp_path):
+    """The largest move one item can make, and it is not evidence.
+
+    Exact McNemar on one discordant item gives p = 2 * 0.5 = 1.0. The old rule called
+    this "REAL CHANGE" because 1.0 exceeded the per-case half-width, which is the same
+    arithmetic mistake in the opposite direction: over-claiming on one item having
+    under-claimed on forty.
+    """
     path = tmp_path / "ledger.jsonl"
-    _seal(path, ["no"] * 5)    # mean 0.0, zero-width CIs
-    _seal(path, ["yes"] * 5)   # mean 1.0, zero-width CIs
+    _seal(path, ["no"] * 5)
+    _seal(path, ["yes"] * 5)
     result = runner.invoke(app, ["diff", "0", "1", "--ledger", str(path)])
     assert result.exit_code == 0, result.output
-    assert "REAL CHANGE" in result.output
+    assert "inconclusive" in result.output
+    assert "REAL CHANGE" not in result.output
 
 
-def test_diff_flags_within_noise(tmp_path):
+def test_inconclusive_output_says_it_is_not_a_claim_of_sameness(tmp_path):
     path = tmp_path / "ledger.jsonl"
     _seal(path, ["yes", "no", "yes", "no", "yes"])  # mean 0.6
-    _seal(path, ["no", "yes", "no", "yes", "no"])   # mean 0.4, same noise
-    # Negative indices need "--" so the CLI parser doesn't read -1 as an option.
-    result = runner.invoke(app, ["diff", "--ledger", str(path), "--", "0", "-1"])
+    _seal(path, ["no", "yes", "no", "yes", "no"])   # mean 0.4
+    result = runner.invoke(app, ["diff", "--ledger", str(path), "0", "-1"])
     assert result.exit_code == 0, result.output
-    assert "within noise" in result.output
+    assert "inconclusive" in result.output
+    assert "not the same as no difference" in result.output
 
 
 def test_diff_rejects_out_of_range_index(tmp_path):

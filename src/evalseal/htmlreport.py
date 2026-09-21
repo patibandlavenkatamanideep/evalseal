@@ -20,7 +20,7 @@ from __future__ import annotations
 from html import escape
 from pathlib import Path
 
-from .diffing import DiffResult, mean_flip_rate, noise_floor
+from .diffing import DiffResult, mean_flip_rate, per_case_halfwidth
 from .ledger import config_fingerprint, evaluator_fingerprint
 from .models import CaseResult, RunRecord
 from .report import case_rows, verdict_sequence
@@ -185,7 +185,8 @@ def to_html(record: RunRecord, unstable_only: bool = False) -> str:
     cards = [
         _card("mean score", f"{a.mean_score:.3f}",
               f"over {record.manifest.run_config.n_repeats} repeats per case"),
-        _card("noise floor", f"±{noise_floor(record):.3f}", "widest per-case CI"),
+        _card("per-case halfwidth", f"±{per_case_halfwidth(record):.3f}",
+              "widest single-item CI at this N"),
         _card("mean flip rate", f"{mean_flip_rate(record):.1%}",
               f"{a.n_unstable} unstable case(s)"),
         _card("cases", str(a.n_cases),
@@ -251,8 +252,9 @@ def to_html(record: RunRecord, unstable_only: bool = False) -> str:
 95% interval are estimates from those runs, not properties of the model.</li>
 <li>A flip is a verdict disagreeing with the majority for that case. A case that never
 flipped here can still flip on the next run.</li>
-<li>A score move smaller than the noise floor above is not evidence that anything
-changed. Compare two sealed runs with <code>evalseal diff</code>.</li>
+<li>The per-case halfwidth above describes a single item at this N, not the suite mean.
+To ask whether a score moved, compare two sealed runs with <code>evalseal diff</code>,
+which pairs them item by item.</li>
 <li>Prompts and responses are not included - only their hashes. Verify the record
 against the ledger with <code>evalseal verify</code>.</li>
 </ul>
@@ -291,15 +293,16 @@ def diff_to_html(result: DiffResult) -> str:
         )
 
     delta = "no change" if result.score_delta == 0 else f"{result.score_delta:+.3f}"
+    pr = result.paired
+    ci = (f"95% CI [{pr.ci95[0]:+.3f}, {pr.ci95[1]:+.3f}]" if pr else "")
+    pval = (f"p={pr.p_value:.4g} · {pr.n_items} paired items" if pr else "")
     cards = "".join([
         _card("score", f"{result.score_after:.3f}",
               f"was {result.score_before:.3f} · {delta}"),
-        _card("verdict", result.score_verdict,
-              f"noise floor ±{result.noise_floor:.3f}"),
+        _card("verdict", result.score_verdict, pval),
+        _card("difference in mean", f"{pr.delta:+.4f}" if pr else delta, ci),
         _card("mean flip rate", f"{result.flip_rate_after:.1%}",
               f"was {result.flip_rate_before:.1%} · {result.flip_rate_delta:+.1%}"),
-        _card("cases that flipped", str(len(result.unstable_after)),
-              f"was {len(result.unstable_before)}"),
     ])
 
     movements = []
@@ -332,14 +335,22 @@ def diff_to_html(result: DiffResult) -> str:
             f"<th>after</th></tr></thead><tbody>{rows}</tbody></table></div>"
         )
 
+    per_case = result.per_case_halfwidth
     body = f"""<div class="cards">{banner}</div>
 <div class="cards" style="margin-top:.75rem">{cards}</div>
 {movement_html}
 {prov_html}
 <footer>
-<p>A score move smaller than the noise floor is not evidence that anything changed.
-The floor is the widest per-case 95% interval across both runs, so it is deliberately
-conservative.</p>
+<p>The comparison is paired: both runs cover the same items, so the difference is
+measured item by item. The interval comes from a cluster bootstrap that resamples whole
+items and carries all of an item&#39;s repeats together.</p>
+<p><strong>Inconclusive does not mean the runs are the same.</strong> It means this
+experiment did not have the power to tell, which at five repeats is the usual outcome.
+Run <code>evalseal power</code> to size one that would.</p>
+<p>The widest single-item CI half-width here is
+&#177;{per_case:.3f}. That describes one item at this N, not the suite mean. Before 2.0
+it was reported as a &#34;noise floor&#34; and used as the threshold for calling a
+change real, which suppressed genuine shifts.</p>
 </footer>"""
     # The subtitle names the two records rather than repeating the verdict in the
     # banner directly beneath it.

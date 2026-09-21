@@ -19,12 +19,15 @@ def test_scripted_variance_produces_known_flip_rates():
     by_prompt = {c.prompt: r for c, r in zip(ds.cases, rec.results, strict=True)}
     assert by_prompt["stable"].stability == "STABLE"
     assert abs(by_prompt["borderline"].flip_rate - 0.2) < 1e-9
-    assert by_prompt["borderline"].stability == "BORDERLINE"
+    # 4/5 gives Wilson [0.38, 0.96], which straddles 0.5: at five runs the direction
+    # is not established, so this is UNSTABLE rather than BORDERLINE.
+    assert by_prompt["borderline"].stability == "UNSTABLE"
     assert by_prompt["unstable"].flip_rate == 0.4
     assert by_prompt["unstable"].stability == "UNSTABLE"
 
     agg = rec.aggregate
-    assert (agg.n_stable, agg.n_borderline, agg.n_unstable) == (1, 1, 1)
+    # No BORDERLINE at N=5: five runs can only say "unanimous" or "not established".
+    assert (agg.n_stable, agg.n_borderline, agg.n_unstable) == (1, 0, 2)
     assert rec.manifest.run_config.n_repeats == 5
     assert rec.manifest.dataset.n_cases == 3
     assert agg.warnings == []  # local targets are explicit and canonical

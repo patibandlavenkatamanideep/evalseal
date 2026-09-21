@@ -16,9 +16,8 @@ from dataclasses import dataclass
 
 from .models import Stability
 
-# Stability thresholds (constants so they're auditable, not magic numbers).
-BORDERLINE_MAX_FLIP = 0.20  # flip_rate in (0, 0.20]  -> BORDERLINE
-# flip_rate == 0 -> STABLE ; flip_rate > BORDERLINE_MAX_FLIP -> UNSTABLE
+# Stability is decided by the Wilson interval of the pass proportion, not by a
+# threshold on the flip rate. See `classify_stability` for why.
 
 _BOOTSTRAP_ITERS = 2000
 _RNG_SEED = 12345  # fixed so the CI computation itself is reproducible
@@ -99,8 +98,9 @@ def classify_stability_label(
     """The finer taxonomy: separates a stable pass from a stable fail, and says when
     there were simply too few runs to judge.
 
-    Note this is deliberately stricter than `classify_stability`: a case with any flip
-    is `unstable` here, where the coarse label calls a single flip in five BORDERLINE.
+    Note this stays stricter than `classify_stability`: any flip at all is `unstable`
+    here, where the coarse label asks only whether the majority direction is
+    established at this N.
     """
     if n_runs < MIN_RUNS_FOR_STABILITY:
         return "insufficient_runs"
@@ -113,12 +113,39 @@ def classify_stability_label(
     return "unstable"
 
 
-def classify_stability(rate: float) -> str:
-    if rate == 0.0:
-        return "STABLE"
-    if rate <= BORDERLINE_MAX_FLIP:
-        return "BORDERLINE"
-    return "UNSTABLE"
+def classify_stability(successes: int, n_runs: int, flip_count: int = 0) -> str:
+    """Classify an item by where the Wilson interval of its pass proportion sits.
+
+    Until 2.0 this was a threshold on the flip rate: 0 was STABLE, anything up to 0.20
+    BORDERLINE, more UNSTABLE. At the default N=5 those cutoffs cannot mean what they
+    look like they mean. The only flip rates five runs can produce are 0, 0.2 and 0.4,
+    so "flip rate at most 20%" is not a tolerance band - it is the single outcome
+    "exactly one of five runs disagreed". Reading it as a 20% error tolerance, which is
+    what a percentage invites, attributes a precision to five observations that five
+    observations do not carry.
+
+    The rule now asks the question the classes are supposed to answer: at this N, do we
+    know which way this item goes?
+
+    - UNSTABLE   the 95% Wilson interval for the pass proportion contains 0.5, so the
+                 direction of the verdict is not established at all.
+    - BORDERLINE the interval excludes 0.5 - we can name the majority verdict - but the
+                 item did disagree with itself at least once.
+    - STABLE     the interval excludes 0.5 and every run agreed.
+
+    A consequence worth stating plainly: at N=5, BORDERLINE is unreachable. 5/5 gives
+    [0.57, 1.00] and 0/5 gives [0.00, 0.43], both clear of 0.5, but 4/5 gives
+    [0.38, 0.96], which straddles it. So five runs can only say "unanimous" or "not
+    established", and the middle class needs more runs to exist. That is not a defect
+    in the rule; it is what five observations support. At N=20, 18/20 gives
+    [0.70, 0.97] and lands in BORDERLINE as intended.
+    """
+    if n_runs == 0:
+        return "UNSTABLE"
+    lo, hi = wilson_ci(successes, n_runs)
+    if lo <= 0.5 <= hi:
+        return "UNSTABLE"
+    return "BORDERLINE" if flip_count else "STABLE"
 
 
 def analyze_case(scores: list[float], *, binary: bool) -> CaseStats:
@@ -132,7 +159,8 @@ def analyze_case(scores: list[float], *, binary: bool) -> CaseStats:
         rate, majority = flip_rate(verdicts)
         flips = len(verdicts) - Counter(verdicts).most_common(1)[0][1]
         return CaseStats(
-            mean, lo, hi, rate, classify_stability(rate), majority,
+            mean, lo, hi, rate,
+            classify_stability(sum(verdicts), len(verdicts), flips), majority,
             flip_count=flips,
             stability_label=classify_stability_label(flips, len(verdicts), majority),
         )
@@ -142,4 +170,10 @@ def analyze_case(scores: list[float], *, binary: bool) -> CaseStats:
     med = statistics.median(scores)
     pseudo = [1 if s >= med else 0 for s in scores]
     rate, _ = flip_rate(pseudo)
-    return CaseStats(mean, lo, hi, rate, classify_stability(rate), None)
+    pseudo_flips = len(pseudo) - Counter(pseudo).most_common(1)[0][1]
+    # The same Wilson rule, applied to the median-crossing pseudo-verdicts. It inherits
+    # whatever the pseudo-verdict heuristic is worth, which DESIGN.md is explicit about.
+    return CaseStats(
+        mean, lo, hi, rate,
+        classify_stability(sum(pseudo), len(pseudo), pseudo_flips), None,
+    )

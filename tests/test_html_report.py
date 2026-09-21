@@ -130,12 +130,13 @@ def test_empty_selection_says_so_rather_than_rendering_an_empty_table():
     assert "No unstable cases." in to_html(record, unstable_only=True)
 
 
-def test_noise_floor_and_flip_rate_appear_in_the_summary():
+def test_per_case_halfwidth_and_flip_rate_appear_in_the_summary():
     html = to_html(_record())
-    assert "noise floor" in html
+    assert "per-case halfwidth" in html
+    assert "noise floor" not in html          # the misleading name is gone
     assert "mean flip rate" in html
-    # The receipt has to say what it is not claiming.
-    assert "not evidence that anything" in html
+    # The receipt has to say what the number does and does not describe.
+    assert "describes a single item at this N, not the suite mean" in html
 
 
 def test_write_html_uses_utf8_regardless_of_locale(tmp_path):

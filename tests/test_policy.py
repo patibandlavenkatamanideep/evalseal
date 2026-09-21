@@ -191,8 +191,12 @@ def test_new_instability_can_be_forbidden(tmp_path):
     assert evaluate(allowed, after, policy_dir=tmp_path).passed
 
 
-def test_a_regression_inside_the_noise_floor_does_not_fail(tmp_path):
-    """The allowance is the stated budget plus the noise the runs themselves show."""
+def test_a_regression_the_paired_test_cannot_support_does_not_fail(tmp_path):
+    """Two items, one of which slips from 5/5 to 4/5. Real-looking, not evidence.
+
+    The paired test has one discordant item at most, so p cannot fall below 1.0. Failing
+    a build on that would be failing it on noise.
+    """
     before = _record(a=["yes"], b=["yes"])
     after = _record(a=["yes"], b=["yes", "yes", "yes", "yes", "no"])
     write_json(before, tmp_path / "baseline.json")
@@ -202,7 +206,26 @@ def test_a_regression_inside_the_noise_floor_does_not_fail(tmp_path):
     result = evaluate(policy, after, policy_dir=tmp_path)
     check = next(c for c in result.checks if c.rule == "drift.max_score_regression")
     assert check.passed, check.detail
-    assert "noise floor" in check.detail
+    assert "inconclusive" in check.detail
+
+
+def test_a_regression_the_paired_test_does_support_fails(tmp_path):
+    """Ten items, eight of them collapsing: p = 2 * 0.5**8 = 0.0078, delta -0.8.
+
+    The old rule added a per-case half-width of 0.217 to the budget, so a real collapse
+    of this size passed a 0.0 budget unless it exceeded 0.217. It now fails.
+    """
+    ids = [f"i{k}" for k in range(10)]
+    before = _record(**{i: ["yes"] for i in ids})
+    after = _record(**{**{i: ["yes"] for i in ids}, **{i: ["no"] for i in ids[:8]}})
+    write_json(before, tmp_path / "baseline.json")
+
+    policy = Policy.model_validate(
+        {"drift": {"baseline": "baseline.json", "max_score_regression": 0.05}})
+    result = evaluate(policy, after, policy_dir=tmp_path)
+    check = next(c for c in result.checks if c.rule == "drift.max_score_regression")
+    assert not check.passed, check.detail
+    assert "regression" in check.detail
 
 
 def test_removed_cases_can_be_forbidden(tmp_path):

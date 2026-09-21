@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from .ledger import evaluator_fingerprint
 from .models import RunRecord
+from .paired import INCONCLUSIVE, PairedComparison, compare_runs, per_case_halfwidth
 
 
 @dataclass
@@ -40,7 +41,9 @@ class DiffResult:
 
     score_before: float = 0.0
     score_after: float = 0.0
-    noise_floor: float = 0.0
+    # The paired item-by-item comparison. This is the evidence; the two means above are
+    # just the headline numbers it explains.
+    paired: PairedComparison | None = None
 
     flip_rate_before: float = 0.0
     flip_rate_after: float = 0.0
@@ -68,11 +71,25 @@ class DiffResult:
         return round(self.flip_rate_after - self.flip_rate_before, 6)
 
     @property
+    def per_case_halfwidth(self) -> float:
+        """The pre-2.0 "noise floor", under a name that says what it measures.
+
+        It is the widest per-case CI half-width across the two runs: a statement about
+        how little N repeats pin down a single item. It was used as a threshold on the
+        suite mean until 2.0, which is a different quantity entirely.
+        """
+        return self.paired.per_case_halfwidth if self.paired else 0.0
+
+    @property
     def score_verdict(self) -> str:
-        """Whether the score move is larger than the noise the runs themselves show."""
+        """What the paired test supports: regression, improvement, or inconclusive.
+
+        Never "no difference". Failing to reach significance says the experiment could
+        not tell, which at N=5 is the usual outcome.
+        """
         if not self.comparable:
             return "not comparable"
-        return "within noise" if abs(self.score_delta) <= self.noise_floor else "REAL CHANGE"
+        return self.paired.verdict if self.paired else INCONCLUSIVE
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -81,9 +98,11 @@ class DiffResult:
             "provenance": [c.to_dict() for c in self.provenance],
             "score": {
                 "before": self.score_before, "after": self.score_after,
-                "delta": self.score_delta, "noise_floor": self.noise_floor,
+                "delta": self.score_delta,
                 "verdict": self.score_verdict,
+                "per_case_halfwidth": self.per_case_halfwidth,
             },
+            "paired": self.paired.to_dict() if self.paired else None,
             "flip_rate": {
                 "before": self.flip_rate_before, "after": self.flip_rate_after,
                 "delta": self.flip_rate_delta,
@@ -133,14 +152,10 @@ def _unstable(record: RunRecord) -> list[str]:
     return sorted(c.case_id for c in record.results if c.flip_rate > 0)
 
 
-def noise_floor(record: RunRecord) -> float:
-    """Widest per-case CI half-width: the noise the run itself exhibits.
-
-    Deliberately the widest and not the mean. A score move smaller than the shakiest
-    case in the run is not evidence of anything, and the conservative floor is the one
-    that keeps a reader from over-reading a delta.
-    """
-    return max(((c.ci95[1] - c.ci95[0]) / 2 for c in record.results), default=0.0)
+# `per_case_halfwidth` is defined in paired.py, beside the test that took over its old
+# role as a threshold. Re-exported here because this is where callers looked for it.
+__all__ = ["DiffResult", "FieldChange", "diff_records", "load_receipt",
+           "mean_flip_rate", "per_case_halfwidth"]
 
 
 # Which of the fields below decide comparability. Kept beside `_config_fields` so the
@@ -187,9 +202,7 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
     # exactly what a benchmark compares.
     comparable = evaluator_fingerprint(before) == evaluator_fingerprint(after)
 
-    # The floor is the noisier of the two runs: comparing against the quieter one would
-    # call a move real on the strength of the run that happened to behave.
-    floor = round(max(noise_floor(before), noise_floor(after)), 4)
+    paired = compare_runs(before, after)
     unstable_b, unstable_a = _unstable(before), _unstable(after)
     ids_b = {c.case_id for c in before.results}
     ids_a = {c.case_id for c in after.results}
@@ -206,7 +219,7 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
         ],
         score_before=before.aggregate.mean_score,
         score_after=after.aggregate.mean_score,
-        noise_floor=floor,
+        paired=paired,
         flip_rate_before=mean_flip_rate(before),
         flip_rate_after=mean_flip_rate(after),
         unstable_before=unstable_b,

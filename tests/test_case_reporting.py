@@ -54,10 +54,16 @@ def test_flip_rate_is_non_majority_over_runs_not_transitions():
     assert stats.flip_rate == 0.25
 
 
-def test_insufficient_runs_is_labelled_not_called_stable():
+def test_three_unanimous_runs_do_not_establish_stability():
+    """Both labels now agree that three runs are not enough.
+
+    3/3 gives Wilson [0.44, 1.00], which still contains 0.5. The old coarse rule called
+    this STABLE because the flip rate was 0, which over-claimed: a zero flip rate over
+    three runs is what you would expect from an item that passes 70% of the time.
+    """
     stats = analyze_case([1, 1, 1], binary=True)
     assert stats.flip_rate == 0.0
-    assert stats.stability == "STABLE"            # coarse label unchanged
+    assert stats.stability == "UNSTABLE"
     assert stats.stability_label == "insufficient_runs"
 
 

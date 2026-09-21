@@ -758,6 +758,9 @@ def decompose(
     cassette: Path | None = typer.Option(
         None, help="Base cassette path; each arm gets its own file beside it."
     ),
+    concurrency: int | None = typer.Option(
+        None, min=1, help="Parallel requests in flight. Does not change the result."
+    ),
     max_retries: int | None = typer.Option(None, min=0),
     timeout: float | None = typer.Option(None, min=1.0),
     out: Path | None = typer.Option(None, "--out", help="Write the Markdown report here."),
@@ -789,6 +792,7 @@ def decompose(
     base = cassette or Path(cfg.get("cassette", "tests/cassettes/decompose.json"))
     max_retries = max_retries if max_retries is not None else cfg.get("max_retries", 5)
     timeout = timeout or cfg.get("timeout", 60.0)
+    concurrency = concurrency or cfg.get("concurrency", 4)
     target_cfg = json.loads(target_config.read_text(encoding="utf-8"))
     ds = Dataset.from_jsonl(dataset)
 
@@ -811,6 +815,7 @@ def decompose(
             full_target=arms["full"][0],
             full_scorer=arms["full"][1],
             n_repeats=n,
+            concurrency=concurrency,
         )
     except CassetteFormatError as e:
         console.print(f"[red]{e}[/red]")

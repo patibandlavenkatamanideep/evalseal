@@ -225,3 +225,71 @@ def test_the_recorded_decomposition_is_below_the_significance_floor():
     """Three flipping cases cannot reach significance; the README says so."""
     from evalseal.power import min_discordant_items
     assert min_discordant_items(0.05) > 3
+
+
+# --- concurrency -------------------------------------------------------------------
+
+@pytest.mark.parametrize("concurrency", [1, 4, 16])
+def test_concurrency_does_not_change_the_recorded_decomposition(tmp_path, concurrency):
+    """Width is a scheduling choice, not a measurement one.
+
+    Cassette entries are keyed by (request, repeat) rather than arrival order, and
+    results are assembled by position, so every width must replay to the same verdicts.
+    """
+    import shutil
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    base = tmp_path / "decompose_borderline.json"
+    for arm in ("judge_only", "full"):
+        shutil.copy(repo / "tests" / "cassettes" / f"decompose_borderline.{arm}.json",
+                    tmp_path / f"decompose_borderline.{arm}.json")
+
+    result = runner.invoke(app, [
+        "decompose",
+        "--dataset", str(repo / "examples/borderline_judge/dataset.jsonl"),
+        "--target-config", str(repo / "examples/borderline_judge/target.json"),
+        "--scorer-config", str(repo / "examples/borderline_judge/scorer.json"),
+        "--cassette", str(base), "--n", "5",
+        "--concurrency", str(concurrency), "--json",
+    ])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+
+    assert payload["mean_judge_only_flip_rate"] == pytest.approx(0.06)
+    assert payload["mean_full_flip_rate"] == pytest.approx(0.05)
+    by_id = {c["case_id"]: c for c in payload["cases"]}
+    assert by_id["b16"]["judge_only_verdicts"] == [1, 0, 1, 0, 0]
+    assert by_id["b10"]["full_verdicts"] == [0, 0, 0, 1, 0]
+
+
+def test_the_judge_only_arm_never_judges_before_it_has_a_response():
+    """Within a case the target call must precede every judging, at any concurrency.
+
+    The parallelism in that arm is across cases only. If a judging could start first it
+    would grade an empty string, and the arm would measure nothing.
+    """
+    order: list[str] = []
+
+    def target_fn(_prompt):
+        order.append("target")
+        return "the response"
+
+    def judge_fn(_prompt):
+        order.append("judge")
+        return "PASS"
+
+    target = LocalCallableTarget(target_fn, name="t")
+    scorer = LLMJudgeScorer(judge=LocalCallableTarget(judge_fn, name="j"), rubric=RUBRIC)
+    ft = LocalCallableTarget(target_fn, name="t")
+    fs = LLMJudgeScorer(judge=LocalCallableTarget(judge_fn, name="j"), rubric=RUBRIC)
+
+    decompose(_dataset("a"), target, scorer, ft, fs, n_repeats=5, concurrency=8)
+    # First call of the judge-only arm is the target, then five judgings of it.
+    assert order[:6] == ["target", "judge", "judge", "judge", "judge", "judge"]
+
+
+def test_zero_concurrency_is_rejected():
+    (jt, js), (ft, fs) = _arms(["x"], ["PASS"])
+    with pytest.raises(ValueError, match="concurrency must be >= 1"):
+        decompose(_dataset("a"), jt, js, ft, fs, n_repeats=5, concurrency=0)

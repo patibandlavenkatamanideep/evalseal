@@ -121,7 +121,7 @@ def test_public_api_is_importable_and_typed():
     from importlib.resources import files
 
     import evalseal
-    assert evalseal.__version__ == "2.0.0"
+    assert evalseal.__version__ == "2.0.1"
     for name in ("run_eval", "analyze_case", "verify_chain", "Cassette", "to_junit"):
         assert name in evalseal.__all__ and hasattr(evalseal, name)
     assert (files("evalseal") / "py.typed").is_file()   # PEP 561 marker ships

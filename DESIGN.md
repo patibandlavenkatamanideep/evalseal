@@ -52,6 +52,13 @@ at any concurrency, and a cassette file is order-independent. (0.1.x wrote arriv
 lists; those files cannot be converted after the fact, because which repeat produced a
 response is exactly what they do not record.)
 
+**`decompose` parallelises across cases, not within one.** In the judge-only arm the
+target call has to finish before anything can grade it, so the unit of parallelism is the
+case; the full arm parallelises over (case, repeat) as `run` does. Both replay identically
+at any width, which the tests assert by comparing verdicts at concurrency 1, 4 and 16. The
+two arms still run one after the other: they are separate experiments, and overlapping
+them would only compete for the same rate limit.
+
 **Concurrency is bounded and result-preserving.** `--concurrency` runs whole (case, repeat)
 units in a thread pool, since the work is I/O-bound. Scores are assembled by index, never
 by completion order, so the report, the aggregate and the sealed hash do not depend on

@@ -5,6 +5,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 The sealed record format carries its own `schema_version`; a record written by an
 older version still verifies.
 
+## [2.0.1] - 2026-09-21
+
+### Added
+- **`evalseal decompose --concurrency`**, which `run` has always had. Recording the
+  decomposition behind the README's variance claim took about fifty minutes serially for
+  320 calls. Width changes the wall clock and nothing else: cassette entries are keyed by
+  (request, repeat) rather than arrival order and results are assembled by position, which
+  the tests assert by replaying the committed cassettes at concurrency 1, 4 and 16 and
+  requiring identical verdicts.
+
+### Note
+- The judge-only arm parallelises across cases only. Within a case the target call must
+  finish before any judging of it starts, or the judge would grade an empty string; a test
+  pins that ordering at concurrency 8.
+
 ## [2.0.0] - 2026-09-21
 
 Breaking. The statistics changed, and with them the vocabulary `diff` uses, the
@@ -420,6 +435,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[2.0.1]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.1
 [2.0.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.0
 [1.7.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.7.0
 [1.6.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.6.0

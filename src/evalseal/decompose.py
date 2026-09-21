@@ -42,6 +42,7 @@ measurements that the experiment needs to keep separate.
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from .adapters.dataset import Dataset
@@ -138,27 +139,53 @@ class Decomposition:
         }
 
 
+def _judge_only_case(case, target: Target, scorer: Scorer, n_repeats: int) -> list[int]:
+    """One case of the judge-only arm: sample once, then judge that response N times.
+
+    The target call and the judgings of it cannot overlap - there is nothing to judge
+    until the response exists - so the parallelism in this arm is across cases, never
+    within one. Each `slot` is entered inside the worker, because a contextvar does not
+    cross into a thread.
+    """
+    # The single target call lives in slot 0; each judging gets its own slot, so the
+    # N judge calls are distinct cassette entries even though the request is
+    # byte-identical every time. That is the whole point of the arm.
+    with slot(0):
+        response = target.generate(case.prompt)
+    verdicts: list[int] = []
+    for k in range(n_repeats):
+        with slot(k):
+            result = scorer.score(case.prompt, response.text, case.expected)
+        verdicts.append(int(result.score >= 0.5))
+    return verdicts
+
+
 def run_judge_only_arm(
     dataset: Dataset,
     target: Target,
     scorer: Scorer,
     n_repeats: int,
+    concurrency: int = 1,
 ) -> dict[str, list[int]]:
     """Sample the target once per case, then judge that one response N times."""
-    verdicts: dict[str, list[int]] = {}
-    for case in dataset.cases:
-        # The single target call lives in slot 0; each judging gets its own slot, so the
-        # N judge calls are distinct cassette entries even though the request is
-        # byte-identical every time. That is the whole point of the arm.
-        with slot(0):
-            response = target.generate(case.prompt)
-        per_case: list[int] = []
-        for k in range(n_repeats):
-            with slot(k):
-                result = scorer.score(case.prompt, response.text, case.expected)
-            per_case.append(int(result.score >= 0.5))
-        verdicts[case.case_id] = per_case
-    return verdicts
+    cases = list(dataset.cases)
+    if concurrency == 1:
+        per_case = [_judge_only_case(c, target, scorer, n_repeats) for c in cases]
+    else:
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            # list() re-raises the first failure and preserves input order, so results
+            # are assembled by position rather than by which worker finished first.
+            per_case = list(pool.map(
+                lambda c: _judge_only_case(c, target, scorer, n_repeats), cases))
+    return {c.case_id: v for c, v in zip(cases, per_case, strict=True)}
+
+
+def _full_unit(case, repeat: int, target: Target, scorer: Scorer) -> int:
+    """One (case, repeat) of the full arm: generate once, judge that response once."""
+    with slot(repeat):
+        response = target.generate(case.prompt)
+        result = scorer.score(case.prompt, response.text, case.expected)
+    return int(result.score >= 0.5)
 
 
 def run_full_arm(
@@ -166,18 +193,20 @@ def run_full_arm(
     target: Target,
     scorer: Scorer,
     n_repeats: int,
+    concurrency: int = 1,
 ) -> dict[str, list[int]]:
     """Sample the target N times and judge each response once: an ordinary run."""
-    verdicts: dict[str, list[int]] = {}
-    for case in dataset.cases:
-        per_case: list[int] = []
-        for k in range(n_repeats):
-            with slot(k):
-                response = target.generate(case.prompt)
-                result = scorer.score(case.prompt, response.text, case.expected)
-            per_case.append(int(result.score >= 0.5))
-        verdicts[case.case_id] = per_case
-    return verdicts
+    cases = list(dataset.cases)
+    units = [(c, k) for c in cases for k in range(n_repeats)]
+    if concurrency == 1:
+        flat = [_full_unit(c, k, target, scorer) for c, k in units]
+    else:
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            flat = list(pool.map(lambda u: _full_unit(u[0], u[1], target, scorer), units))
+    return {
+        c.case_id: flat[i * n_repeats:(i + 1) * n_repeats]
+        for i, c in enumerate(cases)
+    }
 
 
 def decompose(
@@ -187,6 +216,7 @@ def decompose(
     full_target: Target,
     full_scorer: Scorer,
     n_repeats: int = 5,
+    concurrency: int = 1,
 ) -> Decomposition:
     """Run both arms and pair them by case.
 
@@ -194,12 +224,21 @@ def decompose(
     cassette. One cassette shared between the arms would let them collide whenever the
     target's first response equals a later one, coupling two measurements the
     experiment needs to keep apart.
+
+    `concurrency` changes how long this takes and nothing else. Every cassette entry is
+    keyed by (request, repeat) rather than by arrival order, and results are assembled by
+    position, so the verdicts are identical at any width. The arms still run one after
+    the other: they are separate experiments, and overlapping them would only compete for
+    the same rate limit.
     """
     if n_repeats < 2:
         raise ValueError("decompose needs n_repeats >= 2 to see a flip at all")
+    if concurrency < 1:
+        raise ValueError("concurrency must be >= 1")
     started = time.perf_counter()
-    judge_only = run_judge_only_arm(dataset, judge_only_target, judge_only_scorer, n_repeats)
-    full = run_full_arm(dataset, full_target, full_scorer, n_repeats)
+    judge_only = run_judge_only_arm(
+        dataset, judge_only_target, judge_only_scorer, n_repeats, concurrency)
+    full = run_full_arm(dataset, full_target, full_scorer, n_repeats, concurrency)
 
     cases = [
         CaseDecomposition(

@@ -136,6 +136,10 @@ evalseal decompose --dataset examples/borderline_judge/dataset.jsonl \
   --cassette tests/cassettes/decompose_borderline.json --n 5
 ```
 
+`--concurrency` works here as it does on `run`, and changes only how long the recording
+takes. In the judge-only arm the parallelism is across cases, never within one: there is
+nothing to judge until the target has answered.
+
 Recorded live on 2026-09-21 against `gemini-2.5-flash` and committed, so the replay above
 needs no key:
 

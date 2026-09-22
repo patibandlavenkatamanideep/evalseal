@@ -11,7 +11,11 @@ FailOn = Literal["none", "unstable", "borderline"]
 
 # 1.2 seals the evaluator configuration (suite, judge prompt, code, environment) and
 # per-case verdict detail. Any added field changes record hashes, hence the bump.
-SCHEMA_VERSION = "1.2"
+# 1.3 adds no field; it changes what `scorer.judge_prompt_hash` means. Under 1.2 it
+# hashed the last judge prompt sent, which varied with the target's responses and with
+# scheduling. Under 1.3 it hashes the judge prompt template. A 1.2 judge record and a
+# 1.3 one therefore disagree on this hash for that reason alone.
+SCHEMA_VERSION = "1.3"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
 

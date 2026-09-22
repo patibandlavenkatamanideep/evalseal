@@ -56,10 +56,14 @@ def test_same_configuration_produces_the_same_fingerprint():
     assert config_fingerprint(_judged("Be strict.")) == config_fingerprint(_judged("Be strict."))
 
 
-def test_judge_prompt_is_hashed_but_not_stored_by_default():
+def test_judge_prompt_template_is_hashed_but_not_stored_by_default():
+    """The sealed hash is of the template, with the case left as placeholders."""
+    from evalseal.adapters.scorer import build_judge_prompt
+
     rec = _judged("Be strict.")
-    assert rec.manifest.scorer.judge_prompt_hash == text_hash(_judge_prompt("Be strict."))
-    assert rec.manifest.scorer.judge_prompt is None      # case text stays out of the receipt
+    expected = text_hash(build_judge_prompt("Be strict.", "{prompt}", "{response}"))
+    assert rec.manifest.scorer.judge_prompt_hash == expected
+    assert rec.manifest.scorer.judge_prompt is None
 
 
 def test_judge_prompt_can_be_stored_explicitly():
@@ -68,8 +72,12 @@ def test_judge_prompt_can_be_stored_explicitly():
     rec = run_eval(make_dataset("q"), target,
                    LLMJudgeScorer(judge=judge, rubric="Be strict."),
                    n_repeats=5, store_judge_prompt=True)
-    assert rec.manifest.scorer.judge_prompt is not None
-    assert "RESPONSE TO GRADE" in rec.manifest.scorer.judge_prompt
+    stored = rec.manifest.scorer.judge_prompt
+    assert stored is not None
+    assert "RESPONSE TO GRADE" in stored
+    # The template, so no case text and no response reaches the receipt through it.
+    assert "{prompt}" in stored and "{response}" in stored
+    assert "an answer" not in stored
 
 
 def test_suite_hash_is_sealed_when_supplied(tmp_path):

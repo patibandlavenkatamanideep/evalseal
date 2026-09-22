@@ -212,15 +212,20 @@ def run_eval(
     warnings += _truncation_warnings(judge_resps, "JUDGE")
 
     git = git_provenance()
-    judge_prompt = getattr(scorer, "last_judge_prompt", None)
+    # The template, not an instantiated prompt. Until schema 1.3 this sealed the last
+    # judge prompt sent, which embeds the last case's prompt and the target's response:
+    # the hash changed whenever the target answered differently, and under concurrency
+    # with whichever case happened to finish last. That made the evaluator fingerprint of
+    # every judge suite unstable, and two replays of one cassette "not comparable".
+    template = getattr(scorer, "judge_prompt_template", None)
     sp = ScorerProvenance(
         type=scorer.kind,
         judge=_to_provenance(judge_resps[0]) if judge_resps else None,
         rubric_hash=getattr(scorer, "rubric_hash", None),
-        judge_prompt_hash=text_hash(judge_prompt) if judge_prompt else None,
-        # The prompt embeds the case under test, so storing it verbatim can leak private
-        # dataset content into the receipt. Off unless the caller opts in.
-        judge_prompt=judge_prompt if (store_judge_prompt and judge_prompt) else None,
+        judge_prompt_hash=text_hash(template) if template else None,
+        # Opt-in all the same: the template carries the rubric verbatim, and a rubric can
+        # be as private as the dataset it grades.
+        judge_prompt=template if (store_judge_prompt and template) else None,
     )
     manifest = ProvenanceManifest(
         target=_to_provenance(target_resps[0]),

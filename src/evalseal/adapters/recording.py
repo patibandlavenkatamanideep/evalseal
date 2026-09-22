@@ -107,6 +107,27 @@ class Cassette:
         return resp
 
     def _write(self) -> None:
+        """Replace the cassette atomically: the file is always the old version or the new.
+
+        The whole file is rewritten after every recorded response. A plain write_text
+        truncates first and fills second, so an interrupt landing in between left a
+        partial file - and a partial JSON file loses every response in it, not just the
+        latest. That broke the promise that an interrupted run keeps what it recorded,
+        and the window grew with the cassette. Writing a sibling temp file and renaming
+        it over the original closes it: os.replace is atomic on POSIX and Windows.
+        """
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"version": FORMAT_VERSION, "entries": self._entries}
-        self.path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        text = json.dumps(payload, indent=2, sort_keys=True)
+        # Same directory, so the rename never crosses a filesystem boundary.
+        tmp = self.path.with_name(f".{self.path.name}.{os.getpid()}.tmp")
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(text)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.path)
+        except BaseException:
+            # Leave no stray temp file behind, then let the error surface.
+            tmp.unlink(missing_ok=True)
+            raise

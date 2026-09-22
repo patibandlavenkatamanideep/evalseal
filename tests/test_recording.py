@@ -79,3 +79,55 @@ def test_incompatible_cassette_format_is_rejected(tmp_path):
     path.write_text(json.dumps({"somekey": [{"v": 1}]}))    # pre-0.2 layout
     with pytest.raises(CassetteFormatError, match="incompatible evalseal version"):
         Cassette(path)
+
+
+def test_an_interrupted_save_leaves_the_previous_cassette_intact(tmp_path, monkeypatch):
+    """A crash mid-write must not cost the responses already recorded.
+
+    The cassette is rewritten in full after every response. It used to truncate the
+    file and then fill it, so an interrupt in between left partial JSON and lost every
+    entry. The write now goes to a temp file that is renamed over the original, so the
+    file on disk is always a complete version.
+    """
+    import json
+    import os
+
+    import pytest
+
+    from evalseal.adapters.recording import Cassette, slot
+
+    path = tmp_path / "c.json"
+    cas = Cassette(path, record=True)
+    with slot(0):
+        cas.call({"q": "first"}, lambda: {"answer": 1})
+    before = path.read_text(encoding="utf-8")
+
+    real_replace = os.replace
+
+    def interrupted(src, dst):
+        raise KeyboardInterrupt("simulated Ctrl+C between write and rename")
+
+    monkeypatch.setattr(os, "replace", interrupted)
+    with pytest.raises(KeyboardInterrupt), slot(0):
+        cas.call({"q": "second"}, lambda: {"answer": 2})
+    monkeypatch.setattr(os, "replace", real_replace)
+
+    # The file still holds the complete earlier version, and it parses.
+    assert path.read_text(encoding="utf-8") == before
+    assert len(json.loads(before)["entries"]) == 1
+    # And no temp file is left lying around to confuse the next run.
+    assert [p.name for p in tmp_path.iterdir()] == ["c.json"]
+
+
+def test_a_completed_save_replaces_the_file_with_the_new_version(tmp_path):
+    import json
+
+    from evalseal.adapters.recording import Cassette, slot
+
+    path = tmp_path / "c.json"
+    cas = Cassette(path, record=True)
+    for k in range(3):
+        with slot(k):
+            cas.call({"q": "same"}, lambda k=k: {"answer": k})
+    assert len(json.loads(path.read_text(encoding="utf-8"))["entries"]) == 3
+    assert [p.name for p in tmp_path.iterdir()] == ["c.json"]

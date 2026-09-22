@@ -200,3 +200,18 @@ def test_a_removed_case_is_not_reported_as_having_become_stable():
     assert result.cases_removed == ["dropped"]
     assert result.now_stable == []
     assert "dropped" in result.unstable_before      # still reported as it was
+
+
+def test_json_lists_only_evaluator_changes_as_the_reason_for_incomparability():
+    """A changed target is a config change that leaves the runs comparable, so a reader
+    explaining non-comparability must not be handed it as a reason."""
+    before = _run({"q": ["yes"]}, model_name="model-a", rubric="Be strict.")
+    after = _run({"q": ["yes"]}, model_name="model-b", rubric="Be lenient.")
+    payload = diff_records(before, after).to_dict()
+
+    assert payload["comparable"] is False
+    config = {c["field"] for c in payload["config_changes"]}
+    evaluator = {c["field"] for c in payload["evaluator_changes"]}
+    assert "target model" in config
+    assert "target model" not in evaluator
+    assert "rubric" in evaluator

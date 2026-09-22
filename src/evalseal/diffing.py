@@ -95,6 +95,10 @@ class DiffResult:
         return {
             "comparable": self.comparable,
             "config_changes": [c.to_dict() for c in self.config_changes],
+            # The subset that decides comparability. A reader explaining why two runs are
+            # not comparable should list these, not every config change: a different
+            # target model is a config change that leaves the runs comparable.
+            "evaluator_changes": [c.to_dict() for c in self.evaluator_changes],
             "provenance": [c.to_dict() for c in self.provenance],
             "score": {
                 "before": self.score_before, "after": self.score_after,
@@ -185,6 +189,9 @@ def _provenance_fields(record: RunRecord) -> dict[str, str | None]:
         "served model": m.target.served_model,
         "n_repeats": str(m.run_config.n_repeats),
         "evalseal version": m.environment.evalseal_version,
+        # A judge prompt hash sealed under 1.2 and one sealed under 1.3 measure different
+        # things, so a reader seeing them differ needs to see this too.
+        "schema version": m.schema_version,
         "git commit": (m.code.commit or "")[:12] or None,
         "sealed hash": (record.hash or "")[:20] or None,
     }

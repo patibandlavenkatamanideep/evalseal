@@ -130,6 +130,24 @@ def seal_and_append(
     return record
 
 
+def check_record_hash(record: RunRecord) -> tuple[str, str | None]:
+    """Does a record's stored hash match its content? One definition for every caller.
+
+    Returns (status, schema): "ok" under today's schema; "legacy" when it matches only
+    under the older schema it was sealed with; "unknown_schema" when it was sealed under
+    a schema this build cannot re-hash; "tampered" otherwise. `verify` and `anchor` both
+    ask this question, and two answers to it would eventually disagree.
+    """
+    if _content_hash(record) == record.hash:
+        return ("ok", SCHEMA_VERSION)
+    sealed_under = record.manifest.schema_version
+    if sealed_under != SCHEMA_VERSION and _content_hash(record, sealed_under) == record.hash:
+        return ("legacy", sealed_under)
+    if sealed_under not in _FIELDS_ADDED_IN and sealed_under != SCHEMA_VERSION:
+        return ("unknown_schema", sealed_under)
+    return ("tampered", sealed_under)
+
+
 def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
     """Returns (ok, message). Detects tampering, broken links and sibling records."""
     recs = load_all(path)
@@ -152,19 +170,18 @@ def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
     for i, r in enumerate(recs):
         if r.prev_hash != prev:
             return (False, f"Broken chain at record {i}: prev_hash mismatch.")
-        if _content_hash(r) != r.hash:
-            # Re-hash it the way its own schema would have, so an older ledger still
-            # verifies instead of being mistaken for a tampered one.
-            sealed_under = r.manifest.schema_version
-            if sealed_under != SCHEMA_VERSION and _content_hash(r, sealed_under) == r.hash:
-                legacy.add(sealed_under)
-            elif sealed_under not in _FIELDS_ADDED_IN and sealed_under != SCHEMA_VERSION:
-                return (False, (
-                    f"Record {i} was sealed under schema {sealed_under}, which this build does "
-                    f"not know how to re-hash. Verify it with the version that wrote it."
-                ))
-            else:
-                return (False, f"TAMPER DETECTED at record {i}: content hash does not match.")
+        # Re-hash it the way its own schema would have, so an older ledger still
+        # verifies instead of being mistaken for a tampered one.
+        status, sealed_under = check_record_hash(r)
+        if status == "legacy" and sealed_under is not None:
+            legacy.add(sealed_under)
+        elif status == "unknown_schema":
+            return (False, (
+                f"Record {i} was sealed under schema {sealed_under}, which this build does "
+                f"not know how to re-hash. Verify it with the version that wrote it."
+            ))
+        elif status == "tampered":
+            return (False, f"TAMPER DETECTED at record {i}: content hash does not match.")
         prev = r.hash
     if legacy:
         older = ", ".join(sorted(legacy))

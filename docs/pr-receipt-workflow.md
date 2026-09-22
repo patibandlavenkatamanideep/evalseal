@@ -8,10 +8,14 @@ that receipt on every pull request, with no API key.
 The workflow file is [pr-receipt-workflow.yml](pr-receipt-workflow.yml). Copy it to
 `.github/workflows/evalseal.yml`.
 
-> **Version note.** The workflow pins `evalseal==2.1.0`, which adds `anchor`,
-> `anchor-verify` and `gate --expect-evaluator`. Until 2.1.0 is on PyPI, install from the
-> repository instead:
-> `pip install "evalseal[yaml] @ git+https://github.com/patibandlavenkatamanideep/evalseal@<commit>"`.
+> **Version note: 2.1.0 is not released yet.** The workflow uses `anchor`,
+> `anchor-verify` and `gate --expect-evaluator`, which land in 2.1.0. So `EVALSEAL_SPEC`
+> installs from the commit that adds them
+> (`git+https://github.com/patibandlavenkatamanideep/evalseal@12989ba`), which works today
+> and is immutable. **After 2.1.0 is published, change that one line to the released pin:**
+> `EVALSEAL_SPEC: "evalseal[yaml]==2.1.0"`. Installing from a commit is fine for trying the
+> workflow out; a released version is what you want long term, because it is what the
+> receipt records as the tool that sealed it.
 
 ## What it does
 

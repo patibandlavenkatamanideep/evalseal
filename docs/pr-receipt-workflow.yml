@@ -19,7 +19,12 @@ permissions:
 
 env:
   # Pin the tool that seals the receipt; the version is sealed into the receipt too.
-  EVALSEAL_VERSION: "2.1.0"
+  #
+  # `anchor`, `anchor-verify` and `gate --expect-evaluator` land in 2.1.0, which is NOT
+  # published yet, so this installs from the commit that adds them. After 2.1.0 is on
+  # PyPI, replace this line with the released pin:
+  #   EVALSEAL_SPEC: "evalseal[yaml]==2.1.0"
+  EVALSEAL_SPEC: "evalseal[yaml] @ git+https://github.com/patibandlavenkatamanideep/evalseal@12989bacb931f7e8f75ef2cfa88695a5193eee76"
   # The suite to replay. Its cassette must be committed, or the run fails loudly.
   SUITE: examples/gsm8k/suite.json
   # Thresholds, critical cases and pins. A policy lists every check it ran, passed or
@@ -40,7 +45,7 @@ jobs:
 
       - name: Install EvalSeal
         # The [yaml] extra is only needed because the policy file is YAML.
-        run: pip install "evalseal[yaml]==${EVALSEAL_VERSION}"
+        run: pip install "$EVALSEAL_SPEC"
 
       - name: Replay the suite from its cassette
         # --fail-on none: this step records and seals; the gate below decides pass/fail.

@@ -140,7 +140,14 @@ Every provider the code supports should have a recorded run behind it.
       [examples/anthropic/RECORDING.md](examples/anthropic/RECORDING.md) is the procedure.
 - [ ] A recorded OpenAI cassette through the OpenAI-compatible adapter's default endpoint.
 - [ ] A recorded comparison large enough for `diff` to return a significant result on real
-      data. One is pre-registered in [examples/gsm8k_compare](examples/gsm8k_compare/).
+      data. The pre-registered attempt in
+      [examples/gsm8k_compare](examples/gsm8k_compare/) has run and came back
+      **inconclusive**, as its own power table said it would: `gemini-2.5-flash` scored
+      0.976 and `gemma-4-26b-a4b-it` 0.961 on 150 GSM8K problems, a 1.5-point gap, and the
+      design was powered for 4 points or more. Only 2 of 150 items changed majority
+      verdict, one in each direction, so the exact McNemar p-value is 1. Closing this
+      needs either a wider-apart pair of models or several hundred items; the paired
+      test's positive path is still demonstrated only on synthetic data.
 
 Accepted when: no provider claim in the README lacks a committed cassette.
 

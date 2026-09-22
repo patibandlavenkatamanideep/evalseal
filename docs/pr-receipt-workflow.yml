@@ -1,0 +1,204 @@
+# EvalSeal PR receipt workflow.
+#
+# Copy to .github/workflows/evalseal.yml. On every pull request it replays a committed
+# cassette (no API key, no network, no cost), verifies the sealed record, gates it
+# against a checked-in policy, optionally compares it with a baseline receipt, uploads
+# the receipts, and writes a step summary that says why the check passed or failed.
+#
+# Guide: docs/pr-receipt-workflow.md
+name: EvalSeal receipt
+
+on:
+  pull_request:
+
+# Read-only. The step summary and artifact upload need no write scope. Never switch this
+# to pull_request_target: that runs with the base repository's secrets while checking out
+# code from the fork.
+permissions:
+  contents: read
+
+env:
+  # Pin the tool that seals the receipt; the version is sealed into the receipt too.
+  EVALSEAL_VERSION: "2.1.0"
+  # The suite to replay. Its cassette must be committed, or the run fails loudly.
+  SUITE: examples/gsm8k/suite.json
+  # Thresholds, critical cases and pins. A policy lists every check it ran, passed or
+  # failed, which is what lets a reviewer see why the check passed.
+  POLICY: examples/evalseal.yml
+  # Optional: a receipt from the default branch to compare against. Leave the file out
+  # and the drift step is skipped, and the summary says so.
+  BASELINE_RECEIPT: evals/baseline-receipt.json
+  LEDGER: .evalseal/pr.jsonl
+
+jobs:
+  receipt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: "3.12" }
+
+      - name: Install EvalSeal
+        # The [yaml] extra is only needed because the policy file is YAML.
+        run: pip install "evalseal[yaml]==${EVALSEAL_VERSION}"
+
+      - name: Replay the suite from its cassette
+        # --fail-on none: this step records and seals; the gate below decides pass/fail.
+        # Exit 1 here means the replay itself broke - most often a cassette that does
+        # not match the dataset any more. That is a real failure, not a flaky one.
+        run: |
+          evalseal run --suite "$SUITE" --ledger "$LEDGER" \
+            --html receipt.html --fail-on none --quiet
+          evalseal report report.json --json > receipt-summary.json
+
+      - name: Verify the sealed record
+        # Recomputes the record's hash from its content and checks the chain links.
+        run: evalseal verify --ledger "$LEDGER"
+
+      - name: Gate against the policy
+        id: gate
+        # The outcome is recorded rather than acted on here, so the summary and the
+        # artifacts are written even when the gate fails. The last step fails the job.
+        run: |
+          set +e
+          evalseal gate --ledger "$LEDGER" --policy "$POLICY" --json > gate.json
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Compare with the baseline receipt
+        if: hashFiles(env.BASELINE_RECEIPT) != ''
+        # diff always exits 0: it reports, it does not gate. Comparability comes first in
+        # its output, and the summary below keeps it first.
+        run: |
+          evalseal diff "$BASELINE_RECEIPT" report.json --json > drift.json
+          evalseal diff "$BASELINE_RECEIPT" report.json --html drift.html > /dev/null
+
+      - name: Anchor the receipt
+        # A local anchor binds the receipt, its ledger head and its signature state into
+        # one file anyone can re-check with `evalseal anchor-verify`. It is not an
+        # external timestamp; see docs/external-anchoring.md.
+        run: evalseal anchor report.json --ledger "$LEDGER" --out anchor.json
+
+      - name: Write the step summary
+        if: always()
+        shell: python
+        run: |
+          import json, os, pathlib
+
+          def load(name):
+              try:
+                  return json.loads(pathlib.Path(name).read_text(encoding="utf-8"))
+              except (OSError, ValueError):
+                  return None
+
+          receipt, gate, drift = load("receipt-summary.json"), load("gate.json"), load("drift.json")
+          lines = ["# EvalSeal receipt", ""]
+
+          if gate is None:
+              lines += ["**No gate result.** An earlier step failed; open the job log.", ""]
+          else:
+              verdict = "PASSED" if gate["passed"] else "FAILED"
+              lines += [f"**Gate {verdict}** against `{os.environ['POLICY']}`.", ""]
+
+          # Comparability before any number: a delta between runs graded differently is
+          # not a change, and it must not be the first thing a reviewer reads.
+          if drift is not None:
+              if drift["comparable"]:
+                  paired = drift.get("paired") or {}
+                  ci = paired.get("ci95", [0, 0])
+                  lines += [
+                      "**Comparable with the baseline:** yes, same grading setup.",
+                      "",
+                      "| baseline | this PR | difference | 95% CI | p | discordant items | verdict |",
+                      "|---|---|---|---|---|---|---|",
+                      f"| {drift['score']['before']:.3f} | {drift['score']['after']:.3f} "
+                      f"| {paired.get('delta', 0):+.4f} | [{ci[0]:+.4f}, {ci[1]:+.4f}] "
+                      f"| {paired.get('p_value', 1):.4g} | {paired.get('n_discordant', 0)} "
+                      f"| **{drift['score']['verdict']}** |",
+                      "",
+                  ]
+                  if drift["score"]["verdict"] == "inconclusive":
+                      lines += ["`inconclusive` means this experiment could not tell, not "
+                                "that the runs are the same. `evalseal power` says what it "
+                                "would take.", ""]
+              else:
+                  # evaluator_changes, not config_changes: the latter also lists a new
+                  # target model, which is not a grading change.
+                  changed = ", ".join(c["field"] for c in drift["evaluator_changes"]) or "unknown"
+                  lines += [
+                      "**NOT COMPARABLE with the baseline.** The grading setup changed "
+                      f"({changed}), so the score difference below is not a change in the "
+                      "model and must not be read as one.",
+                      "",
+                      f"Score {drift['score']['before']:.3f} to {drift['score']['after']:.3f} "
+                      "(not comparable).",
+                      "",
+                  ]
+          else:
+              lines += ["No baseline receipt, so no drift comparison ran.", ""]
+
+          if gate is not None and (gate["checks"] or gate["failures"]):
+              lines += ["| check | result | detail |", "|---|---|---|"]
+              for check in gate["checks"]:
+                  mark = "ok" if check["passed"] else "**FAIL**"
+                  lines.append(f"| `{check['rule']}` | {mark} | {check['detail']} |")
+              policy_rules = {c["rule"] for c in gate["checks"] if not c["passed"]}
+              for failure in gate["failures"]:
+                  if failure.split(":", 1)[0] not in policy_rules:
+                      lines.append(f"| flag | **FAIL** | {failure} |")
+              lines.append("")
+
+          if receipt is not None:
+              s, p = receipt["summary"], receipt["provenance"]
+              unstable = [c["case_id"] for c in receipt["cases"] if c["stability"] == "UNSTABLE"]
+              lines += [
+                  "| | |", "|---|---|",
+                  f"| EvalSeal version (sealed) | `{p['evalseal_version']}` |",
+                  f"| suite | `{os.environ['SUITE']}` |",
+                  f"| target model | `{p['target_model']}` |",
+                  f"| mean score | {s['mean_score']:.3f} over {s['n_cases']} cases |",
+                  f"| mean flip rate | {s['flip_rate']:.1%} |",
+                  f"| unstable cases | {len(unstable)}"
+                  + (f": {', '.join(unstable[:20])}" if unstable else "") + " |",
+                  f"| evaluator fingerprint | `{p['evaluator_fingerprint'][:23]}...` |",
+                  f"| sealed hash | `{s['sealed_hash'][:23]}...` |",
+                  "",
+              ]
+
+          artifacts = [n for n in ("receipt.html", "report.md", "report.json", "drift.html",
+                                   "drift.json", "gate.json", "anchor.json")
+                       if pathlib.Path(n).exists()]
+          lines += [
+              f"**Artifacts** (`evalseal-receipt`): {', '.join(artifacts)}", "",
+              "**What to inspect.** If the gate failed, the check table says which rule. If "
+              "a case is unstable, open `receipt.html` - its verdict strip shows which "
+              "repeats disagreed. If the baseline is not comparable, the grading changed in "
+              "this PR, and that change is what needs review, not the score.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: evalseal-receipt
+          # Hashes and scores only. Prompts and responses are never written into these
+          # files; the cassette that holds them stays in the repository.
+          path: |
+            receipt.html
+            report.md
+            report.json
+            receipt-summary.json
+            gate.json
+            drift.html
+            drift.json
+            anchor.json
+            ${{ env.LEDGER }}
+          if-no-files-found: ignore
+
+      - name: Fail the check if the gate failed
+        if: steps.gate.outputs.code != '0'
+        env:
+          GATE_CODE: ${{ steps.gate.outputs.code }}
+        run: |
+          echo "::error::EvalSeal gate failed with exit code $GATE_CODE; see the step summary."
+          exit 1

@@ -32,11 +32,11 @@ $ evalseal run --suite examples/borderline_judge/suite.json --show-cases --unsta
 Aggregate: 20 cases · mean 0.92 · 15 stable / 0 borderline / 5 unstable
 
  case_id  runs  pass  fail  flips  flip_rate  majority  stability  judge_prompt_hash
- b01      5     3     2     2      40%        PASS      unstable   sha256:457d7c3
- b10      5     3     2     2      40%        PASS      unstable   sha256:457d7c3
- b16      5     3     2     2      40%        PASS      unstable   sha256:457d7c3
- b05      5     4     1     1      20%        PASS      unstable   sha256:457d7c3
- b19      5     4     1     1      20%        PASS      unstable   sha256:457d7c3
+ b01      5     3     2     2      40%        PASS      unstable   sha256:c2f9b20
+ b10      5     3     2     2      40%        PASS      unstable   sha256:c2f9b20
+ b16      5     3     2     2      40%        PASS      unstable   sha256:c2f9b20
+ b05      5     4     1     1      20%        PASS      unstable   sha256:c2f9b20
+ b19      5     4     1     1      20%        PASS      unstable   sha256:c2f9b20
 
 5 case(s) fail --fail-on unstable: b01, b05, b10, b16, b19
 
@@ -48,7 +48,11 @@ FAIL 5 case(s) exceed --max-flip-rate 0.10 (worst: b01 at 40%)
 ```
 
 Exit codes: `0` passed, `3` a gate or stability policy failed, `1` the tool failed.
-A ready-to-copy workflow is in [docs/github-action-example.yml](docs/github-action-example.yml).
+For pull requests, [docs/pr-receipt-workflow.md](docs/pr-receipt-workflow.md) is a
+copy-pasteable workflow that replays a cassette with no key, verifies, gates against a
+policy, compares with a baseline, uploads the receipts, and writes a step summary that
+says why the check passed or failed. Where the project is going, and what it will not
+become, is in [ROADMAP.md](ROADMAP.md).
 
 ## Real flip rates
 
@@ -297,11 +301,43 @@ and `evalseal power` is in the tool partly to keep it from being given again - s
 The first line is the one that matters. A score delta means nothing until you know the two
 runs measured the same thing, so `diff` answers that first and the number second.
 
-Comparability is decided by the **evaluator fingerprint**: scorer type, rubric, judge
-prompt, judge model and parameters, and the dataset. It deliberately excludes the *target*
-model, because comparing two target models is the entire point of a benchmark. Change the
-rubric and the score moves while the model sits still - that is the comparison EvalSeal
-refuses to let you make silently.
+Comparability is decided by the **evaluator fingerprint**. Change the rubric and the score
+moves while the model sits still - that is the comparison EvalSeal refuses to let you make
+silently.
+
+#### Two fingerprints, two questions
+
+Every sealed record carries two fingerprints, and they are not interchangeable:
+
+| fingerprint | the question it answers | pin it with |
+|---|---|---|
+| **evaluator** | *Are these runs comparable?* How the run was graded. | `gate --expect-evaluator`, policy `run.expect_evaluator` |
+| **config** | *What exactly ran?* The grading plus the target under test. | `gate --expect-config`, policy `run.expect_config` |
+
+The **evaluator fingerprint** hashes the scorer type, the rubric hash, the judge prompt
+hash, the judge model and its parameters (temperature, seed, top_p), and the dataset hash.
+The dataset hash is the SHA-256 of the dataset file's bytes, so it covers the case ids,
+prompts and expected answers; the ids of the cases that actually ran are sealed separately.
+
+It deliberately **excludes the target model and its parameters**. Comparing target model A
+with target model B is the entire point of a benchmark, so a different target must not make
+two runs "incomparable". The target is still sealed - requested model, served model,
+endpoint, parameters and whether they were set explicitly - as provenance, and it is part
+of the config fingerprint. The suite file's hash is excluded from the evaluator fingerprint
+for the same reason: a suite bundles the target model.
+
+The **config fingerprint** hashes everything above plus the target model, the target's
+parameters and the suite hash. A change there means *something about what ran* changed. It
+does not by itself mean the runs are incomparable, and `gate` no longer claims it does.
+
+Two things neither fingerprint covers yet, stated so nobody relies on them: the **judge's
+endpoint** (it is sealed in the manifest, but two runs using the same judge model name
+through different endpoints compare as comparable), and **`max_tokens`**, which the
+Anthropic adapter sends but the sealed parameters do not record. Both are on the
+[roadmap](ROADMAP.md).
+
+`evalseal report --json` prints both values under `provenance`, so either can be copied
+into a pin.
 
 Any two sealed records work, whether they are receipt files or ledgers:
 
@@ -322,7 +358,7 @@ Not directly comparable: evaluator configuration changed.
  ──────────────────────────────────────────────────────────────────────────────
  scorer type   llm_judge                       answer_match
  judge model   gemini-2.5-flash                None
- judge prompt  sha256:457d7c3841ce0f2d1e2b03…  None
+ judge prompt  sha256:c2f9b20ab99007ae5220a4…  None
  rubric        sha256:8d95f8c65711cb262abcaf…  None
  dataset       sha256:1d94ddad418a97f1e39e86…  sha256:c9623577a124d8688bd81ba6…
  suite         sha256:271f373da83684958c57ef…  sha256:4af862fcb84ed2e65e635ef6…
@@ -428,7 +464,9 @@ happen. Verify what the page claims with `evalseal verify`.
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
 | `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
-| `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy |
+| `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--expect-evaluator` pins the grading setup, `--expect-config` the whole configuration. `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy |
+| `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp; see [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
+| `evalseal anchor-verify` | Re-checks every claim in an anchor, reporting what it could not check as not checked. | `0` verified · `1` failed |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
 HTTP 429/408/5xx and connection errors, honouring `Retry-After`), `--timeout`, and
@@ -477,13 +515,19 @@ evalseal verify --ledger .evalseal/ledger.jsonl      # chain, siblings, schema
 evalseal report --unstable-only                      # which cases flipped
 evalseal gate --min-score 0.85 --max-flip-rate 0.10  # thresholds
 evalseal gate --critical b01,b02                     # these must never flip
-evalseal gate --expect-config sha256:407033d3836b8   # evaluator must not have changed
+evalseal gate --expect-evaluator "$EVALUATOR_FP"      # grading must not have changed
+evalseal gate --expect-config "$CONFIG_FP"            # nothing at all may have changed
+# both values come from: evalseal report --json | jq .provenance
 ```
 
-`--expect-config` compares the evaluator fingerprint - target model and parameters, scorer
-type, rubric hash, judge prompt hash, judge model and parameters, dataset and suite hashes.
-A change there moves the score without the model changing, so a gate that ignores it will
-eventually mistake evaluator drift for model drift.
+`--expect-evaluator` pins the **evaluator fingerprint**: it fails when the grading setup
+changed, which is when a score stops being comparable with the baseline. That is the pin
+to use when a pull request may swap the model under test but must not touch how it is
+graded. `--expect-config` pins the stricter **config fingerprint**, which also covers the
+target model, its parameters and the suite: use it when nothing at all may change. A
+config mismatch says something changed; it does not say what, so `gate` reports it as a
+changed configuration rather than as an incomparable score. See
+[two fingerprints, two questions](#two-fingerprints-two-questions).
 
 ### A policy file instead of a wall of flags
 
@@ -573,17 +617,19 @@ Start with `--fail-on none` to observe flip rates without blocking merges, then 
 ### Per-case instability
 
 An aggregate flip rate hides which cases are unstable. `--show-cases` prints the
-distribution, worst first, stamped with the judge prompt that produced it:
+distribution, worst first, stamped with the hash of the judge prompt template that graded
+it - the rubric and instruction wrapper, with the case left as placeholders, so the stamp is
+the same for every case and every run graded the same way:
 
 ```
 | case_id | runs | pass | fail | flips | flip_rate | majority | stability | judge_prompt_hash |
-| b01     | 5    | 3    | 2    | 2     | 40%       | PASS     | unstable  | sha256:457d7c3    |
-| b05     | 5    | 4    | 1    | 1     | 20%       | PASS     | unstable  | sha256:457d7c3    |
+| b01     | 5    | 3    | 2    | 2     | 40%       | PASS     | unstable  | sha256:c2f9b20    |
+| b05     | 5    | 4    | 1    | 1     | 20%       | PASS     | unstable  | sha256:c2f9b20    |
 ```
 
 `evalseal report --json` emits the same data machine-readably, with
 `summary.flip_rate`, `cases[].verdict_distribution`, `cases[].verdict_sequence` and a
-`provenance` block including the config fingerprint.
+`provenance` block including both the evaluator and the config fingerprint.
 
 **Flip rate is `non-majority verdicts / total runs`** - not transitions between runs. So
 `PPFP` is 1/4 = 25%, not 2 transitions out of 3. The definition was chosen because it does
@@ -630,9 +676,12 @@ tracked target).
 - **A paired comparison between two runs.** Both runs cover the same items, so `diff`
   tests them item by item: an exact McNemar test on the items that changed verdict, and a
   cluster bootstrap over items for the interval.
-- **Evaluator config fingerprinting.** The receipt seals the judge prompt hash, rubric
-  hash, scorer type, judge model and parameters, dataset and suite hashes, EvalSeal
-  version, git commit and dirty flag, Python version and platform.
+- **Sealed provenance.** The receipt seals the judge prompt hash, rubric hash, scorer
+  type, judge model, endpoint and parameters, the target's requested and served model,
+  endpoint and parameters, dataset and suite hashes, EvalSeal version, git commit and dirty
+  flag, Python version and platform.
+- **Two fingerprints over that provenance.** An evaluator fingerprint that decides whether
+  two runs are comparable, and a config fingerprint that identifies exactly what ran.
 
 ## What EvalSeal does not guarantee
 
@@ -654,6 +703,16 @@ tracked target).
 - **"Inconclusive" is not "the same".** It means this experiment lacked the power to
   tell, which at N=5 on a small suite is the usual outcome. `evalseal power` says what it
   would take.
+- **It does not say when anything happened.** Every time in a receipt, a signature or a
+  local anchor comes from the machine that wrote it. A signature stops anyone but the key
+  holder from altering a ledger; it does not stop the key holder re-signing a rebuilt one.
+  An independent timestamp needs a party other than the author;
+  [docs/external-anchoring.md](docs/external-anchoring.md) sets out what that would add.
+- **It does not bind the model's responses to the receipt yet.** The receipt seals hashes
+  of the dataset, rubric and judge prompt template; the responses live in the cassette,
+  whose hash is not sealed. Until it is, bind a cassette to a receipt with
+  `evalseal anchor --artifact <cassette>`, and keep the cassette: a hash can only be
+  matched against an artifact that still exists.
 
 ## Two providers, two wire formats
 
@@ -688,7 +747,17 @@ Two things this reports that a shim cannot:
 
 Status, stated plainly: the adapter is implemented and covered by 23 tests against the
 documented wire format, but unlike the suites above it is **not yet backed by a recorded
-live run**. See [examples/anthropic/](examples/anthropic/) to record one.
+live run**. [examples/anthropic/RECORDING.md](examples/anthropic/RECORDING.md) is the
+exact procedure for recording one: a 10-problem suite, 50 calls, and what the output should
+look like.
+
+## Around other eval tools
+
+EvalSeal is the receipt layer, not an eval platform. Tools like promptfoo and Braintrust
+keep running evals, storing traces and hosting review; EvalSeal adds repeated-run
+instability, a sealed and portable receipt, comparability checks, and a CI gate.
+[docs/integrations.md](docs/integrations.md) says what works today and the proposed
+shape of importers for existing results, which are not built yet.
 
 ## Using it as a library
 
@@ -744,8 +813,8 @@ judge is itself a target, so its own randomness is measured instead of assumed a
 Every request goes through a cassette, keyed by the request plus which repeat it belongs
 to. In record mode real responses are saved as they arrive; in replay mode, the default and
 what CI uses, they are served back by that key, and a missing entry fails loudly. Each run is saved as a `RunRecord`: its manifest (requested vs.
-served model, fingerprint, parameters and whether they were set explicitly, rubric hash,
-dataset hash) plus its results. The record is hashed and linked to the previous record's
+served model, the provider's system fingerprint, parameters and whether they were set
+explicitly, rubric hash, dataset hash) plus its results. The record is hashed and linked to the previous record's
 hash in an append-only JSONL ledger, so editing any past score breaks `verify`.
 
 Security policy:

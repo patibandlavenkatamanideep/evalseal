@@ -1,0 +1,10 @@
+{
+  "dataset": "dataset.jsonl",
+  "target": "target.json",
+  "scorer": "scorer.json",
+  "n_repeats": 5,
+  "concurrency": 2,
+  "timeout": 120,
+  "cassette": "../../tests/cassettes/anthropic.json",
+  "fail_on": "none"
+}

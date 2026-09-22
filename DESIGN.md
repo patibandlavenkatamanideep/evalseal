@@ -36,6 +36,7 @@ because an unsigned ledger is still useful to whoever produced it.
 | `adapters/scorer.py` | Exact, regex, and LLM-judge scorers. The judge is a `Target`. |
 | `executor.py` | N-run loop (optionally concurrent), provenance capture and gap warnings. |
 | `ledger.py` | Hash-linked append-only JSONL; `verify_chain`. |
+| `anchor.py` | Local anchor: binds a receipt to its ledger head, signature and artifacts by hash. |
 | `signing.py` | Ed25519 keypairs, signing the ledger head, verifying signatures. |
 | `policy.py` | Policy files: thresholds, critical cases, drift rules against a baseline. |
 | `report.py`, `htmlreport.py`, `cli.py` | Markdown / JSON / JUnit / HTML; the commands. |
@@ -69,6 +70,13 @@ are retried with exponential backoff capped at 30s, preferring the provider's `R
 A 400 or 401 is not retried: repeating a malformed or unauthorized request cannot help.
 Because every response is cassette-backed as it arrives, an exhausted retry is resumable —
 re-run the same command and recording continues where it stopped.
+
+**Cassette saves are atomic.** The file is rewritten in full after every response, so
+resumability depends on an interrupt never leaving a partial file - and a partial JSON
+cassette loses every response in it, not only the latest. Until 2.0.2 the save was a
+plain truncate-then-fill, and the window it left open grew with the cassette. A save now
+writes a sibling temp file, fsyncs it, and `os.replace`s it over the original, which is
+atomic on POSIX and Windows, so the file on disk is always one complete version.
 
 **Two runs of one suite are paired, and the old threshold was not a threshold.** Until
 2.0 `diff` compared the suite-level mean difference against the widest *per-case* Wilson
@@ -130,10 +138,25 @@ processes on **one machine**; networked filesystems are out of scope.
 if the rubric changed quietly, so the manifest carries the judge prompt hash as well as the
 rubric hash — the rubric is what a user edits, the prompt is what the model saw — plus the
 scorer type, judge model and parameters, dataset and suite hashes, code commit and
-environment. `config_fingerprint` hashes exactly the parts that decide whether two runs
-measure the same thing, which is what `diff` and `gate --expect-config` compare. The prompt
-itself is stored only behind `--store-judge-prompt`, because it embeds case text that may
-be private.
+environment. The prompt itself is stored only behind `--store-judge-prompt`, because it
+embeds case text that may be private.
+
+**Two fingerprints answer two questions, and the code never lets one stand in for the
+other.** `evaluator_fingerprint` answers *are these runs comparable?* It hashes the scorer
+type, rubric hash, judge prompt hash, judge model and judge parameters, and the dataset
+hash, and deliberately leaves out the target model, the target's parameters and the suite
+hash - a suite bundles the target - because comparing two targets under the same grading
+is what a benchmark is for. `diff` decides comparability with it, and `gate
+--expect-evaluator` and policy `run.expect_evaluator` pin it. `config_fingerprint` answers
+*what exactly ran?* It adds the target model, target parameters and suite hash, and `gate
+--expect-config` and policy `run.expect_config` pin it.
+
+A config mismatch therefore says that something changed without saying what. Until 2.0.2
+a failed `--expect-config` printed "not directly comparable", which was false whenever
+only the target moved - the single most common reason the hash changes. The gate holds a
+hash, not the pinned record, so it cannot decompose the difference; it now reports a
+changed configuration and points at `--expect-evaluator`. Both fingerprints are printed by
+`report --json`, so a pin is copied from a real record rather than computed by hand.
 
 **Only the effective request is hashed.** The cassette key is the URL plus the JSON body
 actually sent. Unset parameters are left out of the body entirely, so "temperature not
@@ -221,5 +244,12 @@ still failing on a broken replay.
 - **`answer_match` grades the final answer only.** Correct reasoning with a mistyped final
   number scores zero, and a lucky guess scores one. That is the usual benchmark convention,
   not a claim about reasoning quality.
+- **Two provenance gaps the fingerprints inherit.** The judge's endpoint is sealed in the
+  manifest but is not part of the evaluator fingerprint, so one judge model reached
+  through two endpoints compares as comparable. And `max_tokens`, which the Anthropic
+  adapter sends and which decides whether a reply is truncated, is dropped from the sealed
+  parameters, because `EffectiveParams` has no field for it and pydantic discards extras.
+  Closing either changes content hashes and every pinned fingerprint, so it is scheduled
+  as its own change with fingerprint-stability tests rather than folded into another.
 - **Canonical hosts are an allowlist.** Any self-hosted or gateway endpoint gets a
   NON-CANONICAL warning by design. The warning means "provenance unverified", not "wrong".

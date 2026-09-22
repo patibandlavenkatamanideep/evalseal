@@ -6,14 +6,13 @@ rather than optional, the system prompt is a top-level field rather than a messa
 reply is a list of content blocks rather than a string, there is no `system_fingerprint`
 to pin a backend with, and an overload is HTTP 529 rather than 503.
 
+**Status: no live run recorded yet.** The adapter is tested against the documented wire
+format; [RECORDING.md](RECORDING.md) is the procedure for recording the small example
+suite here (`suite.json`, 10 GSM8K problems, 50 calls):
+
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-EVALSEAL_RECORD=1 evalseal run \
-  --dataset ../gsm8k/dataset.jsonl \
-  --target-config target.json \
-  --scorer-config ../gsm8k/scorer.json \
-  --cassette ../../tests/cassettes/anthropic.json \
-  --n 5
+EVALSEAL_RECORD=1 evalseal run --suite examples/anthropic/suite.json
 ```
 
 Replay afterwards needs no key, like every other cassette in this repo.

@@ -166,6 +166,34 @@ def _load_suite(path: Path | None) -> dict:
     return suite
 
 
+_RESERVED_ROLES = {"cassette", "dataset", "suite"}
+
+
+def _parse_artifacts(pairs: list[str]) -> dict[str, str]:
+    """Turn `--artifact role=path` into the mapping `run_eval` seals.
+
+    A missing file is not rejected here: `run_eval` seals it as `external` with a note
+    saying it was unreadable, which is the honest record. Refusing the run would push
+    people towards not binding the file at all.
+    """
+    out: dict[str, str] = {}
+    for pair in pairs:
+        role, sep, path = pair.partition("=")
+        role, path = role.strip(), path.strip()
+        if not sep or not role or not path:
+            raise typer.BadParameter(
+                f"--artifact expects ROLE=PATH, got {pair!r} "
+                "(for example: --artifact tool_acl=tools.json)")
+        if role in _RESERVED_ROLES:
+            raise typer.BadParameter(
+                f"--artifact role {role!r} is already sealed by the run itself; "
+                "pick another name so the two cannot be confused")
+        if role in out:
+            raise typer.BadParameter(f"--artifact role {role!r} given twice")
+        out[role] = path
+    return out
+
+
 def _build_target(
     cfg: dict, cassette: Cassette, max_retries: int, timeout: float,
     prefix: str = "",
@@ -262,8 +290,15 @@ def run(
         False, "--store-judge-prompt",
         help="Seal the judge prompt verbatim, not only its hash. It embeds case text.",
     ),
+    artifact: list[str] = typer.Option(
+        [], "--artifact", metavar="ROLE=PATH",
+        help="Bind another file into the receipt by digest, as `tool_acl=tools.json`. "
+             "Repeatable. For agent evals this is how the tool ACL and the frozen tool "
+             "responses are sealed; see docs/agent-eval-receipts.md.",
+    ),
 ):
     """Run an eval N times, seal the result, emit report.json + report.md."""
+    extra_artifacts = _parse_artifacts(artifact)
     cfg = _load_suite(suite)
     dataset = dataset or (Path(cfg["dataset"]) if "dataset" in cfg else None)
     target_config = target_config or (Path(cfg["target"]) if "target" in cfg else None)
@@ -332,6 +367,7 @@ def run(
                     "cassette": str(cassette),
                     "dataset": str(dataset),
                     **({"suite": str(suite)} if suite else {}),
+                    **extra_artifacts,
                 },
             )
     except RuntimeError as e:

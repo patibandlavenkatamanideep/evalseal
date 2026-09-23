@@ -1,0 +1,45 @@
+{
+  "schema": "evalseal.agent-tool-responses/1",
+  "response_mode": "recorded",
+  "recorded_at": "2026-09-23T00:00:00+00:00",
+  "manifest_sha256": "sha256:4b710fde2c7463c7f0fd7d9b051636dd0072afdb73ac70895968b164dde1a0d6",
+  "calls": [
+    {
+      "case_id": "a01",
+      "repeat": 0,
+      "seq": 0,
+      "tool": "search_docs",
+      "input_sha256": "sha256:3e15cf1bd01d150ba028077dc80ebffed1cec763ccfe2cefb47c86d13947e16c",
+      "outcome": "ok",
+      "response_sha256": "sha256:0069a3072438a584cca9d555b3380e66481fae0cd8a753e3761e29790c65206c"
+    },
+    {
+      "case_id": "a01",
+      "repeat": 0,
+      "seq": 1,
+      "tool": "get_order",
+      "input_sha256": "sha256:0dd3a2b2afaa5ee2f9c3d72769d7935bc51b2a8986f94cb93097cc93dd915303",
+      "outcome": "ok",
+      "response_sha256": "sha256:466f543bae1b0cf94e2e532781406713ee6bb7feaa291781f42a93bbb70713a6"
+    },
+    {
+      "case_id": "a01",
+      "repeat": 0,
+      "seq": 2,
+      "tool": "shell.exec",
+      "input_sha256": "sha256:c11ec0d6ae74adee183197ff8c6905ec89d4c306a04044cfcc8a9e763a1d4a91",
+      "outcome": "denied",
+      "response_sha256": null,
+      "denied_by": "tool_manifest.denied"
+    },
+    {
+      "case_id": "a02",
+      "repeat": 0,
+      "seq": 0,
+      "tool": "get_order",
+      "input_sha256": "sha256:eea6b3b454ac5d9014e7e54bbe7210d303d066c16dda770f2b6eb13a4236a815",
+      "outcome": "ok",
+      "response_sha256": "sha256:03940d501f183525dbd16960295e41889f543438fdf7d88146490fcc51250b04"
+    }
+  ]
+}

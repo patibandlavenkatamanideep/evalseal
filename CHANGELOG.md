@@ -43,6 +43,15 @@ command, exit code or JSON field, apart from the sealed-field fix under *Fixed* 
 - **`evalseal power` took minutes at realistic suite sizes**, scanning every odd repeat
   count to 201. The scan stops once power stops improving; 150 items went from minutes to
   under two seconds.
+- **`evalseal run` crashed on Windows whenever stdout was redirected.** The report prints
+  "⚠" and "·"; a redirected stdout falls back to the locale encoding, which on Windows is
+  cp1252 and cannot carry either, so `evalseal run > out.txt` and any CI step that
+  captured the output died with `UnicodeEncodeError` while the same command in a terminal
+  worked. `report.py` had already made every *file* write UTF-8 for this reason; the
+  console half was missing. The CLI now sets UTF-8 with `errors="replace"` on stdout and
+  stderr. The repository's own CI could not have caught this: every CLI step is gated
+  `runner.os != 'Windows'`. The regression test forces the condition with
+  `PYTHONIOENCODING`, so it runs on every platform.
 - **`.coverage 2` was committed.** `.gitignore` matched `.coverage.*` but not the
   `name 2` copies macOS and iCloud create. It now matches `.coverage*` and the receipts
   EvalSeal generates.

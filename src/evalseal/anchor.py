@@ -479,3 +479,11 @@ def _embedded_signature_check(anchor: dict, sig: dict, receipt: RunRecord) -> An
 def anchor_passed(checks: list[AnchorCheck]) -> bool:
     """Every required check passed. Optional checks that could not run do not count."""
     return all(c.passed for c in checks if c.required)
+
+
+# Imported last: rfc3161 imports AnchorError from this module, so the name has to
+# exist before the import runs. Registering here rather than in __init__ keeps
+# `available_backends()` honest for anyone importing this module directly.
+from .rfc3161 import Rfc3161Backend  # noqa: E402
+
+register_backend(Rfc3161Backend())

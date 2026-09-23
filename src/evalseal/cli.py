@@ -28,6 +28,7 @@ from .anchor import (
     available_backends,
     build_anchor,
     check_artifacts,
+    register_backend,
     verify_anchor,
     write_anchor,
 )
@@ -79,6 +80,7 @@ from .report import (
     write_junit,
     write_markdown,
 )
+from .rfc3161 import Rfc3161Backend
 from .signing import (
     generate_keypair,
     sign_head,
@@ -167,6 +169,14 @@ def _load_suite(path: Path | None) -> dict:
 
 
 _RESERVED_ROLES = {"cassette", "dataset", "suite"}
+
+# Shown beside `anchor --list-backends`, so nobody reaches for an experimental
+# backend without being told which half of its check EvalSeal actually performs.
+_BACKEND_NOTES = {
+    "local": "   attests nothing: binds files together, establishes no time",
+    "rfc3161": " experimental: needs --tsa URL; the token's signature is not "
+               "verified by EvalSeal",
+}
 
 
 def _parse_artifacts(pairs: list[str]) -> dict[str, str]:
@@ -1065,6 +1075,12 @@ def anchor(
         help="Also obtain an external attestation of this anchor from a backend. "
              "Repeatable. Run `evalseal anchor --list-backends` to see what is available.",
     ),
+    tsa: str | None = typer.Option(
+        None, "--tsa", metavar="URL",
+        help="Timestamp authority for `--with rfc3161`. There is no default: a default "
+             "would make one service part of this tool's trust root, and would make "
+             "`anchor` contact a third party without being asked. Only the subject "
+             "digest is sent."),
     list_backends: bool = typer.Option(
         False, "--list-backends", help="List anchor backends and exit."),
 ):
@@ -1077,8 +1093,10 @@ def anchor(
     """
     if list_backends:
         for name in available_backends():
-            console.print(name)
+            console.print(f"{name}{_BACKEND_NOTES.get(name, '')}")
         raise typer.Exit(code=0)
+    if tsa:
+        register_backend(Rfc3161Backend(tsa))
     if source is None:
         raise typer.BadParameter("a receipt or ledger to anchor is required")
     if ledger is None and _looks_like_ledger(source):

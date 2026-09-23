@@ -64,9 +64,18 @@ anchoring machine's clock and `external_proofs` is empty.
 **A local anchor protects against:** a receipt being swapped for a different one, or an
 artifact changing, between you and whoever you hand it to.
 **It does not protect against:** backdating, or the key holder re-anchoring a rebuilt
-ledger. Both need an external attestation, which is designed in
-[docs/external-anchoring.md](docs/external-anchoring.md) and not yet implemented against
-a real service.
+ledger. Both need an external attestation.
+
+**External anchoring, as it stands.** `evalseal anchor --with rfc3161 --tsa URL`
+submits the subject digest to a timestamp authority you name and stores the token.
+`anchor-verify` re-reads it offline and confirms the token is about this anchor's
+subject digest, and reports the time the authority asserts. It **does not verify the
+authority's signature** - that needs CMS validation EvalSeal does not do - so the proof
+carries `verified_by_evalseal: false` and the check hands back the `openssl ts -verify`
+command that finishes the job. Until that check moves inside EvalSeal, treat an RFC 3161
+proof as evidence a third party can confirm, not as something EvalSeal confirmed. There
+is no default authority, by design:
+[docs/external-anchoring.md](docs/external-anchoring.md).
 
 ### Artifact digests
 

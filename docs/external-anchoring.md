@@ -152,20 +152,51 @@ Every adapter's `verify` must say in `established` what the proof shows *and who
 rests on*. Only the digest is sent to any service, never the anchor, the receipt, or
 anything they hash.
 
-### RFC 3161 timestamp authority
+### RFC 3161 timestamp authority — **implemented, experimental**
 
-The client sends the digest in a `TimeStampReq`; the authority returns a signed
-`TimeStampToken` binding the digest to a time. Verification checks the token's signature
-against the authority's certificate chain, which can be stored with the proof, so it works
-offline.
+This one exists now, as the `rfc3161` backend:
+
+```bash
+evalseal anchor report.json --ledger .evalseal/ledger.jsonl \
+  --with rfc3161 --tsa https://timestamp.example/tsr --out anchor.json
+evalseal anchor-verify anchor.json report.json --ledger .evalseal/ledger.jsonl
+```
+
+The client sends the subject digest in a real DER `TimeStampReq`; the authority returns
+a signed `TimeStampToken` binding the digest to a time, which is stored base64 in the
+anchor's `external_proofs`.
+
+**There is no default authority.** `--tsa` is required. A default would make whichever
+service EvalSeal picked part of this project's trust root, and would make `anchor` a
+command that contacts a third party without being asked.
+
+**What verification does, exactly.** `anchor-verify` re-reads the stored token offline
+and checks two things: that the token's `messageImprint` is *this anchor's subject
+digest*, so the token is about this receipt and not another one, and what time the
+authority asserts in `genTime`.
+
+**What it does not do: verify the authority's signature.** That means validating a CMS
+`SignedData` against a certificate chain, which neither EvalSeal's parser nor
+`cryptography`'s public API does, and adding an ASN.1 dependency to do it has not been
+done. So every message this backend produces says which half ran, carries
+`verified_by_evalseal: false`, and hands back the command that does the other half:
+
+```bash
+openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <tsa-ca.pem>
+```
+
+That leaves a stored token worth something short of proof: evidence that an authority
+was asked about this digest and answered, checkable by anyone who runs that command.
+Treat it as experimental until the signature check is in EvalSeal itself.
 
 - **Establishes:** the digest existed no later than the stated time, on the authority's
-  word.
+  word - *once you have verified the token's signature yourself*.
 - **Trust rests on:** the authority and its certificate chain. Anchoring with two
   unrelated authorities reduces reliance on either.
-- **Privacy:** the authority sees a digest and a request time, nothing else.
+- **Privacy:** the authority sees a 32-byte digest and a request time, nothing else. A
+  test asserts the request body is under 128 bytes, so a receipt cannot leak through it.
 
-### Sigstore / Rekor transparency log
+### Sigstore / Rekor transparency log — not implemented
 
 The digest, a signature over it and the public key are submitted as a log entry. Rekor
 returns a signed entry timestamp and an inclusion proof against a signed checkpoint of an
@@ -180,7 +211,7 @@ append-only Merkle tree that anyone can monitor.
   a digest of low-entropy content can be confirmed by guessing, so anchor the
   `subject_digest`, never a hash of a short value like a single answer.
 
-### OpenTimestamps-style anchoring
+### OpenTimestamps-style anchoring — not implemented
 
 The digest is aggregated with others into a Merkle tree whose root is committed to the
 Bitcoin blockchain. The proof starts out pending and becomes complete once the block
@@ -192,7 +223,7 @@ confirms, typically hours later.
 - **Privacy:** calendar servers see the digest; the chain sees only a Merkle root.
 - **Caveat:** block time has a tolerance of hours, which is coarse for some disputes.
 
-### A local proof file
+### A local proof file — not implemented
 
 For teams that anchor through their own process - a notary, an internal records system -
 an adapter that stores a proof file produced elsewhere, with `established` stating
@@ -226,17 +257,24 @@ be, and a receipt that can only be verified by asking its author is not a receip
   artifacts - the cassette, the dataset, the rubric - securely and outside EvalSeal.
   EvalSeal keeps what makes them checkable, not the things themselves.
 
-## Building it
+## Building the rest of it
 
-For a contributor picking up v2.2:
+Steps 1 to 3 are done: `external_proofs` is a list, `AnchorBackend` lives in
+`anchor.py` with a registry, `--with NAME` submits only when a backend is named, and
+`anchor-verify` treats a proof it cannot check as not checked rather than passed.
 
-1. Turn `external_proof` into a list and define `AnchorAdapter` in `anchor.py`, with a
-   registry keyed by name.
-2. `evalseal anchor --with rfc3161 --tsa URL` calls `attest(subject_digest)` and appends
-   the result. Network access happens only when an adapter is named.
-3. `anchor-verify` calls each adapter's `verify`, reports its `established` text, and
-   treats a proof it cannot check as not checked rather than passed.
-4. Adapters with non-trivial dependencies ship as extras (`evalseal[rfc3161]`,
-   `evalseal[rekor]`), so the base install stays small.
-5. Tests use recorded service responses, like every other network path in EvalSeal, so
-   CI verifies proofs without calling any service.
+What is left, for a contributor picking this up:
+
+1. **Verify the RFC 3161 signature inside EvalSeal.** This is the gap that keeps the
+   backend experimental. It needs CMS `SignedData` validation against the TSA
+   certificate chain stored with the proof. `asn1crypto` or `pyasn1-modules` would do
+   it; both would be a new dependency, which is the trade-off to weigh.
+2. **A Rekor backend**, for teams who want a public log rather than a private
+   authority. Note the privacy difference below before reaching for it.
+3. **A local proof-file backend**, for teams anchoring through their own notary, whose
+   `established` text says plainly that EvalSeal did not verify it.
+4. Adapters with non-trivial dependencies should ship as extras
+   (`evalseal[rfc3161]`, `evalseal[rekor]`), so the base install stays small.
+5. Tests use synthetic DER built by the module's own encoder, so CI verifies proofs
+   without calling any service. A recorded response from a real TSA would be better
+   and needs one live run to capture.

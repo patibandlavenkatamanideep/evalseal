@@ -22,16 +22,27 @@ from .adapters.scorer import (
     RegexScorer,
 )
 from .adapters.target import AnthropicTarget, OpenAICompatibleTarget
-from .anchor import AnchorError, anchor_passed, build_anchor, verify_anchor, write_anchor
+from .anchor import (
+    AnchorError,
+    anchor_passed,
+    available_backends,
+    build_anchor,
+    check_artifacts,
+    verify_anchor,
+    write_anchor,
+)
 from .decompose import decompose as run_decompose
 from .decompose import render as render_decomposition
 from .diffing import diff_records, load_receipt, mean_flip_rate
+from .drift import analyze_drift
+from .drift import render as render_drift
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
 from .ledger import (
     LEDGER_PATH,
     config_fingerprint,
     evaluator_fingerprint,
+    explain_fingerprint_mismatch,
     last_hash,
     load_all,
     seal_and_append,
@@ -307,6 +318,13 @@ def run(
                 ) if suite else None,
                 dataset_path=str(dataset),
                 store_judge_prompt=store_judge_prompt,
+                # Hashed inside run_eval, once the units have finished: the cassette is
+                # still being written while they run.
+                artifact_paths={
+                    "cassette": str(cassette),
+                    "dataset": str(dataset),
+                    **({"suite": str(suite)} if suite else {}),
+                },
             )
     except RuntimeError as e:
         console.print(f"[red]{e}[/red]")
@@ -363,8 +381,14 @@ def verify(
     signed: bool = typer.Option(
         False, "--signed", help="Require signatures, whoever made them."
     ),
+    artifacts: bool = typer.Option(
+        False, "--artifacts",
+        help="Also re-hash the files the records were sealed against (cassette, dataset, "
+             "suite) and report any that changed or are absent.",
+    ),
+    index: int = typer.Option(-1, help="Which record's artifacts to check; -1 = latest."),
 ):
-    """Check the ledger chain integrity, and signatures when asked."""
+    """Check the ledger chain integrity, and signatures or artifacts when asked."""
     ok, msg = verify_chain(ledger)
     console.print(f"[{'green' if ok else 'red'}]{msg}[/{'green' if ok else 'red'}]")
     if not ok:
@@ -373,6 +397,23 @@ def verify(
         sig_ok, sig_msg = verify_signatures(ledger, public_key)
         console.print(f"[{'green' if sig_ok else 'red'}]{sig_msg}[/{'green' if sig_ok else 'red'}]")
         if not sig_ok:
+            raise typer.Exit(code=1)
+    if artifacts:
+        recs = load_all(ledger)
+        if not -len(recs) <= index < len(recs):
+            raise typer.BadParameter(
+                f"index {index} out of range; ledger has {len(recs)} record(s)")
+        results = check_artifacts(recs[index])
+        if not results:
+            console.print("[yellow]No artifacts are sealed in this record.[/yellow] "
+                          "Records sealed before schema 1.4 bind none.")
+        for r in results:
+            colour = {"ok": "green", "changed": "red", "missing": "yellow",
+                      "unverifiable": "yellow"}[r.status]
+            console.print(
+                f"[{colour}]{r.status:<12}[/{colour}] {rich_escape(r.role)}: "
+                f"{rich_escape(r.detail)}")
+        if any(r.status == "changed" for r in results):
             raise typer.Exit(code=1)
     raise typer.Exit(code=0)
 
@@ -647,24 +688,13 @@ def gate(
         actual = evaluator_fingerprint(record)
         if actual != expect_evaluator:
             failures.append(
-                "Not directly comparable: the evaluator fingerprint differs from the pinned "
-                f"one (expected {expect_evaluator[:20]}..., got {actual[:20]}...). The "
-                "grading setup changed, so this score cannot be compared with the baseline."
-            )
+                explain_fingerprint_mismatch("evaluator", expect_evaluator, actual))
 
     if expect_config is not None:
         actual = config_fingerprint(record)
         if actual != expect_config:
-            # A mismatched hash says that something changed, not which side of it. Until
-            # 2.0.2 this message said "not directly comparable", which is false whenever
-            # only the target model changed - the one comparison a benchmark exists for.
             failures.append(
-                "Configuration differs from the pinned one "
-                f"(expected {expect_config[:20]}..., got {actual[:20]}...). Something about "
-                "what ran changed; this alone does not mean the runs are incomparable, "
-                "since a different target model also changes it. Pin --expect-evaluator "
-                "to require the same grading setup."
-            )
+                explain_fingerprint_mismatch("config", expect_config, actual))
 
     if as_json:
         console.print_json(json.dumps({
@@ -901,8 +931,8 @@ def _looks_like_ledger(path: Path) -> bool:
 
 @app.command()
 def anchor(
-    source: Path = typer.Argument(
-        ..., exists=True, dir_okay=False,
+    source: Path | None = typer.Argument(
+        None, exists=True, dir_okay=False,
         help="A receipt (report.json) or a ledger, whose head is then the receipt."),
     ledger: Path | None = typer.Option(
         None, "--ledger", exists=True, dir_okay=False,
@@ -911,6 +941,13 @@ def anchor(
         [], "--artifact", exists=True, dir_okay=False,
         help="Another file to bind by hash, such as receipt.html. Repeatable."),
     out: Path = typer.Option(Path("anchor.json"), "--out", help="Where to write the anchor."),
+    with_backend: list[str] = typer.Option(
+        [], "--with",
+        help="Also obtain an external attestation of this anchor from a backend. "
+             "Repeatable. Run `evalseal anchor --list-backends` to see what is available.",
+    ),
+    list_backends: bool = typer.Option(
+        False, "--list-backends", help="List anchor backends and exit."),
 ):
     """Bind a receipt, its ledger head and its signature state into one checkable file.
 
@@ -919,11 +956,18 @@ def anchor(
     it. It is not a timestamp: created_at is this machine's clock, and external_proof is
     null. See docs/external-anchoring.md for what an independent anchor adds.
     """
+    if list_backends:
+        for name in available_backends():
+            console.print(name)
+        raise typer.Exit(code=0)
+    if source is None:
+        raise typer.BadParameter("a receipt or ledger to anchor is required")
     if ledger is None and _looks_like_ledger(source):
         ledger = source
     try:
         record = load_receipt(source)
-        result = build_anchor(record, source, ledger, list(artifact))
+        result = build_anchor(record, source, ledger, list(artifact),
+                              backends=list(with_backend))
     except AnchorError as e:
         console.print(f"[red]Not anchored:[/red] {rich_escape(str(e))}")
         raise typer.Exit(code=1) from None
@@ -987,3 +1031,32 @@ def anchor_verify(
         else "[red]Anchor does not verify.[/red]"
     )
     raise typer.Exit(code=0 if passed else 1)
+
+
+@app.command(context_settings={"ignore_unknown_options": True})
+def drift(
+    a: str = typer.Argument(..., help="The earlier run: a receipt file, or a ledger index."),
+    b: str = typer.Argument(..., help="The later run: a receipt file, or a ledger index."),
+    ledger: Path = LedgerOpt,
+    as_json: bool = typer.Option(False, "--json", help="Emit the whole report as JSON."),
+    out: Path | None = typer.Option(None, "--out", help="Write the Markdown report here."),
+):
+    """Did the judge behave the same way when the suite was run again?
+
+    `diff` asks whether the score moved. This asks what moved underneath it: whether the
+    grading setup changed between the two runs, which cases came back with a different
+    verdict, and whether that can be blamed on the judge, on the target, or on neither
+    because the instrument itself changed. Exit status is always 0: it reports.
+    """
+    report = analyze_drift(_resolve_record(a, ledger), _resolve_record(b, ledger))
+
+    if as_json:
+        console.print_json(json.dumps(report.to_dict()))
+        raise typer.Exit(code=0)
+
+    text = render_drift(report)
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+        console.print(f"[green]Drift report -> {out}[/green]")
+    console.print(Markdown(text))
+    raise typer.Exit(code=0)

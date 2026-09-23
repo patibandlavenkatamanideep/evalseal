@@ -92,7 +92,8 @@ def test_report_json_exposes_distribution_and_provenance(tmp_path):
     assert case["verdict_distribution"] == {"pass": 3, "fail": 2, "other": 0}
     assert case["verdict_sequence"] == "PFPFP"
     assert case["flip_count"] == 2
-    assert payload["provenance"]["config_fingerprint"].startswith("sha256:")
+    # Scheme-tagged since 1.4, so a pin made under an older scheme is recognisable.
+    assert payload["provenance"]["config_fingerprint"].startswith("evalseal-fp/2:sha256:")
     assert payload["provenance"]["evalseal_version"]
 
 

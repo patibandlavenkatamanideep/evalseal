@@ -11,11 +11,14 @@ FailOn = Literal["none", "unstable", "borderline"]
 
 # 1.2 seals the evaluator configuration (suite, judge prompt, code, environment) and
 # per-case verdict detail. Any added field changes record hashes, hence the bump.
+# 1.4 adds the fields the evaluator fingerprint was missing: the provider and
+# `max_tokens` for the target and the judge, and a hash of the scorer's own settings.
+# Older records still verify, re-hashed under the schema that sealed them.
 # 1.3 adds no field; it changes what `scorer.judge_prompt_hash` means. Under 1.2 it
 # hashed the last judge prompt sent, which varied with the target's responses and with
 # scheduling. Under 1.3 it hashes the judge prompt template. A 1.2 judge record and a
 # 1.3 one therefore disagree on this hash for that reason alone.
-SCHEMA_VERSION = "1.3"
+SCHEMA_VERSION = "1.4"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
 
@@ -25,12 +28,19 @@ def _now() -> str:
 
 
 class EffectiveParams(BaseModel):
+    """Sampling parameters that change what a model returns, and so what it scores.
+
+    `max_tokens` is here from schema 1.4. The Anthropic adapter always sends it, but
+    nothing recorded it, so a receipt could not explain a truncated verdict.
+    """
     temperature: float | None = None
     seed: int | None = None
     top_p: float | None = None
+    max_tokens: int | None = None
 
 
 class TargetProvenance(BaseModel):
+    provider: str | None = None            # openai_compatible | anthropic | local
     requested_model: str
     served_model: str | None = None        # from response; WARN if != requested
     system_fingerprint: str | None = None
@@ -41,6 +51,9 @@ class TargetProvenance(BaseModel):
 
 class ScorerProvenance(BaseModel):
     type: ScorerKind
+    # Hash of the scorer's own verdict-affecting settings: a regex pattern, a numeric
+    # tolerance. Two runs graded by different regexes used to fingerprint identically.
+    config_hash: str | None = None
     judge: TargetProvenance | None = None  # the judge is a target too
     rubric_hash: str | None = None
     # The rubric is what a user edits; the judge prompt is what the model actually saw,
@@ -67,6 +80,26 @@ class EnvironmentProvenance(BaseModel):
     implementation: str | None = None
 
 
+ArtifactKind = Literal["hashed", "embedded", "external"]
+
+
+class ArtifactProvenance(BaseModel):
+    """A file the run depended on, bound to the receipt by hash.
+
+    `kind` says what the receipt holds, so a reader is never left guessing:
+      hashed   - the digest is here, the bytes are not. The default, and the only kind
+                 that is safe for a file holding prompts or responses.
+      embedded - the content itself is in the receipt, because someone asked for it.
+      external - the file was named but not readable when the record was sealed, so
+                 there is nothing to check it against.
+    """
+    role: str                              # cassette | dataset | suite | ...
+    kind: ArtifactKind = "hashed"
+    sha256: str | None = None
+    path: str | None = None
+    note: str | None = None
+
+
 class DatasetProvenance(BaseModel):
     hash: str
     n_cases: int
@@ -90,6 +123,10 @@ class ProvenanceManifest(BaseModel):
     suite: SuiteProvenance | None = None
     code: CodeProvenance = Field(default_factory=CodeProvenance)
     environment: EnvironmentProvenance = Field(default_factory=EnvironmentProvenance)
+    # The files this run depended on, by digest. The cassette is the one that matters:
+    # it holds the responses the verdicts came from, and until 1.4 nothing bound it to
+    # the receipt, so the responses could be swapped without the receipt noticing.
+    artifacts: list[ArtifactProvenance] = Field(default_factory=list)
 
 
 class CaseResult(BaseModel):

@@ -33,6 +33,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 from .ledger import (
     check_record_hash,
@@ -52,12 +53,12 @@ from .signing import (
     verify_signatures,
 )
 
-ANCHOR_VERSION = 1
+ANCHOR_VERSION = 2
 KIND = "evalseal.local-anchor"
 
 # Fields that are about the anchor rather than the thing anchored, and so stay out of
 # the subject digest: the clock reading, the prose, and any proof added later.
-_UNHASHED = ("created_at", "notes", "external_proof", "subject_digest")
+_UNHASHED = ("created_at", "notes", "external_proofs", "subject_digest")
 
 NOTES = (
     "Local anchor. It binds a receipt to its ledger head and signature state by hash. "
@@ -65,6 +66,66 @@ NOTES = (
     "timestamp; external_proof is null because no third party has attested this "
     "anchor. It does not prove the evaluation ran as described."
 )
+
+
+@runtime_checkable
+class AnchorBackend(Protocol):
+    """A party that can attest a digest existed. EvalSeal is never one of them.
+
+    The value of an external anchor is that it rests on somebody other than whoever is
+    being audited, so this project runs no timestamp service, no log and no verifier.
+    Backends are adapters onto services that already exist, and the local one attests
+    nothing and says so.
+    """
+
+    name: str
+
+    def submit(self, subject_digest: str) -> dict:
+        """Obtain a proof that `subject_digest` existed. Returns one proof entry."""
+
+    def check(self, subject_digest: str, proof: dict) -> tuple[bool, str]:
+        """Re-check a proof. Returns (ok, what this establishes - or why it could not)."""
+
+
+class LocalBackend:
+    """Writes the digest into the anchor and attests nothing.
+
+    Kept because it is honest about the default: an anchor made on your own machine
+    binds files together for a third party, and establishes nothing about *when*.
+    """
+
+    name = "local"
+
+    def submit(self, subject_digest: str) -> dict:
+        return {
+            "backend": self.name,
+            "id": None,
+            "proof": None,
+            "established": "nothing about time or custody: this anchor was made by the "
+                           "same party that produced the receipt",
+        }
+
+    def check(self, subject_digest: str, proof: dict) -> tuple[bool, str]:
+        return (True, "local anchor: no external party attested this")
+
+
+_BACKENDS: dict[str, AnchorBackend] = {"local": LocalBackend()}
+
+
+def register_backend(backend: AnchorBackend) -> None:
+    """Add a backend. Adapters for real services register themselves here."""
+    _BACKENDS[backend.name] = backend
+
+
+def get_backend(name: str) -> AnchorBackend:
+    if name not in _BACKENDS:
+        raise AnchorError(
+            f"unknown anchor backend {name!r}; available: {', '.join(sorted(_BACKENDS))}")
+    return _BACKENDS[name]
+
+
+def available_backends() -> list[str]:
+    return sorted(_BACKENDS)
 
 
 class AnchorError(ValueError):
@@ -101,6 +162,7 @@ def build_anchor(
     extra_artifacts: list[Path] | None = None,
     *,
     created_at: str | None = None,
+    backends: list[str] | None = None,
 ) -> dict:
     """Build a local anchor for a sealed receipt. Refuses a receipt that does not verify.
 
@@ -137,8 +199,14 @@ def build_anchor(
         "ledger": None,
         "signature_present": False,
         "public_key_fingerprint": None,
+        # The digests the receipt itself sealed: the cassette above all, which holds
+        # the responses the verdicts came from.
+        "sealed_artifacts": [
+            {"role": a.role, "kind": a.kind, "sha256": a.sha256, "path": a.path}
+            for a in receipt.manifest.artifacts
+        ],
         "artifact_hashes": {"receipt": _artifact(receipt_path)},
-        "external_proof": None,
+        "external_proofs": [],
     }
 
     if ledger is not None:
@@ -190,6 +258,12 @@ def build_anchor(
         anchor["artifact_hashes"][f"artifact:{path.name}"] = _artifact(path)
 
     anchor["subject_digest"] = subject_digest(anchor)
+    # Submitted after the digest is fixed, because the digest is what they attest.
+    for name in backends or []:
+        proof = dict(get_backend(name).submit(anchor["subject_digest"]))
+        proof.setdefault("backend", name)
+        proof["submitted_at"] = datetime.now(UTC).isoformat()
+        anchor["external_proofs"].append(proof)
     anchor["created_at"] = created_at or datetime.now(UTC).isoformat()
     anchor["notes"] = NOTES
     return anchor
@@ -198,6 +272,45 @@ def build_anchor(
 def write_anchor(anchor: dict, path: Path) -> None:
     """Sorted keys and a fixed indent, so the file is byte-stable apart from created_at."""
     path.write_text(json.dumps(anchor, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+
+@dataclass
+class ArtifactCheck:
+    """One sealed artifact, re-hashed against the file on disk now."""
+    role: str
+    status: str          # ok | changed | missing | unverifiable
+    detail: str
+
+
+def check_artifacts(record: RunRecord, base_dir: Path | None = None) -> list[ArtifactCheck]:
+    """Re-hash every artifact a record was sealed against.
+
+    A file that is absent is reported as missing, never as passing: a verification that
+    quietly skips what it cannot find reads as more than it proved.
+    """
+    base = base_dir or Path(".")
+    checks: list[ArtifactCheck] = []
+    for art in record.manifest.artifacts:
+        if art.sha256 is None or art.path is None:
+            checks.append(ArtifactCheck(
+                art.role, "unverifiable",
+                art.note or "sealed without a digest, so there is nothing to check"))
+            continue
+        path = Path(art.path)
+        if not path.is_absolute():
+            path = base / path
+        if not path.exists():
+            checks.append(ArtifactCheck(
+                art.role, "missing", f"{path} is not here; its digest cannot be checked"))
+            continue
+        actual = _sha256_bytes(path.read_bytes())
+        if actual == art.sha256:
+            checks.append(ArtifactCheck(art.role, "ok", f"{path} matches the sealed digest"))
+        else:
+            checks.append(ArtifactCheck(
+                art.role, "changed",
+                f"{path} does not match the digest sealed with this record"))
+    return checks
 
 
 @dataclass
@@ -299,11 +412,38 @@ def verify_anchor(
         checks.append(AnchorCheck(
             role, same, "unchanged" if same else f"{path} changed after it was anchored"))
 
-    checks.append(AnchorCheck(
-        "external proof", True,
-        "none: this is a local anchor, so nothing here establishes when it was made"
-        if anchor.get("external_proof") is None
-        else "present but not verified by this version", required=False))
+    for art in anchor.get("sealed_artifacts", []):
+        if not art.get("sha256") or not art.get("path"):
+            continue
+        path = base / art["path"]
+        role = f"sealed:{art['role']}"
+        if not path.exists():
+            checks.append(AnchorCheck(
+                role, False, f"not checked: {path} is not available", required=False))
+            continue
+        same = _sha256_bytes(path.read_bytes()) == art["sha256"]
+        checks.append(AnchorCheck(
+            role, same,
+            "matches the digest sealed in the receipt" if same
+            else f"{path} changed since the receipt was sealed"))
+
+    proofs = anchor.get("external_proofs") or []
+    if not proofs:
+        checks.append(AnchorCheck(
+            "external proof", True,
+            "none: this is a local anchor, so nothing here establishes when it was made",
+            required=False))
+    for proof in proofs:
+        name = proof.get("backend", "?")
+        try:
+            backend = get_backend(name)
+        except AnchorError:
+            checks.append(AnchorCheck(
+                f"external proof ({name})", False,
+                f"not checked: no backend named {name!r} is available here", required=False))
+            continue
+        ok, detail = backend.check(anchor.get("subject_digest", ""), proof)
+        checks.append(AnchorCheck(f"external proof ({name})", ok, detail))
     return checks
 
 

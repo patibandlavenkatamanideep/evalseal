@@ -36,7 +36,8 @@ because an unsigned ledger is still useful to whoever produced it.
 | `adapters/scorer.py` | Exact, regex, and LLM-judge scorers. The judge is a `Target`. |
 | `executor.py` | N-run loop (optionally concurrent), provenance capture and gap warnings. |
 | `ledger.py` | Hash-linked append-only JSONL; `verify_chain`. |
-| `anchor.py` | Local anchor: binds a receipt to its ledger head, signature and artifacts by hash. |
+| `anchor.py` | Local anchor and the backend seam for external attestation. |
+| `drift.py` | Two runs of one suite: what moved, and whether the instrument or the subject moved. |
 | `signing.py` | Ed25519 keypairs, signing the ledger head, verifying signatures. |
 | `policy.py` | Policy files: thresholds, critical cases, drift rules against a baseline. |
 | `report.py`, `htmlreport.py`, `cli.py` | Markdown / JSON / JUnit / HTML; the commands. |
@@ -77,6 +78,41 @@ cassette loses every response in it, not only the latest. Until 2.0.2 the save w
 plain truncate-then-fill, and the window it left open grew with the cassette. A save now
 writes a sibling temp file, fsyncs it, and `os.replace`s it over the original, which is
 atomic on POSIX and Windows, so the file on disk is always one complete version.
+
+**The evaluator fingerprint hashes the instrument, and the instrument is more than the
+model name.** Scheme 2 covers the scorer type and its own settings, the judge's provider,
+endpoint, model and sampling parameters including `max_tokens`, the rubric and prompt
+template hashes, the dataset hash and the exact set of case ids. Scheme 1 missed three of
+those and each was a way to be misled: two different regex patterns fingerprinted
+identically, the same judge model through a different endpoint looked like the same
+grader, and `max_tokens` was not sealed at all. Deliberately excluded are the target model,
+its parameters and the suite hash - swapping the model under test is the reason to run a
+benchmark, and a suite file bundles the target, so hashing it would make the one
+comparison a benchmark exists for look incomparable. Fingerprints carry their scheme, so a
+pin made under an older one is reported as a scheme change rather than an unexplained
+mismatch.
+
+**A receipt binds the files it depended on, and says which kind of binding it is.** The
+cassette holds the responses the verdicts came from; until schema 1.4 nothing bound it, so
+responses could be swapped and the receipt still verified. Artifacts are sealed as
+`hashed` (the digest is here, the bytes are not), `embedded` (the content is in the
+receipt because someone asked) or `external` (named but unreadable when sealed, so there
+is nothing to check against). Hashed is the default and the only kind safe for a file full
+of prompts. The cassette is hashed inside `run_eval` rather than by the caller, because it
+is still being written while the units run.
+
+**Drift is labelled from the receipts, never guessed.** A verdict that moved has three
+possible causes and they call for three different responses: the grading changed
+(`evaluator_drift`), an LLM judge disagreed with itself (`judge_variance`), or the target
+answered differently (`target_variance`). The first is decided by the evaluator
+fingerprint, the third by the scorer being deterministic - a regex cannot disagree with
+itself. Where two causes cannot be told apart from two receipts, the report says so rather
+than picking one, and points at `decompose`.
+
+**EvalSeal will never be an anchoring authority.** The value of an external anchor is that
+it rests on somebody other than the party being audited, so the project defines a backend
+protocol and ships only a local backend that attests nothing and says so. No fake backend
+ships either: a fake that looks like an anchor is worse than no anchor.
 
 **Two runs of one suite are paired, and the old threshold was not a threshold.** Until
 2.0 `diff` compared the suite-level mean difference against the widest *per-case* Wilson
@@ -244,12 +280,12 @@ still failing on a broken replay.
 - **`answer_match` grades the final answer only.** Correct reasoning with a mistyped final
   number scores zero, and a lucky guess scores one. That is the usual benchmark convention,
   not a claim about reasoning quality.
-- **Two provenance gaps the fingerprints inherit.** The judge's endpoint is sealed in the
-  manifest but is not part of the evaluator fingerprint, so one judge model reached
-  through two endpoints compares as comparable. And `max_tokens`, which the Anthropic
-  adapter sends and which decides whether a reply is truncated, is dropped from the sealed
-  parameters, because `EffectiveParams` has no field for it and pydantic discards extras.
-  Closing either changes content hashes and every pinned fingerprint, so it is scheduled
-  as its own change with fingerprint-stability tests rather than folded into another.
+- **A provider can change behaviour behind a stable model name.** Nothing the receipt can
+  see changes, so the fingerprint does not move. `evalseal drift` is what surfaces it:
+  identical evaluator fingerprint, moved verdicts. Whether that is the provider or
+  ordinary sampling variance cannot be separated from two receipts alone.
+- **Hardware, batch size and cache state are not sealed.** They do not affect an accuracy
+  verdict, but they do affect a latency benchmark, so a performance importer would need a
+  fingerprint of its own.
 - **Canonical hosts are an allowlist.** Any self-hosted or gateway endpoint gets a
   NON-CANONICAL warning by design. The warning means "provenance unverified", not "wrong".

@@ -57,8 +57,10 @@ jobs:
           evalseal report report.json --json > receipt-summary.json
 
       - name: Verify the sealed record
-        # Recomputes the record's hash from its content and checks the chain links.
-        run: evalseal verify --ledger "$LEDGER"
+        # Recomputes the record's hash from its content and checks the chain links, then
+        # re-hashes the files it was sealed against - the cassette above all, which holds
+        # the responses the verdicts came from.
+        run: evalseal verify --ledger "$LEDGER" --artifacts
 
       - name: Gate against the policy
         id: gate

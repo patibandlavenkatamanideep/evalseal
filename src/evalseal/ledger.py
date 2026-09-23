@@ -7,7 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 from .locking import ledger_lock
-from .models import SCHEMA_VERSION, RunRecord
+from .models import SCHEMA_VERSION, ProvenanceManifest, RunRecord
 
 LEDGER_PATH = Path(".evalseal/ledger.jsonl")
 GENESIS = "GENESIS"
@@ -22,6 +22,14 @@ GENESIS = "GENESIS"
 _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
     "1.1": [
         ("manifest", "run_config", "concurrency"),
+    ],
+    "1.4": [
+        ("manifest", "artifacts"),
+        ("manifest", "target", "provider"),
+        ("manifest", "target", "effective_params", "max_tokens"),
+        ("manifest", "scorer", "config_hash"),
+        ("manifest", "scorer", "judge", "provider"),
+        ("manifest", "scorer", "judge", "effective_params", "max_tokens"),
     ],
     "1.2": [
         ("manifest", "suite"),
@@ -192,29 +200,120 @@ def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
     return (True, f"Chain intact: {len(recs)} record(s).")
 
 
-def evaluator_fingerprint(record: RunRecord) -> str:
-    """Hash of the *judging* side only: scorer, rubric, judge prompt, judge model, inputs.
+FINGERPRINT_SCHEME = 2
+FINGERPRINT_PREFIX = f"evalseal-fp/{FINGERPRINT_SCHEME}"
 
-    Deliberately excludes the target model and its parameters. Swapping the model under
-    test is the reason to run a benchmark, and two models graded the same way are
-    comparable. Changing how the grading works is what makes a comparison meaningless.
+
+def _case_set_hash(record: RunRecord) -> str:
+    """Hash of the case ids actually scored, sorted so order cannot change it."""
+    ids = sorted(c.case_id for c in record.results)
+    return "sha256:" + hashlib.sha256(
+        json.dumps(ids, separators=(",", ":")).encode()).hexdigest()
+
+
+def _judge_identity(m: ProvenanceManifest) -> dict:
+    """Everything about the judge that can change a verdict."""
+    judge = m.scorer.judge
+    if judge is None:
+        return {"provider": None, "endpoint": None, "model": None, "params": None}
+    return {
+        "provider": judge.provider,
+        # The endpoint, not only the model name: the same model reached through a proxy
+        # or a different deployment is not self-evidently the same grader.
+        "endpoint": judge.base_url,
+        "model": judge.requested_model,
+        "params": judge.effective_params.model_dump(mode="json"),
+    }
+
+
+def evaluator_fingerprint(record: RunRecord) -> str:
+    """Hash of the measuring instrument: everything that decides how a response scores.
+
+    Scheme 2 covers the scorer type and its own settings, the judge's provider,
+    endpoint, model and sampling parameters including `max_tokens`, the rubric and
+    prompt template hashes, and the identity of the inputs - the dataset and the exact
+    set of case ids. Scheme 1 missed the endpoint, `max_tokens` and the scorer's
+    settings, so two runs graded by different regexes fingerprinted identically.
+
+    Deliberately excluded: the target model and its parameters, and the suite file's
+    hash. Swapping the model under test is the reason to run a benchmark, and a suite
+    file bundles the target, so hashing it would make "same grading, different model"
+    look incomparable. Both are sealed as provenance and both are in
+    `config_fingerprint`.
+
+    The returned value carries its scheme, so a pin made under an older scheme fails
+    with an explanation rather than an unexplained mismatch.
     """
     m = record.manifest
     payload = {
+        "scheme": FINGERPRINT_SCHEME,
         "scorer_type": m.scorer.type,
+        "scorer_config_hash": m.scorer.config_hash,
+        "judge": _judge_identity(m),
         "rubric_hash": m.scorer.rubric_hash,
         "judge_prompt_hash": m.scorer.judge_prompt_hash,
-        "judge_model": m.scorer.judge.requested_model if m.scorer.judge else None,
-        "judge_params": (
-            m.scorer.judge.effective_params.model_dump(mode="json") if m.scorer.judge else None
-        ),
         "dataset_hash": m.dataset.hash,
-        # The suite file is deliberately not included: it bundles the target model, so
-        # hashing it would make "same grading, different model" look incomparable, which
-        # is the one comparison a benchmark exists to make.
+        "case_set_hash": _case_set_hash(record),
     }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return "sha256:" + hashlib.sha256(blob.encode()).hexdigest()
+    return f"{FINGERPRINT_PREFIX}:sha256:" + hashlib.sha256(blob.encode()).hexdigest()
+
+
+def fingerprint_scheme(value: str) -> int | None:
+    """The scheme a fingerprint string was produced under, or None if it carries none."""
+    if value.startswith("evalseal-fp/"):
+        head = value.split(":", 1)[0]
+        try:
+            return int(head.split("/", 1)[1])
+        except ValueError:
+            return None
+    return None
+
+
+def explain_fingerprint_mismatch(kind: str, pinned: str, actual: str) -> str:
+    """Why a pinned fingerprint did not match, scheme difference first.
+
+    A pin written under an older scheme cannot match a scheme-2 fingerprint, and nothing
+    about the run has to have changed for that to happen. Saying "the grading setup
+    changed" would send someone hunting a change nobody made, so the scheme is checked
+    before the contents are blamed.
+
+    Lives here rather than in the CLI because both the `--expect-*` flags and a policy
+    file's `run.expect_*` rules ask the same question, and two answers to it would
+    eventually disagree.
+    """
+    pinned_scheme = fingerprint_scheme(pinned)
+    if pinned_scheme != FINGERPRINT_SCHEME:
+        named = f"scheme {pinned_scheme}" if pinned_scheme else "an unversioned scheme"
+        return (
+            f"The pinned {kind} fingerprint was made under {named}; this build computes "
+            f"scheme {FINGERPRINT_SCHEME}, which covers fields the older scheme did not. "
+            "The two cannot be compared. Re-pin from `evalseal report --json`."
+        )
+    if kind == "evaluator":
+        return (
+            "Not directly comparable: the evaluator fingerprint differs from the pinned "
+            f"one (expected {pinned[:28]}..., got {actual[:28]}...). The grading setup "
+            "changed, so this score cannot be compared with the baseline."
+        )
+    return (
+        f"Configuration differs from the pinned one (expected {pinned[:28]}..., got "
+        f"{actual[:28]}...). Something about what ran changed; this alone does not mean "
+        "the runs are incomparable, since a different target model also changes it. To "
+        "require the same grading setup, pin the evaluator fingerprint instead: "
+        "`--expect-evaluator`, or `run.expect_evaluator` in a policy file."
+    )
+
+
+def records_share_fingerprint_inputs(before: RunRecord, after: RunRecord) -> bool:
+    """Whether both records recorded the fields scheme 2 hashes.
+
+    A record sealed before schema 1.4 has no provider, no `max_tokens` and no scorer
+    config hash. Fingerprinting it under scheme 2 is still well defined, but a
+    difference against a 1.4 record may be an artefact of the older schema rather than a
+    real change, and a reader has to be told which.
+    """
+    return all(_schema_tuple(r.manifest.schema_version) >= (1, 4) for r in (before, after))
 
 
 def config_fingerprint(record: RunRecord) -> str:
@@ -226,17 +325,15 @@ def config_fingerprint(record: RunRecord) -> str:
     """
     m = record.manifest
     payload = {
-        "target_model": m.target.requested_model,
-        "target_params": m.target.effective_params.model_dump(mode="json"),
-        "scorer_type": m.scorer.type,
-        "rubric_hash": m.scorer.rubric_hash,
-        "judge_prompt_hash": m.scorer.judge_prompt_hash,
-        "judge_model": m.scorer.judge.requested_model if m.scorer.judge else None,
-        "judge_params": (
-            m.scorer.judge.effective_params.model_dump(mode="json") if m.scorer.judge else None
-        ),
-        "dataset_hash": m.dataset.hash,
+        "scheme": FINGERPRINT_SCHEME,
+        "evaluator": evaluator_fingerprint(record),
+        "target": {
+            "provider": m.target.provider,
+            "endpoint": m.target.base_url,
+            "model": m.target.requested_model,
+            "params": m.target.effective_params.model_dump(mode="json"),
+        },
         "suite_hash": m.suite.hash if m.suite else None,
     }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return "sha256:" + hashlib.sha256(blob.encode()).hexdigest()
+    return f"{FINGERPRINT_PREFIX}:sha256:" + hashlib.sha256(blob.encode()).hexdigest()

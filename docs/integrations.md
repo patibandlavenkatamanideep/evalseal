@@ -95,6 +95,11 @@ would be recorded in the manifest rather than blurred.
   each pass or fail to a score; import and seal. The assertion configuration's hash
   would stand in for the rubric hash, so a changed assertion makes two runs incomparable.
 
+- **Trust boundary:** EvalSeal would seal promptfoo's own record of the results. It can
+  prove that export has not changed since it was sealed, and that two exports were
+  produced under the same assertion configuration. It cannot confirm the provider calls
+  behind them happened, because promptfoo made them.
+
 The exact export fields will be taken from promptfoo's documented output format and
 verified against a real export when the importer is built. None are assumed here.
 
@@ -109,8 +114,42 @@ verified against a real export when the importer is built. None are assumed here
   provenance. A scorer change between two experiments would make them incomparable in
   EvalSeal's terms even if their scores look comparable in the UI.
 
+- **Trust boundary:** the same. A sealed Braintrust export is evidence about the export,
+  not about the experiment that produced it, and the receipt would say which.
+
 As with promptfoo, field names will come from Braintrust's documented export and a real
 export, not from this page.
+
+### LangSmith / Langfuse traces (proposed wrapper shape)
+
+- **They own:** tracing, spans, latency and token accounting, datasets, annotation
+  queues, and the UI where a team actually reads runs.
+- **EvalSeal would own:** turning N traced runs of the same cases into one sealed
+  receipt with per-case flip rates, and refusing to compare two of them if the scoring
+  configuration moved.
+- **Shape:** export the runs for one dataset over one project; map each traced run to a
+  `case_id` and a `repeat`; take the score from whichever evaluator the platform ran.
+  The evaluator's identity - its name and version, the prompt it used, the model behind
+  it - becomes the evaluator fingerprint's inputs.
+- **Trust boundary:** EvalSeal would be sealing *their* record of what happened. It can
+  prove the export has not changed since it was sealed. It cannot confirm the trace
+  describes a call that was made, because it did not make the call.
+
+### Replay-style workflows (Kitaru and similar)
+
+- **They own:** capturing a session and replaying it deterministically, including tool
+  calls and environment state.
+- **EvalSeal would own:** the receipt for a replay - what was replayed, under which
+  grader, how stable the verdicts were across repeats, and whether two replays are
+  comparable.
+- **Shape:** the replay tool emits per-case outcomes; EvalSeal seals them with the
+  session digest as an artifact. EvalSeal's own cassettes are a narrow version of the
+  same idea, so the natural boundary is: their tool replays the world, EvalSeal replays
+  the grading and seals the result.
+- **Trust boundary:** a deterministic replay is not a live run. A receipt over a replay
+  proves the analysis is reproducible from the recording, never that the model would
+  behave that way today. EvalSeal already says this about its own cassettes and would
+  say it here.
 
 ## Performance and systems benchmarks
 
@@ -125,7 +164,13 @@ decides comparability is different, and has to be sealed for a result to mean an
 - cache state: warm or cold, prefix caching on or off,
 - and the variance across repeated runs, not a single best run.
 
-EvalSeal today seals the Python version and platform and the served model, not the rest.
+This is the BetterBench-style critique applied to throughput rather than accuracy: a
+benchmark number without its configuration is not reproducible, and the configuration is
+exactly what tends to go unrecorded.
+
+EvalSeal today seals the Python version and platform, the provider, endpoint, model and
+sampling parameters, and the digests of the dataset, suite and cassette. It does not seal
+hardware, batch size or cache state.
 A performance importer would carry these as provenance and bring them into a
 comparability fingerprint of their own, so that a faster number from a different batch
 size is reported as incomparable rather than as an improvement. That is not built; it is

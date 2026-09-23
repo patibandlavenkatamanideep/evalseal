@@ -97,7 +97,9 @@ def test_score_verdict_is_inconclusive_rather_than_a_claim_of_sameness():
     assert diff_records(before, after).score_verdict == "inconclusive"
 
     incomparable = diff_records(_run({"a": ["yes"]}, rubric="A"), _run({"a": ["yes"]}, rubric="B"))
-    assert incomparable.score_verdict == "not comparable"
+    # The machine-readable verdict since scheme 2: one token, so CI can branch on it.
+    assert incomparable.score_verdict == "non_comparable"
+    assert incomparable.reason.startswith("the grading setup changed")
 
 
 def test_a_suite_wide_shift_is_now_detected_where_the_old_floor_hid_it():
@@ -215,3 +217,33 @@ def test_json_lists_only_evaluator_changes_as_the_reason_for_incomparability():
     assert "target model" in config
     assert "target model" not in evaluator
     assert "rubric" in evaluator
+
+
+def test_json_leads_with_comparability_not_with_a_delta():
+    """Phase 2 contract: a CI consumer can branch on `comparable` and `verdict` alone."""
+    before = _run({"q": ["yes"]}, rubric="Be strict.")
+    after = _run({"q": ["yes"]}, rubric="Be lenient.")
+    payload = diff_records(before, after).to_dict()
+
+    assert payload["comparable"] is False
+    assert payload["verdict"] == "non_comparable"
+    assert "rubric" in payload["reason"]
+    # The prompt template embeds the rubric, so both hashes move. Naming both is right:
+    # the grader changed in two visible ways.
+    assert [c["field"] for c in payload["evaluator_changes"]] == ["judge prompt", "rubric"]
+
+
+def test_a_comparable_diff_reports_score_and_stability_separately():
+    ids = [f"i{k:02d}" for k in range(12)]
+    before = _run({i: ["yes"] for i in ids}, model_name="model-a")
+    after = _run({**{i: ["yes"] for i in ids}, "i00": ["yes", "no", "yes", "no", "yes"]},
+                 model_name="model-b")
+    payload = diff_records(before, after).to_dict()
+
+    assert payload["comparable"] is True
+    assert payload["reason"] == ""
+    assert payload["verdict"] in ("inconclusive", "regression", "improvement")
+    # Score and stability are different questions, and are reported in different blocks.
+    assert payload["score"]["delta"] != 0
+    assert payload["flip_rate"]["after"] > payload["flip_rate"]["before"]
+    assert payload["unstable_cases"]["newly_unstable"] == ["i00"]

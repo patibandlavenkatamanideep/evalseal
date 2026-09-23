@@ -25,7 +25,12 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .diffing import diff_records, load_receipt
-from .ledger import config_fingerprint, evaluator_fingerprint, verify_chain
+from .ledger import (
+    config_fingerprint,
+    evaluator_fingerprint,
+    explain_fingerprint_mismatch,
+    verify_chain,
+)
 from .models import FailOn, RunRecord
 from .report import failing_cases
 
@@ -193,14 +198,17 @@ def _run_checks(rules: RunRules, record: RunRecord, ledger: Path | None) -> list
                   + (f": {', '.join(c.case_id for c in failed)}" if failed else ""))
         checks.append(Check("run.fail_on", not failed, detail))
 
-    for rule, expected, actual in (
-        ("run.expect_evaluator", rules.expect_evaluator, evaluator_fingerprint(record)),
-        ("run.expect_config", rules.expect_config, config_fingerprint(record)),
+    for rule, kind, expected, actual in (
+        ("run.expect_evaluator", "evaluator",
+         rules.expect_evaluator, evaluator_fingerprint(record)),
+        ("run.expect_config", "config", rules.expect_config, config_fingerprint(record)),
     ):
         if expected is not None:
             ok = expected == actual
             checks.append(Check(
-                rule, ok, f"expected {expected[:20]}..., got {actual[:20]}..."))
+                rule, ok,
+                f"matches the pinned fingerprint ({actual[:28]}...)" if ok
+                else explain_fingerprint_mismatch(kind, expected, actual)))
     return checks
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import time
 from collections.abc import Callable
@@ -8,11 +9,12 @@ from urllib.parse import urlparse
 
 from .adapters.dataset import Case, Dataset
 from .adapters.recording import slot
-from .adapters.scorer import Scorer
+from .adapters.scorer import Scorer, scorer_config
 from .adapters.target import Target, TargetResponse
 from .analyze import analyze_case
 from .models import (
     Aggregate,
+    ArtifactProvenance,
     CaseResult,
     CodeProvenance,
     DatasetProvenance,
@@ -25,15 +27,26 @@ from .models import (
     SuiteProvenance,
     TargetProvenance,
 )
-from .provenance import environment_provenance, git_provenance, text_hash
+from .provenance import environment_provenance, file_hash, git_provenance, text_hash
 
 _CANONICAL_HOSTS = {"api.openai.com", "api.anthropic.com",
                     "generativelanguage.googleapis.com"}
 _LOCAL_SCHEMES = {"local"}
 
 
+def _artifact(role: str, path: str) -> ArtifactProvenance:
+    """Bind one file by digest, or record plainly that there was nothing to bind."""
+    digest = file_hash(path)
+    if digest is None:
+        return ArtifactProvenance(
+            role=role, kind="external", path=str(path),
+            note="not readable when the record was sealed; nothing to verify against")
+    return ArtifactProvenance(role=role, kind="hashed", sha256=digest, path=str(path))
+
+
 def _to_provenance(tr: TargetResponse) -> TargetProvenance:
     return TargetProvenance(
+        provider=tr.provider,
         requested_model=tr.requested_model,
         served_model=tr.served_model,
         system_fingerprint=tr.system_fingerprint,
@@ -145,6 +158,7 @@ def run_eval(
     suite: SuiteProvenance | None = None,
     dataset_path: str | None = None,
     store_judge_prompt: bool = False,
+    artifact_paths: dict[str, str] | None = None,
 ) -> RunRecord:
     if not dataset.cases:
         raise ValueError("dataset has no cases")
@@ -211,6 +225,9 @@ def run_eval(
     warnings += _drift_warnings(judge_resps, "JUDGE")
     warnings += _truncation_warnings(judge_resps, "JUDGE")
 
+    # Hashed here, not by the caller: the cassette is still being written while the
+    # units run, so its digest is only meaningful once they have finished.
+    artifacts = [_artifact(role, path) for role, path in sorted((artifact_paths or {}).items())]
     git = git_provenance()
     # The template, not an instantiated prompt. Until schema 1.3 this sealed the last
     # judge prompt sent, which embeds the last case's prompt and the target's response:
@@ -222,6 +239,8 @@ def run_eval(
         type=scorer.kind,
         judge=_to_provenance(judge_resps[0]) if judge_resps else None,
         rubric_hash=getattr(scorer, "rubric_hash", None),
+        config_hash=text_hash(
+            json.dumps(scorer_config(scorer), sort_keys=True, separators=(",", ":"))),
         judge_prompt_hash=text_hash(template) if template else None,
         # Opt-in all the same: the template carries the rubric verbatim, and a rubric can
         # be as private as the dataset it grades.
@@ -238,6 +257,7 @@ def run_eval(
         ),
         run_config=RunConfig(n_repeats=n_repeats, concurrency=concurrency),
         suite=suite,
+        artifacts=artifacts,
         code=CodeProvenance(commit=git["commit"], dirty=git["dirty"]),
         environment=EnvironmentProvenance(**environment_provenance()),
     )

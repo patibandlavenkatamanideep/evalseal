@@ -33,6 +33,8 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
     ],
     "1.5": [
         ("manifest", "environment", "ci"),
+        ("manifest", "suite", "evaluator_hash"),
+        ("manifest", "suite", "target_hash"),
     ],
     "1.2": [
         ("manifest", "suite"),

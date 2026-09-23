@@ -68,7 +68,7 @@ from .prereg import (
     check_preregistration,
     load_preregistration,
 )
-from .provenance import file_hash
+from .provenance import file_hash, text_hash
 from .report import (
     case_rows,
     failing_cases,
@@ -145,27 +145,125 @@ def _main() -> None:
     load_dotenv()
 
 
+_FLAT_SUITE_KEYS = {
+    "dataset", "target", "scorer", "n_repeats", "concurrency", "cassette",
+    "fail_on", "max_retries", "timeout", "ledger", "junit_xml", "sign_key",
+}
+_PATH_KEYS = ("dataset", "target", "scorer", "cassette", "ledger", "junit_xml", "sign_key")
+
+# Version 2 splits the file into sections so a reader can see which parts describe the
+# instrument and which describe the thing being measured. See docs/suite-format.md.
+_V2_SECTIONS = {"version", "evaluator", "target", "dataset", "cases", "run", "policy"}
+_V2_KEYS: dict[str, set[str]] = {
+    "evaluator": {"scorer"},
+    "target": {"config"},
+    "dataset": {"path"},
+    "cases": {"only"},
+    "run": {"n_repeats", "concurrency", "cassette", "fail_on", "max_retries", "timeout",
+            "ledger", "junit_xml", "sign_key"},
+    "policy": {"file"},
+}
+
+
+def _flatten_v2(suite: dict, path: Path) -> dict:
+    """Turn a sectioned suite into the flat mapping the rest of the CLI already uses.
+
+    One internal shape, two file formats. Translating at the edge keeps every command
+    below this line unchanged, which is what makes supporting both cheap enough to be
+    worth doing rather than a migration nobody finishes.
+    """
+    unknown = set(suite) - _V2_SECTIONS
+    if unknown:
+        raise typer.BadParameter(
+            f"unknown section(s) in {path}: {', '.join(sorted(unknown))}")
+    flat: dict = {}
+    for section, allowed in _V2_KEYS.items():
+        body = suite.get(section)
+        if body is None:
+            continue
+        if not isinstance(body, dict):
+            raise typer.BadParameter(f"{path}: section {section!r} must be a mapping")
+        extra = set(body) - allowed
+        if extra:
+            raise typer.BadParameter(
+                f"unknown key(s) in {path} section {section!r}: {', '.join(sorted(extra))}")
+        flat.update(body)
+    # Section-local names, mapped onto the flat ones the commands read.
+    if "config" in flat:
+        flat["target"] = flat.pop("config")
+    if "path" in flat:
+        flat["dataset"] = flat.pop("path")
+    if "file" in flat:
+        flat["policy"] = flat.pop("file")
+    return flat
+
+
 def _load_suite(path: Path | None) -> dict:
     """A suite file names the dataset, target, scorer and run settings in one place.
-    Explicit flags still win, so a suite is a default, not a cage."""
+
+    Two formats are accepted. Version 2 is sectioned; anything without a `version` key
+    is the original flat format and keeps working unchanged, because a file format
+    that breaks on upgrade is a reason not to upgrade.
+
+    Explicit flags still win, so a suite is a default, not a cage.
+    """
     if path is None:
         return {}
     suite = json.loads(path.read_text(encoding="utf-8"))
-    unknown = set(suite) - {
-        "dataset", "target", "scorer", "n_repeats", "concurrency", "cassette",
-        "fail_on", "max_retries", "timeout", "ledger", "junit_xml", "sign_key",
-    }
-    if unknown:
-        raise typer.BadParameter(f"unknown key(s) in {path}: {', '.join(sorted(unknown))}")
+    if not isinstance(suite, dict):
+        raise typer.BadParameter(f"{path} must contain a mapping at the top level")
+
+    if suite.get("version") == 2:
+        suite = _flatten_v2(suite, path)
+    elif "version" in suite:
+        raise typer.BadParameter(
+            f"{path}: unknown suite version {suite['version']!r}; expected 2, or omit "
+            "the key for the original flat format")
+    else:
+        unknown = set(suite) - _FLAT_SUITE_KEYS
+        if unknown:
+            raise typer.BadParameter(
+                f"unknown key(s) in {path}: {', '.join(sorted(unknown))}")
+
     base = path.parent
 
     def resolve(value: str) -> str:      # paths are relative to the suite file
         return str((base / value).resolve()) if value else value
 
-    for key in ("dataset", "target", "scorer", "cassette", "ledger", "junit_xml", "sign_key"):
+    for key in (*_PATH_KEYS, "policy"):
         if key in suite:
             suite[key] = resolve(suite[key])
     return suite
+
+
+def _suite_section_hashes(path: Path | None) -> dict[str, str | None]:
+    """Digest the evaluator and target sections separately.
+
+    Why separate: the whole-file suite hash cannot go into the evaluator fingerprint,
+    because the file also carries the target model, and swapping the model under test
+    is the reason to run a benchmark. Hashing the sections apart records what the
+    whole-file hash cannot distinguish - "the grading changed" from "the model
+    changed" - and `evalseal diff` can then name which one moved.
+
+    These digests are recorded, not fingerprinted. Scheme 2 already covers the
+    evaluator's substance through the scorer config, judge identity, rubric and prompt
+    template hashes, so adding this would change every existing pin without covering
+    anything new. See docs/suite-format.md.
+    """
+    out: dict[str, str | None] = {"evaluator_hash": None, "target_hash": None}
+    if path is None:
+        return out
+    try:
+        suite = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return out
+    if not isinstance(suite, dict) or suite.get("version") != 2:
+        return out          # the flat format has no sections to hash apart
+    for section, field in (("evaluator", "evaluator_hash"), ("target", "target_hash")):
+        if section in suite:
+            out[field] = text_hash(
+                json.dumps(suite[section], sort_keys=True, separators=(",", ":")))
+    return out
 
 
 _RESERVED_ROLES = {"cassette", "dataset", "suite"}
@@ -331,8 +429,12 @@ def run(
     sign_key = sign_key or (Path(cfg["sign_key"]) if "sign_key" in cfg else None)
 
     ds = Dataset.from_jsonl(dataset)
-    if only:
-        wanted = [c.strip() for c in only.split(",") if c.strip()]
+    # A v2 suite's `cases.only` is a list; --only is a comma-separated string. The flag
+    # wins, as it does for every other suite key.
+    wanted_ids = ([c.strip() for c in only.split(",") if c.strip()] if only
+                  else list(cfg.get("only") or []))
+    if wanted_ids:
+        wanted = wanted_ids
         missing = [c for c in wanted if c not in {case.case_id for case in ds.cases}]
         if missing:
             raise typer.BadParameter(f"case id(s) not in {dataset}: {', '.join(missing)}")
@@ -367,7 +469,8 @@ def run(
                 concurrency=concurrency,
                 on_unit_done=lambda: progress.advance(task),
                 suite=SuiteProvenance(
-                    name=suite.stem, path=str(suite), hash=file_hash(suite)
+                    name=suite.stem, path=str(suite), hash=file_hash(suite),
+                    **_suite_section_hashes(suite),
                 ) if suite else None,
                 dataset_path=str(dataset),
                 store_judge_prompt=store_judge_prompt,
@@ -723,6 +826,11 @@ def gate(
         None, "--policy", exists=True, dir_okay=False,
         help="A policy file (.json/.yml) of thresholds, critical cases and drift rules.",
     ),
+    suite: Path | None = typer.Option(
+        None, "--suite", exists=True, dir_okay=False,
+        help="A version-2 suite file, whose `policy.file` names the policy to apply. "
+             "--policy wins if both are given.",
+    ),
     prereg: Path | None = typer.Option(
         None, "--prereg", exists=True, dir_okay=False,
         help="A pre-registration written by `evalseal preregister` before the run. "
@@ -750,6 +858,16 @@ def gate(
         raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
     record = recs[index]
     failures: list[str] = []
+
+    if policy is None and suite is not None:
+        # A `policy` section that nothing reads would be a threshold silently doing
+        # nothing, which is the failure policy.py exists to prevent.
+        named = _load_suite(suite).get("policy")
+        if named is None:
+            raise typer.BadParameter(f"{suite} has no policy section to apply")
+        policy = Path(named)
+        if not policy.exists():
+            raise typer.BadParameter(f"{suite} names a policy that is not there: {policy}")
 
     policy_checks = []
     if policy is not None:

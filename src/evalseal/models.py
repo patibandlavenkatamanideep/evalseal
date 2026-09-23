@@ -20,7 +20,8 @@ FailOn = Literal["none", "unstable", "borderline"]
 # 1.3 one therefore disagree on this hash for that reason alone.
 # 1.5 adds what the environment claimed about the CI job, so a pre-registration can
 # require that a receipt came from CI rather than from someone's laptop. It is a claim
-# and is named as one; see CIProvenance.
+# and is named as one; see CIProvenance. It also records the evaluator and target
+# section digests of a version-2 suite file.
 SCHEMA_VERSION = "1.5"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
@@ -69,6 +70,12 @@ class SuiteProvenance(BaseModel):
     name: str | None = None
     path: str | None = None
     hash: str | None = None
+    # Version 2 suites split the file into sections. These digest the two that matter
+    # for reading a difference: the grading setup and the thing being measured. The
+    # whole-file `hash` cannot tell them apart, which is why it is not fingerprinted.
+    # None for a flat-format suite, which has no sections.
+    evaluator_hash: str | None = None
+    target_hash: str | None = None
 
 
 class CodeProvenance(BaseModel):

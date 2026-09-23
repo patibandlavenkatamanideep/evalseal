@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "evaluator": {
+    "scorer": "scorer.json"
+  },
+  "target": {
+    "config": "target.json"
+  },
+  "dataset": {
+    "path": "dataset.jsonl"
+  },
+  "run": {
+    "n_repeats": 5,
+    "concurrency": 4,
+    "cassette": "../../tests/cassettes/gsm8k.json",
+    "fail_on": "none"
+  }
+}

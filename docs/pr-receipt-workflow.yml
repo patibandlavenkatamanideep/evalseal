@@ -1,9 +1,13 @@
 # EvalSeal PR receipt workflow.
 #
 # Copy to .github/workflows/evalseal.yml. On every pull request it replays a committed
-# cassette (no API key, no network, no cost), verifies the sealed record, gates it
-# against a checked-in policy, optionally compares it with a baseline receipt, uploads
-# the receipts, and writes a step summary that says why the check passed or failed.
+# cassette (no API key, no network, no cost), verifies the sealed record and the files
+# it was sealed against, gates it against a checked-in policy and a pre-registration,
+# compares it with a baseline receipt, reports judge drift, anchors the receipt and
+# re-checks the anchor, uploads everything, and writes a step summary that says why the
+# check passed or failed.
+#
+# Nothing here needs a secret or an external service. Every step runs offline.
 #
 # Guide: docs/pr-receipt-workflow.md
 name: EvalSeal receipt
@@ -30,6 +34,12 @@ env:
   # Thresholds, critical cases and pins. A policy lists every check it ran, passed or
   # failed, which is what lets a reviewer see why the check passed.
   POLICY: examples/evalseal.yml
+  # Optional: a pre-registration written by `evalseal preregister` and committed before
+  # the run. It fixes the suite, dataset, case ids, repeat count and required artifacts,
+  # so a quiet edit to any of them fails the gate by name. Leave the file out and the
+  # gate simply applies the policy. See docs/pre-registration.md for what this does and
+  # does not establish - it cannot prove no private run happened.
+  PREREG: examples/prereg.json
   # Optional: a receipt from the default branch to compare against. Leave the file out
   # and the drift step is skipped, and the summary says so.
   BASELINE_RECEIPT: evals/baseline-receipt.json
@@ -56,19 +66,29 @@ jobs:
             --html receipt.html --fail-on none --quiet
           evalseal report report.json --json > receipt-summary.json
 
-      - name: Verify the sealed record
+      - name: Verify the sealed record and its artifacts
         # Recomputes the record's hash from its content and checks the chain links, then
         # re-hashes the files it was sealed against - the cassette above all, which holds
-        # the responses the verdicts came from.
-        run: evalseal verify --ledger "$LEDGER" --artifacts
+        # the responses the verdicts came from. The output is kept so the summary can
+        # show which artifacts were checked rather than only that the step passed.
+        run: |
+          set -o pipefail
+          evalseal verify --ledger "$LEDGER" --artifacts | tee verify.txt
 
-      - name: Gate against the policy
+      - name: Gate against the policy and the pre-registration
         id: gate
         # The outcome is recorded rather than acted on here, so the summary and the
         # artifacts are written even when the gate fails. The last step fails the job.
+        #
+        # --prereg is added only when the file exists, so a repository without a
+        # pre-registration still gets the policy gate. Both sets of checks land in
+        # gate.json under the same `checks` list, prefixed `prereg.` or the policy's
+        # own rule names.
         run: |
           set +e
-          evalseal gate --ledger "$LEDGER" --policy "$POLICY" --json > gate.json
+          PREREG_ARGS=""
+          if [ -f "$PREREG" ]; then PREREG_ARGS="--prereg $PREREG"; fi
+          evalseal gate --ledger "$LEDGER" --policy "$POLICY" $PREREG_ARGS --json > gate.json
           echo "code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Compare with the baseline receipt
@@ -79,15 +99,39 @@ jobs:
           evalseal diff "$BASELINE_RECEIPT" report.json --json > drift.json
           evalseal diff "$BASELINE_RECEIPT" report.json --html drift.html > /dev/null
 
-      - name: Anchor the receipt
+      - name: Report judge drift against the baseline
+        if: hashFiles(env.BASELINE_RECEIPT) != ''
+        # `diff` asks whether the score moved. `drift` asks what moved underneath it:
+        # whether the grading setup changed, which cases came back with a different
+        # verdict, and whether that is the judge disagreeing with itself or the target
+        # answering differently. It reports; it does not gate.
+        run: |
+          evalseal drift "$BASELINE_RECEIPT" report.json --json > judge-drift.json
+          evalseal drift "$BASELINE_RECEIPT" report.json --out judge-drift.md > /dev/null
+
+      - name: Anchor the receipt and re-check the anchor
         # A local anchor binds the receipt, its ledger head and its signature state into
-        # one file anyone can re-check with `evalseal anchor-verify`. It is not an
-        # external timestamp; see docs/external-anchoring.md.
-        run: evalseal anchor report.json --ledger "$LEDGER" --out anchor.json
+        # one file anyone can re-check with `evalseal anchor-verify`. Verifying it here
+        # proves the file that gets uploaded actually round-trips.
+        #
+        # It is NOT an external timestamp: created_at is this runner's clock. For an
+        # independent time add `--with rfc3161 --tsa <your authority>`; that backend is
+        # experimental and does not verify the authority's signature. See
+        # docs/external-anchoring.md.
+        id: anchor
+        run: |
+          set +e
+          evalseal anchor report.json --ledger "$LEDGER" --out anchor.json
+          evalseal anchor-verify anchor.json report.json --ledger "$LEDGER" \
+            > anchor-verify.txt 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          cat anchor-verify.txt
 
       - name: Write the step summary
         if: always()
         shell: python
+        env:
+          ANCHOR_CODE: ${{ steps.anchor.outputs.code }}
         run: |
           import json, os, pathlib
 
@@ -97,14 +141,29 @@ jobs:
               except (OSError, ValueError):
                   return None
 
+          def text(name):
+              try:
+                  return pathlib.Path(name).read_text(encoding="utf-8").strip()
+              except OSError:
+                  return ""
+
           receipt, gate, drift = load("receipt-summary.json"), load("gate.json"), load("drift.json")
+          judge_drift = load("judge-drift.json")
           lines = ["# EvalSeal receipt", ""]
 
           if gate is None:
               lines += ["**No gate result.** An earlier step failed; open the job log.", ""]
           else:
               verdict = "PASSED" if gate["passed"] else "FAILED"
-              lines += [f"**Gate {verdict}** against `{os.environ['POLICY']}`.", ""]
+              against = [f"`{os.environ['POLICY']}`"]
+              declared = any(c["rule"].startswith("prereg.") for c in gate["checks"])
+              if declared:
+                  against.append(f"the pre-registration `{os.environ['PREREG']}`")
+              lines += [f"**Gate {verdict}** against {' and '.join(against)}.", ""]
+              if not declared:
+                  lines += ["No pre-registration was applied, so nothing checked that this "
+                            "is the evaluation that was declared beforehand. See "
+                            "docs/pre-registration.md.", ""]
 
           # Comparability before any number: a delta between runs graded differently is
           # not a change, and it must not be the first thing a reviewer reads.
@@ -161,7 +220,10 @@ jobs:
                   "| | |", "|---|---|",
                   f"| EvalSeal version (sealed) | `{p['evalseal_version']}` |",
                   f"| suite | `{os.environ['SUITE']}` |",
-                  f"| target model | `{p['target_model']}` |",
+                  f"| target model | `{p['target_model']}`"
+                  + (f" (served `{p['served_model']}`)"
+                     if p.get("served_model") and p["served_model"] != p["target_model"]
+                     else "") + " |",
                   f"| mean score | {s['mean_score']:.3f} over {s['n_cases']} cases |",
                   f"| mean flip rate | {s['flip_rate']:.1%} |",
                   f"| unstable cases | {len(unstable)}"
@@ -171,8 +233,35 @@ jobs:
                   "",
               ]
 
+          # What moved underneath the score, when a baseline was available.
+          if judge_drift is not None:
+              kind = judge_drift["kind"].replace("_", " ")
+              lines += [f"**Judge drift: {kind}.** {judge_drift['summary']}", ""]
+              worst = [c for c in judge_drift["cases"] if c["after"]["flip_rate"] > 0][:5]
+              if worst:
+                  lines += ["| least stable case | verdicts | flip rate |", "|---|---|---|"]
+                  lines += [f"| `{c['case_id']}` | `{c['after']['sequence']}` "
+                            f"| {c['after']['flip_rate']:.0%} |" for c in worst]
+                  lines.append("")
+
+          # Artifact verification and the anchor, verbatim. Both are short, and a
+          # paraphrase of a check result is one more place for it to drift from what ran.
+          verified, anchor_out = text("verify.txt"), text("anchor-verify.txt")
+          if verified or anchor_out:
+              lines += ["<details><summary>Artifact and anchor verification</summary>", ""]
+              if verified:
+                  lines += ["```", verified, "```", ""]
+              if anchor_out:
+                  anchor_code = os.environ.get("ANCHOR_CODE", "?")
+                  state = "verified" if anchor_code == "0" else f"FAILED (exit {anchor_code})"
+                  lines += [f"Anchor {state}. A local anchor is this runner's clock: it "
+                            "binds the receipt, ledger head and artifacts together, and "
+                            "establishes nothing about when.", "", "```", anchor_out, "```", ""]
+              lines += ["</details>", ""]
+
           artifacts = [n for n in ("receipt.html", "report.md", "report.json", "drift.html",
-                                   "drift.json", "gate.json", "anchor.json")
+                                   "drift.json", "judge-drift.md", "judge-drift.json",
+                                   "gate.json", "anchor.json", "verify.txt")
                        if pathlib.Path(n).exists()]
           lines += [
               f"**Artifacts** (`evalseal-receipt`): {', '.join(artifacts)}", "",
@@ -198,7 +287,11 @@ jobs:
             gate.json
             drift.html
             drift.json
+            judge-drift.md
+            judge-drift.json
             anchor.json
+            anchor-verify.txt
+            verify.txt
             ${{ env.LEDGER }}
           if-no-files-found: ignore
 

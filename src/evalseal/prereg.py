@@ -154,16 +154,23 @@ def build_preregistration(
     policy: Policy | None = None,
     note: str | None = None,
 ) -> Preregistration:
-    """Read the declared inputs and freeze their digests into a contract."""
+    """Read the declared inputs and freeze their digests into a contract.
+
+    Paths are stored relative to the working directory where possible. A
+    pre-registration is meant to be committed and read by other people, and an
+    absolute path both leaks a home directory and means nothing on their machine.
+    Only the digests are load-bearing; the paths are there so a reader knows what was
+    declared.
+    """
     git = git_provenance()
     return Preregistration(
         created_at=datetime.now(UTC).isoformat(timespec="seconds"),
         note=note,
         suite=FileContract(
-            path=str(suite) if suite else None,
+            path=_readable_path(suite),
             sha256=file_hash(suite) if suite else None),
         dataset=DatasetContract(
-            path=str(dataset) if dataset else None,
+            path=_readable_path(dataset),
             sha256=file_hash(dataset) if dataset else None,
             n_cases=len(case_ids) if case_ids else None,
             case_set_hash=_hash_ids(case_ids) if case_ids else None),
@@ -179,6 +186,16 @@ def build_preregistration(
         git_commit=git["commit"],
         git_branch=_git_branch(),
     )
+
+
+def _readable_path(path: Path | None) -> str | None:
+    """Relative to the working directory when it is under it, else as given."""
+    if path is None:
+        return None
+    try:
+        return Path(path).resolve().relative_to(Path.cwd()).as_posix()
+    except ValueError:
+        return str(path)
 
 
 def _git_branch() -> str | None:

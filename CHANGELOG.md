@@ -97,12 +97,17 @@ command, exit code or JSON field, apart from the sealed-field fix under *Fixed* 
 All three change content hashes or pinned fingerprints to fix, and are scheduled in
 ROADMAP.md with a fingerprint-scheme version rather than folded in here.
 
-### Recorded evidence, in progress
+### Recorded evidence
 
-- A comparison of `gemini-2.5-flash` and `gemma-4-26b-a4b-it` on 150 GSM8K problems was
-  pre-registered (`examples/gsm8k_compare/PREREGISTRATION.md`) before any response was
-  recorded. Its result will be reported whatever it is once recording completes; nothing
-  in the README cites it yet.
+- **A pre-registered comparison, reported inconclusive.** `gemini-2.5-flash` against
+  `gemma-4-26b-a4b-it` on 150 GSM8K problems, five repeats each, designed and its power
+  published before any response was recorded. Accuracy 0.9760 against 0.9613: a 1.5-point
+  gap where the design was powered for 4, with two discordant items that cancel, so
+  p = 1 and the verdict is `inconclusive`. The same receipts show gemma flipping 9 items
+  to flash's 1, a mean flip rate of 2.00% against 0.27% - a difference no test was needed
+  to see and that a single score from each would have hidden. Both cassettes are
+  committed and `tests/test_gsm8k_compare.py` asserts every published number.
+  See `examples/gsm8k_compare/RESULTS.md`.
 
 ## [2.0.1] - 2026-09-21
 

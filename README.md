@@ -427,6 +427,36 @@ gsm8k and codeqa actually look like, and where repeats do nothing), `bernoulli` 
 repeat an independent coin flip - the optimistic end), or `--from-receipt` to use a real
 run's observed per-item rates. Method and assumptions are in `src/evalseal/power.py`.
 
+## A real case: inconclusive on accuracy, clear on stability
+
+This is the shortest argument for why EvalSeal exists, and it comes from a comparison
+that failed to prove its own hypothesis.
+
+`gemini-2.5-flash` and `gemma-4-26b-a4b-it` were run against 150 GSM8K problems, five
+repeats each, same grading, in an experiment whose design and power were
+[written down and committed before any response was recorded](examples/gsm8k_compare/PREREGISTRATION.md).
+
+| | gemini-2.5-flash | gemma-4-26b-a4b-it |
+|---|---|---|
+| accuracy | 0.9760 | 0.9613 |
+| items that flipped | **1 of 150** | **9 of 150** |
+| mean flip rate | 0.27% | **2.00%** |
+
+The paired test on accuracy came back **inconclusive**: a 1.5-point gap, two discordant
+items out of 150 that cancel each other, p = 1. The design was powered for a 4-point gap
+and honestly could not resolve this one, so EvalSeal declines to call it a difference.
+
+**The stability difference needed no test at all.** Gemma disagreed with itself on nine
+items to flash's one, a flip rate seven times higher. A single run of each would have
+produced 0.976 and 0.961 and looked like a close race. The receipts show that one model
+answers the same way when asked again and the other frequently does not - which for
+anything run repeatedly, or graded against a threshold, is the more consequential fact.
+
+That is the whole thesis: **a score is one sample, and the thing a single number hides is
+usually the variance.** The full write-up, including what it does not show, is in
+[examples/gsm8k_compare/RESULTS.md](examples/gsm8k_compare/RESULTS.md); both cassettes are
+committed, so it replays with no API key.
+
 ## A receipt you can attach to a pull request
 
 Terminal output is for the person who ran the eval. `--html` is for everyone else.

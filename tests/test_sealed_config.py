@@ -1,6 +1,8 @@
 """The receipt must seal how the answer was judged, not only what it scored."""
 from __future__ import annotations
 
+import re
+
 from conftest import make_dataset, scripted
 from typer.testing import CliRunner
 
@@ -113,12 +115,50 @@ def test_diff_says_when_configs_are_not_comparable(tmp_path):
     assert "rubric" in result.output
 
 
-def test_provenance_helpers_do_not_read_the_environment():
-    """A helper that read os.environ could leak a key into a receipt."""
+def test_provenance_reads_only_named_environment_variables():
+    """A helper that read os.environ freely could leak a key into a receipt.
+
+    Until schema 1.5 this module read no environment variable at all, and the test
+    asserted exactly that. `ci_provenance` has to read some, so the invariant moves
+    from "none" to "only these, named one at a time": no iteration over the
+    environment and no prefix matching, either of which would sweep up GITHUB_TOKEN
+    the day someone adds a variable.
+    """
     import inspect
 
     from evalseal import provenance
     source = inspect.getsource(provenance)
-    assert "os.environ" not in source and "getenv" not in source
+
+    for sweeping in ("os.environ.items", "os.environ.keys", "os.environ.values",
+                     "for k in os.environ", "startswith("):
+        assert sweeping not in source, f"{sweeping} could sweep in a secret"
+
+    read = set(re.findall(r'os\.environ\.get\(\s*["\']([A-Z_0-9]+)["\']', source))
+    allowed = {v for keys in provenance._CI_VARS.values() for v in keys.values()}
+    allowed |= {"CI", "GITHUB_SERVER_URL"}
+    assert read <= allowed, f"reads variables outside the allowlist: {read - allowed}"
+    # Every remaining read is indirect, through the allowlist table itself.
+    assert not any("TOKEN" in v or "KEY" in v or "SECRET" in v or "PASSWORD" in v
+                   for v in allowed)
+
     assert environment_provenance()["python_version"]
     assert set(git_provenance()) == {"commit", "dirty"}
+
+
+def test_a_sealed_record_carries_no_secret_from_the_environment(monkeypatch):
+    """The end-to-end version of the rule above, asserted on the sealed bytes."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_should_never_be_sealed")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-never-be-sealed")
+    monkeypatch.setenv("EVALSEAL_API_KEY", "es-should-never-be-sealed")
+
+    record = run_eval(make_dataset("a"), LocalCallableTarget(lambda p: "yes"),
+                      RegexScorer("yes"), n_repeats=2)
+    blob = record.model_dump_json()
+
+    for secret in ("ghp_should_never_be_sealed", "sk-ant-should-never-be-sealed",
+                   "es-should-never-be-sealed"):
+        assert secret not in blob
+    assert record.manifest.environment.ci is not None      # the allowlist did run
+    assert record.manifest.environment.ci.repository == "owner/repo"

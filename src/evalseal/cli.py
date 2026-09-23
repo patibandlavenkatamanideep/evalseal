@@ -60,6 +60,13 @@ from .power import (
     required_items,
     required_repeats,
 )
+from .prereg import (
+    AnchorState,
+    PreregError,
+    build_preregistration,
+    check_preregistration,
+    load_preregistration,
+)
 from .provenance import file_hash
 from .report import (
     case_rows,
@@ -465,6 +472,34 @@ def _read_receipt(source: str | Path) -> RunRecord:
         raise typer.Exit(code=EXIT_BAD_INPUT) from None
 
 
+def _anchor_state(
+    anchor_file: Path | None, record: RunRecord, ledger: Path | None
+) -> AnchorState:
+    """Verify an anchor for the pre-registration gate, reporting failures as failures.
+
+    An unreadable or failing anchor produces `verified=False` with the reason, rather
+    than an exception: `require_anchor` is a clause of a contract, and a clause that
+    cannot be evaluated has to fail visibly like every other one.
+    """
+    if anchor_file is None:
+        return AnchorState(detail="no anchor was supplied to check (pass --anchor)")
+    try:
+        anchor_obj = json.loads(anchor_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return AnchorState(present=True, detail=f"{anchor_file} could not be read: {e}")
+    checks = verify_anchor(anchor_obj, record, ledger=ledger,
+                           base_dir=anchor_file.parent)
+    ok = anchor_passed(checks)
+    failed = [c.name for c in checks if not c.passed and c.required]
+    return AnchorState(
+        present=True,
+        verified=ok,
+        has_external_proof=bool(anchor_obj.get("external_proofs")),
+        detail=f"anchor verified ({anchor_file})" if ok
+        else f"anchor failed: {', '.join(failed) or 'see anchor-verify'}",
+    )
+
+
 def _resolve_record(token: str, ledger: Path) -> RunRecord:
     """A receipt path or a ledger index, whichever the user typed.
 
@@ -642,6 +677,16 @@ def gate(
         None, "--policy", exists=True, dir_okay=False,
         help="A policy file (.json/.yml) of thresholds, critical cases and drift rules.",
     ),
+    prereg: Path | None = typer.Option(
+        None, "--prereg", exists=True, dir_okay=False,
+        help="A pre-registration written by `evalseal preregister` before the run. "
+             "Checks the receipt against the evaluation that was declared: suite, "
+             "dataset, case set, repeat count, grading setup and required artifacts.",
+    ),
+    anchor_file: Path | None = typer.Option(
+        None, "--anchor", exists=True, dir_okay=False,
+        help="An anchor to check, when the pre-registration requires one.",
+    ),
     as_json: bool = typer.Option(
         False, "--json", help="Emit every check as machine-readable JSON."
     ),
@@ -650,6 +695,9 @@ def gate(
 
     Thresholds come from flags, from `--policy evalseal.yml`, or both: the two sets are
     additive, so a flag can tighten a checked-in policy but never silently loosen it.
+
+    `--prereg` adds a different kind of check. A policy asks "is this number good
+    enough"; a pre-registration asks "is this the evaluation you said you would run".
     """
     recs = load_all(ledger)
     if not -len(recs) <= index < len(recs):
@@ -669,6 +717,24 @@ def gate(
             raise typer.Exit(code=2) from None
         policy_checks = result.checks
         failures += [f"{c.rule}: {c.detail}" for c in result.violations]
+
+    if prereg is not None:
+        try:
+            contract = load_preregistration(prereg)
+        except PreregError as e:
+            # Same rule as a broken policy: a contract that cannot be read is a broken
+            # build, never "no contract".
+            console.print(f"[red]Pre-registration error:[/red] {rich_escape(str(e))}")
+            raise typer.Exit(code=EXIT_BAD_INPUT) from None
+        prereg_checks = check_preregistration(
+            contract, record, anchor=_anchor_state(anchor_file, record, ledger))
+        policy_checks = [*policy_checks, *prereg_checks]
+        failures += [f"{c.rule}: {c.detail}" for c in prereg_checks if not c.passed]
+        if contract.policy is not None:
+            embedded = evaluate(
+                contract.policy, record, ledger=ledger, policy_dir=prereg.parent)
+            policy_checks = [*policy_checks, *embedded.checks]
+            failures += [f"{c.rule}: {c.detail}" for c in embedded.violations]
 
     if verify_ledger:
         ok, msg = verify_chain(ledger)
@@ -1076,4 +1142,99 @@ def drift(
         out.write_text(text, encoding="utf-8")
         console.print(f"[green]Drift report -> {out}[/green]")
     console.print(Markdown(text))
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def preregister(
+    suite: Path | None = typer.Option(
+        None, "--suite", exists=True, dir_okay=False,
+        help="The suite file this evaluation is declared against."),
+    dataset: Path | None = typer.Option(
+        None, "--dataset", exists=True, dir_okay=False,
+        help="The dataset file. Read from --suite when that names one."),
+    n_repeats: int | None = typer.Option(
+        None, "--n-repeats", min=1,
+        help="How many times each case is declared to run. Defaults to the suite's."),
+    min_repeats_per_case: int | None = typer.Option(
+        None, "--min-repeats-per-case", min=1,
+        help="Floor for a single case's score count. Defaults to --n-repeats."),
+    pin_from: Path | None = typer.Option(
+        None, "--pin-from", exists=True, dir_okay=False,
+        help="A receipt whose evaluator fingerprint is pinned into the contract. A "
+             "fingerprint cannot be computed from files alone: it covers the judge's "
+             "served identity, so it needs one real run."),
+    require_artifact: list[str] = typer.Option(
+        [], "--require-artifact",
+        help="An artifact role the receipt must seal by digest, such as `cassette`. "
+             "Repeatable."),
+    require_ci: bool = typer.Option(
+        False, "--require-ci",
+        help="Require the receipt to carry CI markers. This is the environment's own "
+             "claim; see docs/pre-registration.md for what it is worth."),
+    require_anchor: bool = typer.Option(
+        False, "--require-anchor", help="Require a verifying anchor at gate time."),
+    require_external_anchor: bool = typer.Option(
+        False, "--require-external-anchor",
+        help="Require that anchor to carry an external proof of time."),
+    policy: Path | None = typer.Option(
+        None, "--policy", exists=True, dir_okay=False,
+        help="A policy file to embed, so thresholds are fixed before the number exists."),
+    baseline: str | None = typer.Option(
+        None, "--baseline", help="A baseline receipt this run will be compared against."),
+    note: str | None = typer.Option(
+        None, "--note", help="Why this evaluation is being run. Free text."),
+    out: Path = typer.Option(
+        Path("prereg.json"), "--out", help="Where to write the pre-registration."),
+):
+    """Declare an evaluation before running it, so the receipt can be checked against it.
+
+    A policy asks whether a number is good enough. A pre-registration asks whether this
+    is the evaluation that was declared: the same suite, the same dataset, the same case
+    ids, the same repeat count, the same grading setup.
+
+    It cannot prove that nobody ran the suite privately first - nothing that runs on the
+    author's machine can. What it does is fix the contract before any number exists, so
+    that dropping the cases that failed, quietly halving the repeat count or loosening a
+    threshold after the fact becomes a visible change rather than a silent one.
+    """
+    cfg = _load_suite(suite)
+    dataset_path = dataset or (Path(cfg["dataset"]) if cfg.get("dataset") else None)
+    if dataset_path is None:
+        raise typer.BadParameter(
+            "no dataset: pass --dataset, or a --suite that names one")
+
+    case_ids = [c.case_id for c in Dataset.from_jsonl(dataset_path).cases]
+    declared_repeats = n_repeats or cfg.get("n_repeats", 5)
+
+    pin = None
+    if pin_from is not None:
+        pin = evaluator_fingerprint(_read_receipt(pin_from))
+
+    contract = build_preregistration(
+        suite=suite,
+        dataset=dataset_path,
+        n_repeats=declared_repeats,
+        min_repeats_per_case=min_repeats_per_case,
+        case_ids=case_ids,
+        evaluator_fingerprint_pin=pin,
+        required_artifacts=list(require_artifact),
+        require_ci=require_ci,
+        require_anchor=require_anchor,
+        require_external_anchor=require_external_anchor,
+        baseline=baseline,
+        policy=load_policy(policy) if policy else None,
+        note=note,
+    )
+    out.write_text(contract.to_json(), encoding="utf-8")
+
+    console.print(
+        f"[green]Pre-registered[/green] {len(case_ids)} case(s) x {declared_repeats} "
+        f"repeat(s) -> {rich_escape(str(out))}\n"
+        f"case set {rich_escape(contract.dataset.case_set_hash or 'none')[:27]}...\n"
+        + (f"evaluator pinned {rich_escape(pin or '')[:34]}...\n" if pin else
+           "evaluator not pinned: re-run with --pin-from once you have a receipt\n")
+        + "Commit this file before running. It is a declaration, not evidence: it fixes "
+          "what was promised, and cannot prove no private run happened."
+    )
     raise typer.Exit(code=0)

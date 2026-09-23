@@ -18,7 +18,10 @@ FailOn = Literal["none", "unstable", "borderline"]
 # hashed the last judge prompt sent, which varied with the target's responses and with
 # scheduling. Under 1.3 it hashes the judge prompt template. A 1.2 judge record and a
 # 1.3 one therefore disagree on this hash for that reason alone.
-SCHEMA_VERSION = "1.4"
+# 1.5 adds what the environment claimed about the CI job, so a pre-registration can
+# require that a receipt came from CI rather than from someone's laptop. It is a claim
+# and is named as one; see CIProvenance.
+SCHEMA_VERSION = "1.5"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
 
@@ -73,11 +76,32 @@ class CodeProvenance(BaseModel):
     dirty: bool | None = None              # True means the commit does not describe the run
 
 
+class CIProvenance(BaseModel):
+    """What the environment said about the CI job, sealed as a claim.
+
+    `claimed` is the honest name for the whole object: every field is an environment
+    variable, and a laptop can export the same ones. It catches a receipt that was
+    produced locally and attached to a pull request by accident or convenience. It
+    does not stop someone who sets GITHUB_ACTIONS=true on purpose, and a policy that
+    requires CI has to lean on `run_url` being resolvable and on the ledger being
+    signed by a key the CI job holds and a developer does not.
+    """
+    claimed: bool = False
+    provider: str | None = None            # github_actions | gitlab_ci | ... | unknown
+    run_id: str | None = None
+    run_url: str | None = None             # what a third party can open and check
+    repository: str | None = None
+    ref: str | None = None
+    commit: str | None = None
+    event: str | None = None
+
+
 class EnvironmentProvenance(BaseModel):
     evalseal_version: str | None = None
     python_version: str | None = None
     platform: str | None = None
     implementation: str | None = None
+    ci: CIProvenance | None = None         # None means: no CI markers in the environment
 
 
 ArtifactKind = Literal["hashed", "embedded", "external"]

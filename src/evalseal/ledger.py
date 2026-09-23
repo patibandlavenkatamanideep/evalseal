@@ -31,6 +31,9 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
         ("manifest", "scorer", "judge", "provider"),
         ("manifest", "scorer", "judge", "effective_params", "max_tokens"),
     ],
+    "1.5": [
+        ("manifest", "environment", "ci"),
+    ],
     "1.2": [
         ("manifest", "suite"),
         ("manifest", "code"),
@@ -204,11 +207,21 @@ FINGERPRINT_SCHEME = 2
 FINGERPRINT_PREFIX = f"evalseal-fp/{FINGERPRINT_SCHEME}"
 
 
-def _case_set_hash(record: RunRecord) -> str:
-    """Hash of the case ids actually scored, sorted so order cannot change it."""
-    ids = sorted(c.case_id for c in record.results)
+def _hash_ids(ids: list[str]) -> str:
+    """Hash a set of case ids, sorted so order cannot change it.
+
+    Split out from `_case_set_hash` so a pre-registration can pin the ids it declares
+    *before* any run exists and get the same value the receipt will produce. Two
+    definitions of this hash would eventually disagree, and the disagreement would
+    read as a dropped case.
+    """
     return "sha256:" + hashlib.sha256(
-        json.dumps(ids, separators=(",", ":")).encode()).hexdigest()
+        json.dumps(sorted(ids), separators=(",", ":")).encode()).hexdigest()
+
+
+def _case_set_hash(record: RunRecord) -> str:
+    """Hash of the case ids actually scored."""
+    return _hash_ids([c.case_id for c in record.results])
 
 
 def _judge_identity(m: ProvenanceManifest) -> dict:

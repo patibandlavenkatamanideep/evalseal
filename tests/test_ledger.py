@@ -102,3 +102,39 @@ def test_older_schema_is_named_not_called_tampering(tmp_path):
     assert not ok
     assert "sealed under schema 1.0" in msg
     assert "TAMPER" not in msg
+
+
+def test_a_record_sealed_before_ci_provenance_still_verifies(tmp_path):
+    """Schema 1.5 adds `environment.ci`; a 1.4 ledger must not become "tampered".
+
+    Built the way a 1.4 build would have: no `ci` key at all, and a hash computed over
+    those bytes. Today's models fill the missing field with None, which changes the
+    hash unless the record is re-hashed under the schema that sealed it.
+    """
+    import json
+
+    from evalseal.ledger import _content_hash
+
+    record = _record("GENESIS")
+    record.manifest.schema_version = "1.4"
+    record.hash = _content_hash(record, as_schema="1.4")
+
+    payload = json.loads(record.model_dump_json())
+    del payload["manifest"]["environment"]["ci"]        # 1.4 had no such key
+    path = tmp_path / "ledger.jsonl"
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    ok, msg = verify_chain(path)
+    assert ok, msg
+    assert "1.4" in msg                                  # and it says which schema
+
+
+def test_a_local_15_record_and_a_14_record_hash_differently(tmp_path):
+    """The two are genuinely different bytes: `ci: null` is present in one and not the
+    other. Verification handles that by re-hashing under the sealing schema, which is
+    the mechanism the test above depends on."""
+    from evalseal.ledger import _content_hash
+
+    record = _record("GENESIS")
+    assert record.manifest.environment.ci is None
+    assert _content_hash(record) != _content_hash(record, as_schema="1.4")

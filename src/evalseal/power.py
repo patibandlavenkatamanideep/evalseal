@@ -54,6 +54,9 @@ from .paired import DEFAULT_ALPHA, exact_mcnemar
 
 DEFAULT_TRIALS = 2000
 _SEED = 12345
+# Consecutive non-improving repeat counts before `required_repeats` concludes that more
+# repeats will not reach the target. Three odd steps is N going up by six.
+_STALL_STEPS = 3
 DETERMINISTIC = "deterministic"
 BERNOULLI = "bernoulli"
 
@@ -275,11 +278,24 @@ def required_repeats(
     deterministic item tells you nothing new, and the honest answer is that repeats are
     the wrong dial.
     """
+    best = -1.0
+    stalled = 0
     for n in range(1, max_repeats + 1, 2):
         got = estimate(baseline, n_items, n, mdd, model=model,
                        alpha=alpha, trials=trials, seed=seed).power
         if got >= target_power:
             return n
+        # Stop once power has failed to improve for a few steps. When a shift leaves
+        # items on the same side of 50%, extra repeats sharpen both arms toward the same
+        # majority and power only falls from here, so the rest of the scan would find
+        # nothing. Scanning it anyway cost minutes on a realistic suite, since each step
+        # is more expensive than the last.
+        if got > best:
+            best, stalled = got, 0
+        else:
+            stalled += 1
+            if stalled >= _STALL_STEPS:
+                return None
     return None
 
 

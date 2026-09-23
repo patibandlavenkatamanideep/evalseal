@@ -5,6 +5,114 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 The sealed record format carries its own `schema_version`; a record written by an
 older version still verifies.
 
+## [Unreleased]
+
+Targeted at **2.1.0**. It was planned as a 2.0.2 hygiene release, but it adds commands
+(`anchor`, `anchor-verify`) and a flag (`gate --expect-evaluator`), and semver reserves a
+patch release for fixes. Nothing here removes or changes the meaning of an existing
+command, exit code or JSON field, apart from the sealed-field fix under *Fixed* below.
+
+### Fixed
+
+- **LLM-judge suites were reported "not comparable" across target models, and their
+  receipts were not reproducible.** The sealed `judge_prompt_hash` was the hash of the
+  last judge prompt sent, which embeds the last case's prompt and the target's response.
+  It therefore changed whenever the target answered differently, and under concurrency
+  with whichever case happened to finish last: three concurrency-8 replays of one
+  cassette sealed three different values. Through the evaluator fingerprint, `diff` called
+  "same grading, different model" incomparable for every judge suite - the comparison a
+  benchmark exists to make - and could call two replays of one cassette incomparable. The
+  receipt now seals the judge prompt **template**: the rubric and instruction wrapper, with
+  the case as `{prompt}` / `{response}` placeholders. One function builds both the prompt
+  sent and the sealed template, and the bytes sent to the judge are unchanged, so every
+  committed judge cassette still replays.
+- **`gate --expect-config` claimed non-comparability it could not know.** A mismatch
+  printed "Not directly comparable: evaluator configuration changed". The gate holds a
+  hash, not the pinned record, and the config fingerprint includes the target model, so
+  the claim was false whenever only the target changed. It now reports a changed
+  configuration and points at `--expect-evaluator`.
+- **The docs contradicted each other and the code on fingerprints.** The README described
+  `--expect-config` as comparing "the evaluator fingerprint" while listing the target
+  model in it; DESIGN.md said `diff` compares `config_fingerprint`, false since 1.4; the
+  CLI help called the config pin an "evaluator config fingerprint". All now give one
+  account: the evaluator fingerprint answers *are these runs comparable?*, the config
+  fingerprint *what exactly ran?*
+- **Cassette saves were not atomic.** Each save truncated the file and then refilled it,
+  so an interrupt in between lost every recorded response, not just the latest. Saves now
+  write a temp file, fsync it, and rename it over the original.
+- **`evalseal power` took minutes at realistic suite sizes**, scanning every odd repeat
+  count to 201. The scan stops once power stops improving; 150 items went from minutes to
+  under two seconds.
+- **`evalseal run` crashed on Windows whenever stdout was redirected.** The report prints
+  "⚠" and "·"; a redirected stdout falls back to the locale encoding, which on Windows is
+  cp1252 and cannot carry either, so `evalseal run > out.txt` and any CI step that
+  captured the output died with `UnicodeEncodeError` while the same command in a terminal
+  worked. `report.py` had already made every *file* write UTF-8 for this reason; the
+  console half was missing. The CLI now sets UTF-8 with `errors="replace"` on stdout and
+  stderr. The repository's own CI could not have caught this: every CLI step is gated
+  `runner.os != 'Windows'`. The regression test forces the condition with
+  `PYTHONIOENCODING`, so it runs on every platform.
+- **`.coverage 2` was committed.** `.gitignore` matched `.coverage.*` but not the
+  `name 2` copies macOS and iCloud create. It now matches `.coverage*` and the receipts
+  EvalSeal generates.
+
+### Added
+
+- **`evalseal anchor` and `evalseal anchor-verify`.** A local anchor binds a receipt to
+  the ledger it was sealed into, the ledger's head and length, the signature (bytes,
+  public key and key fingerprint) and any extra artifacts, by hash, in one JSON file. A
+  third party can re-check it without the author's machine; a signed anchor verifies its
+  signature from the anchor alone. Verification fails if the receipt, anchor, ledger
+  history or a bound artifact changed, and reports anything it could not check as not
+  checked rather than passed. Everything except `created_at` is deterministic. It is
+  **not** an external timestamp: `created_at` is the local clock and `external_proof` is
+  null. [docs/external-anchoring.md](docs/external-anchoring.md) is the design for
+  independent anchoring.
+- **`gate --expect-evaluator`**, pinning the grading setup from the command line, as
+  policy files could already with `run.expect_evaluator`.
+- **Both fingerprints in `report --json` and `gate --json`**, so a pin can be copied from
+  a real record.
+- **`evaluator_changes` in `diff --json`**: the config changes that actually decide
+  comparability. `config_changes` also lists a new target model, which is not a reason two
+  runs are incomparable.
+- **The PR receipt workflow**, [docs/pr-receipt-workflow.md](docs/pr-receipt-workflow.md):
+  replay with no key, verify, gate against a policy, compare with a baseline, anchor,
+  upload, and a step summary that puts comparability before any score delta. A test
+  executes the workflow's own steps in four scenarios.
+- **ROADMAP.md**, **docs/external-anchoring.md**, **docs/integrations.md**.
+- **`examples/anthropic/RECORDING.md`** and a 10-problem suite, so the missing live
+  Anthropic recording can be made without guessing. No cassette was recorded: no key was
+  available, and the repo does not claim one.
+- `ledger.check_record_hash`, the one definition of "does this record's hash hold" that
+  `verify` and `anchor` now share; `signing.public_key_fingerprint`.
+
+### Changed
+
+- **Schema 1.3.** No field is added; `scorer.judge_prompt_hash` changes meaning, from an
+  instantiated prompt to the template. Records sealed under 1.2 still verify. A 1.2 judge
+  record and a 1.3 one disagree on this hash for that reason alone, and `diff` now shows
+  the schema version among its other differences so the cause is visible.
+- **`--store-judge-prompt` now stores the template**, not an instantiated prompt, so it no
+  longer embeds case text or a response. It still carries the rubric verbatim, so it
+  stays opt-in.
+
+### Known gaps, now documented
+
+- Neither fingerprint covers the judge's endpoint, which is sealed as provenance only.
+- `max_tokens`, sent by the Anthropic adapter, is dropped from the sealed parameters.
+- A receipt does not seal its cassette's hash, so responses are bound only through
+  `anchor --artifact`.
+
+All three change content hashes or pinned fingerprints to fix, and are scheduled in
+ROADMAP.md with a fingerprint-scheme version rather than folded in here.
+
+### Recorded evidence, in progress
+
+- A comparison of `gemini-2.5-flash` and `gemma-4-26b-a4b-it` on 150 GSM8K problems was
+  pre-registered (`examples/gsm8k_compare/PREREGISTRATION.md`) before any response was
+  recorded. Its result will be reported whatever it is once recording completes; nothing
+  in the README cites it yet.
+
 ## [2.0.1] - 2026-09-21
 
 ### Added
@@ -435,6 +543,7 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
+[Unreleased]: https://github.com/patibandlavenkatamanideep/evalseal/compare/v2.0.1...HEAD
 [2.0.1]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.1
 [2.0.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.0
 [1.7.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.7.0

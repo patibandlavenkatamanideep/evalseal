@@ -12,6 +12,7 @@ signer can sign a record containing whatever they like.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 from datetime import UTC, datetime
@@ -60,6 +61,16 @@ def public_key_b64(public: Ed25519PublicKey) -> str:
         encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
     )
     return base64.b64encode(raw).decode()
+
+
+def public_key_fingerprint(public_b64: str) -> str:
+    """sha256 of the raw 32-byte public key, the short name a verifier can compare.
+
+    Over the raw key bytes rather than the base64 text, so the same key always has the
+    same fingerprint however it happens to be encoded or wrapped.
+    """
+    raw = base64.b64decode(public_b64.strip())
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
 def load_private_key(path: Path) -> Ed25519PrivateKey:

@@ -133,6 +133,21 @@ class AnswerMatchScorer:
         return ScoreResult(float(ok), True, int(ok))
 
 
+def build_judge_prompt(rubric: str, prompt: str, response: str) -> str:
+    """The exact text sent to the judge.
+
+    One function both sends the prompt and defines the sealed template, so the two
+    cannot drift apart. Changing a byte here changes every judge request and therefore
+    every judge cassette key, which is correct: it is a different question to the judge.
+    """
+    return (
+        f"{rubric}\n\n"
+        f"USER PROMPT:\n{prompt}\n\n"
+        f"RESPONSE TO GRADE:\n{response}\n\n"
+        f"Answer with exactly one word: PASS or FAIL."
+    )
+
+
 @dataclass
 class LLMJudgeScorer:
     """Grades a response pass/fail using another model. The judge is a Target, so it
@@ -140,21 +155,28 @@ class LLMJudgeScorer:
     judge: Target
     rubric: str
     kind: ScorerKind = "llm_judge"
-    # The exact prompt last sent to the judge, so the executor can seal its hash. The
-    # rubric alone would miss a change to the instruction wrapper around it.
+    # Informational only, and racy under concurrency. Never sealed: until schema 1.3 the
+    # receipt hashed this, which made the judge prompt hash depend on whichever case was
+    # scored last and on that case's response.
     last_judge_prompt: str | None = None
 
     @property
     def rubric_hash(self) -> str:
         return "sha256:" + hashlib.sha256(self.rubric.encode()).hexdigest()
 
+    @property
+    def judge_prompt_template(self) -> str:
+        """The judge prompt with the rubric in place and the case left as placeholders.
+
+        This is what the receipt seals. It is constant for a given rubric and wrapper,
+        so its hash changes when the way the judge is asked changes - the rubric, or the
+        instruction wrapper around it - and not when the target answers differently. It
+        also carries no case text, so storing it verbatim leaks nothing from the dataset.
+        """
+        return build_judge_prompt(self.rubric, "{prompt}", "{response}")
+
     def score(self, prompt, response_text, expected):
-        judge_prompt = (
-            f"{self.rubric}\n\n"
-            f"USER PROMPT:\n{prompt}\n\n"
-            f"RESPONSE TO GRADE:\n{response_text}\n\n"
-            f"Answer with exactly one word: PASS or FAIL."
-        )
+        judge_prompt = build_judge_prompt(self.rubric, prompt, response_text)
         self.last_judge_prompt = judge_prompt
         jr = self.judge.generate(judge_prompt)
         verdict = parse_verdict(jr.text)

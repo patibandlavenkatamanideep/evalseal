@@ -1,0 +1,10 @@
+{
+  "dataset": "dataset.jsonl",
+  "target": "target-gemma.json",
+  "scorer": "scorer.json",
+  "n_repeats": 5,
+  "concurrency": 4,
+  "timeout": 180,
+  "cassette": "../../tests/cassettes/gsm8k_compare_gemma.json",
+  "fail_on": "none"
+}

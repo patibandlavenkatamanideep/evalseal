@@ -195,3 +195,24 @@ def test_cli_rejects_an_unknown_model():
     result = runner.invoke(app, ["power", "--model", "wishful"])
     assert result.exit_code == 2
     assert "unknown model" in result.output
+
+
+def test_required_repeats_still_finds_an_answer_when_repeats_help():
+    """0.55 -> 0.45 crosses the 50% line, so sharpening each item's majority recovers
+    the signal. The early stop must not cut this regime off before it succeeds."""
+    n = required_repeats(0.55, 200, 0.10, 0.8, model=BERNOULLI, trials=300)
+    assert n is not None and n % 2 == 1
+    assert estimate(0.55, 200, n, 0.10, model=BERNOULLI, trials=300).power >= 0.8
+
+
+def test_required_repeats_gives_up_quickly_when_repeats_cannot_help():
+    """0.95 -> 0.91 never crosses 50%, so power only falls as N grows.
+
+    Before the early stop this scanned every odd N to 201, each step costlier than the
+    last, and took minutes at 150 items. It must now return None in about a second.
+    """
+    import time
+
+    started = time.perf_counter()
+    assert required_repeats(0.95, 150, 0.04, 0.8, model=BERNOULLI) is None
+    assert time.perf_counter() - started < 10

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
@@ -21,6 +22,7 @@ from .adapters.scorer import (
     RegexScorer,
 )
 from .adapters.target import AnthropicTarget, OpenAICompatibleTarget
+from .anchor import AnchorError, anchor_passed, build_anchor, verify_anchor, write_anchor
 from .decompose import decompose as run_decompose
 from .decompose import render as render_decomposition
 from .diffing import diff_records, load_receipt, mean_flip_rate
@@ -29,6 +31,7 @@ from .htmlreport import write_diff_html, write_html
 from .ledger import (
     LEDGER_PATH,
     config_fingerprint,
+    evaluator_fingerprint,
     last_hash,
     load_all,
     seal_and_append,
@@ -71,6 +74,31 @@ EXIT_UNSTABLE = 3
 EXIT_INTERRUPTED = 130   # conventional 128 + SIGINT
 
 app = typer.Typer(add_completion=False, help="Reproducibility receipts for LLM evals.")
+
+
+def _utf8_stream(stream: object) -> None:
+    """Make a standard stream carry UTF-8, replacing anything it cannot encode.
+
+    The report prints "⚠" and "·". When stdout is a terminal Python usually picks an
+    encoding that can carry them, but when it is redirected it falls back to the locale
+    encoding, which on Windows is cp1252 - so `evalseal run > out.txt` died with
+    UnicodeEncodeError while the same command in a terminal worked, and so did any CI
+    step that captured the output. report.py already writes every file as UTF-8 for
+    exactly this reason; this is the console half of the same decision.
+
+    errors="replace" rather than raising: a character a stream cannot show is a
+    presentation problem, and losing a report over it is worse than a "?".
+    """
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is None:      # pytest's capture objects, and any non-TextIOWrapper
+        return
+    # Already detached or closed: nothing to reconfigure, and nothing to report.
+    with contextlib.suppress(ValueError, OSError):
+        reconfigure(encoding="utf-8", errors="replace")
+
+
+_utf8_stream(sys.stdout)
+_utf8_stream(sys.stderr)
 console = Console()
 
 LedgerOpt = typer.Option(LEDGER_PATH, "--ledger", help="Path to the ledger JSONL file.")
@@ -505,6 +533,9 @@ def report(
                 "sealed_hash": record.hash,
             },
             "provenance": {
+                # Both, so a pin can be copied from here: the evaluator fingerprint for
+                # "comparable to this", the config fingerprint for "exactly this".
+                "evaluator_fingerprint": evaluator_fingerprint(record),
                 "config_fingerprint": config_fingerprint(record),
                 "target_model": m.target.requested_model,
                 "served_model": m.target.served_model,
@@ -539,7 +570,14 @@ def gate(
         None, help="Comma-separated case ids that must not flip at all."
     ),
     expect_config: str | None = typer.Option(
-        None, help="Fail unless the evaluator config fingerprint equals this."
+        None,
+        help="Fail unless the full config fingerprint equals this: what exactly ran, "
+             "target model included. Stricter than --expect-evaluator.",
+    ),
+    expect_evaluator: str | None = typer.Option(
+        None,
+        help="Fail unless the evaluator fingerprint equals this: how the run was graded, "
+             "which decides whether its score is comparable to a baseline.",
     ),
     verify_ledger: bool = typer.Option(
         True, help="Also require the hash chain to verify."
@@ -605,12 +643,27 @@ def gate(
         if flipped:
             failures.append(f"critical case(s) flipped: {', '.join(sorted(flipped))}")
 
+    if expect_evaluator is not None:
+        actual = evaluator_fingerprint(record)
+        if actual != expect_evaluator:
+            failures.append(
+                "Not directly comparable: the evaluator fingerprint differs from the pinned "
+                f"one (expected {expect_evaluator[:20]}..., got {actual[:20]}...). The "
+                "grading setup changed, so this score cannot be compared with the baseline."
+            )
+
     if expect_config is not None:
         actual = config_fingerprint(record)
         if actual != expect_config:
+            # A mismatched hash says that something changed, not which side of it. Until
+            # 2.0.2 this message said "not directly comparable", which is false whenever
+            # only the target model changed - the one comparison a benchmark exists for.
             failures.append(
-                "Not directly comparable: evaluator configuration changed "
-                f"(expected {expect_config[:20]}..., got {actual[:20]}...)"
+                "Configuration differs from the pinned one "
+                f"(expected {expect_config[:20]}..., got {actual[:20]}...). Something about "
+                "what ran changed; this alone does not mean the runs are incomparable, "
+                "since a different target model also changes it. Pin --expect-evaluator "
+                "to require the same grading setup."
             )
 
     if as_json:
@@ -620,6 +673,8 @@ def gate(
             "failures": failures,
             "mean_score": record.aggregate.mean_score,
             "sealed_hash": record.hash,
+            "evaluator_fingerprint": evaluator_fingerprint(record),
+            "config_fingerprint": config_fingerprint(record),
         }))
         raise typer.Exit(code=EXIT_UNSTABLE if failures else 0)
 
@@ -638,6 +693,7 @@ def gate(
     console.print(
         f"[green]PASS[/green] mean {record.aggregate.mean_score:.3f} · "
         f"{record.aggregate.n_unstable} unstable case(s) · "
+        f"evaluator {evaluator_fingerprint(record)[:20]}... · "
         f"config {config_fingerprint(record)[:20]}..."
     )
     raise typer.Exit(code=0)
@@ -831,3 +887,103 @@ def decompose(
         console.print(f"[green]Decomposition -> {out}[/green]")
     console.print(Markdown(text))
     raise typer.Exit(code=0)
+
+
+def _looks_like_ledger(path: Path) -> bool:
+    """Ledgers are .jsonl and receipts .json, as everywhere else in EvalSeal.
+
+    Decided by name rather than by sniffing content: a one-record ledger is a single line
+    of valid JSON, indistinguishable from a compact receipt, and treating it as a receipt
+    would silently drop the ledger binding the anchor exists to record.
+    """
+    return path.suffix == ".jsonl"
+
+
+@app.command()
+def anchor(
+    source: Path = typer.Argument(
+        ..., exists=True, dir_okay=False,
+        help="A receipt (report.json) or a ledger, whose head is then the receipt."),
+    ledger: Path | None = typer.Option(
+        None, "--ledger", exists=True, dir_okay=False,
+        help="The ledger the receipt was sealed into. Defaults to SOURCE when it is one."),
+    artifact: list[Path] = typer.Option(
+        [], "--artifact", exists=True, dir_okay=False,
+        help="Another file to bind by hash, such as receipt.html. Repeatable."),
+    out: Path = typer.Option(Path("anchor.json"), "--out", help="Where to write the anchor."),
+):
+    """Bind a receipt, its ledger head and its signature state into one checkable file.
+
+    This is a local anchor. It lets a third party confirm, with no access to your
+    machine, that a receipt is the one that was sealed and that the ledger still holds
+    it. It is not a timestamp: created_at is this machine's clock, and external_proof is
+    null. See docs/external-anchoring.md for what an independent anchor adds.
+    """
+    if ledger is None and _looks_like_ledger(source):
+        ledger = source
+    try:
+        record = load_receipt(source)
+        result = build_anchor(record, source, ledger, list(artifact))
+    except AnchorError as e:
+        console.print(f"[red]Not anchored:[/red] {rich_escape(str(e))}")
+        raise typer.Exit(code=1) from None
+    write_anchor(result, out)
+    console.print(
+        f"[green]Anchored[/green] {rich_escape(record.hash[:20])}... -> {rich_escape(str(out))}\n"
+        f"subject digest {rich_escape(result['subject_digest'])}\n"
+        + ("signed by " + rich_escape(result["public_key_fingerprint"])
+           if result["signature_present"] else "not signed")
+        + " · local anchor, not an external timestamp"
+    )
+    raise typer.Exit(code=0)
+
+
+@app.command(name="anchor-verify")
+def anchor_verify(
+    anchor_file: Path = typer.Argument(..., exists=True, dir_okay=False,
+                                       help="The anchor.json to check."),
+    source: Path = typer.Argument(
+        ..., exists=True, dir_okay=False,
+        help="The receipt (or ledger, whose head is the receipt) the anchor should cover."),
+    ledger: Path | None = typer.Option(
+        None, "--ledger", exists=True, dir_okay=False,
+        help="Ledger to check against. Defaults to SOURCE when it is one, else the path "
+             "recorded in the anchor."),
+    as_json: bool = typer.Option(False, "--json", help="Emit every check as JSON."),
+):
+    """Re-check every claim an anchor makes. Exit 1 if any required check fails.
+
+    Checks that could not run because a file is absent are reported as not checked,
+    never as passed.
+    """
+    try:
+        anchor_obj = json.loads(anchor_file.read_text(encoding="utf-8"))
+    except ValueError as e:
+        console.print(f"[red]Not an anchor file:[/red] {rich_escape(str(e))}")
+        raise typer.Exit(code=1) from None
+    if ledger is None and _looks_like_ledger(source):
+        ledger = source
+    record = load_receipt(source)
+    checks = verify_anchor(anchor_obj, record, ledger=ledger)
+    passed = anchor_passed(checks)
+
+    if as_json:
+        console.print_json(json.dumps({
+            "verified": passed,
+            "subject_digest": anchor_obj.get("subject_digest"),
+            "checks": [{"check": c.name, "passed": c.passed, "required": c.required,
+                        "detail": c.detail} for c in checks],
+        }))
+        raise typer.Exit(code=0 if passed else 1)
+
+    for c in checks:
+        if not c.required and not c.passed:
+            mark = "[yellow]skip[/yellow]"
+        else:
+            mark = "[green]ok  [/green]" if c.passed else "[red]FAIL[/red]"
+        console.print(f"{mark} {rich_escape(c.name)}: {rich_escape(c.detail)}")
+    console.print(
+        "[green]Anchor verified.[/green]" if passed
+        else "[red]Anchor does not verify.[/red]"
+    )
+    raise typer.Exit(code=0 if passed else 1)

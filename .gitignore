@@ -40,8 +40,10 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .nox/
-.coverage
-.coverage.*
+# .coverage* rather than .coverage.* : macOS and iCloud name conflict copies
+# "<name> 2", and ".coverage 2" was once committed because the dotted pattern
+# did not match it.
+.coverage*
 .cache
 nosetests.xml
 coverage.xml
@@ -217,10 +219,18 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# EvalSeal local state and generated reports
+# EvalSeal local state and generated reports. These are regenerated from cassettes, and
+# a committed copy goes stale the moment the code changes. Publish them as CI artifacts.
 .evalseal/
 report.json
 report.md
+report.html
+receipt.html
+drift.html
+evalseal-report.*
+junit.xml
+# Left behind only if a cassette save is killed between write and rename.
+.*.tmp
 
 # Signing keys — never commit a private key
 *.key

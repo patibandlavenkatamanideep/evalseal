@@ -1,4 +1,7 @@
-# Drop-in GitHub Action for gating a pull request on eval reproducibility.
+# Minimal GitHub Action for gating a pull request on eval reproducibility.
+#
+# For the fuller version - baseline comparison, a local anchor, and a step summary that
+# says why the check passed or failed - see docs/pr-receipt-workflow.md.
 #
 # It replays a committed cassette, so it needs no API key and costs nothing. Swap the
 # replay for a live run (and add your key as a secret) when you want fresh numbers.

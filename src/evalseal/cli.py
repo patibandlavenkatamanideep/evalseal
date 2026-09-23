@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
@@ -73,6 +74,31 @@ EXIT_UNSTABLE = 3
 EXIT_INTERRUPTED = 130   # conventional 128 + SIGINT
 
 app = typer.Typer(add_completion=False, help="Reproducibility receipts for LLM evals.")
+
+
+def _utf8_stream(stream: object) -> None:
+    """Make a standard stream carry UTF-8, replacing anything it cannot encode.
+
+    The report prints "⚠" and "·". When stdout is a terminal Python usually picks an
+    encoding that can carry them, but when it is redirected it falls back to the locale
+    encoding, which on Windows is cp1252 - so `evalseal run > out.txt` died with
+    UnicodeEncodeError while the same command in a terminal worked, and so did any CI
+    step that captured the output. report.py already writes every file as UTF-8 for
+    exactly this reason; this is the console half of the same decision.
+
+    errors="replace" rather than raising: a character a stream cannot show is a
+    presentation problem, and losing a report over it is worse than a "?".
+    """
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is None:      # pytest's capture objects, and any non-TextIOWrapper
+        return
+    # Already detached or closed: nothing to reconfigure, and nothing to report.
+    with contextlib.suppress(ValueError, OSError):
+        reconfigure(encoding="utf-8", errors="replace")
+
+
+_utf8_stream(sys.stdout)
+_utf8_stream(sys.stderr)
 console = Console()
 
 LedgerOpt = typer.Option(LEDGER_PATH, "--ledger", help="Path to the ledger JSONL file.")

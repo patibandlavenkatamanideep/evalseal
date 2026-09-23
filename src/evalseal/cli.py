@@ -25,6 +25,7 @@ from .adapters.target import AnthropicTarget, OpenAICompatibleTarget
 from .anchor import (
     AnchorError,
     anchor_passed,
+    available_backends,
     build_anchor,
     check_artifacts,
     verify_anchor,
@@ -960,8 +961,8 @@ def _looks_like_ledger(path: Path) -> bool:
 
 @app.command()
 def anchor(
-    source: Path = typer.Argument(
-        ..., exists=True, dir_okay=False,
+    source: Path | None = typer.Argument(
+        None, exists=True, dir_okay=False,
         help="A receipt (report.json) or a ledger, whose head is then the receipt."),
     ledger: Path | None = typer.Option(
         None, "--ledger", exists=True, dir_okay=False,
@@ -970,6 +971,13 @@ def anchor(
         [], "--artifact", exists=True, dir_okay=False,
         help="Another file to bind by hash, such as receipt.html. Repeatable."),
     out: Path = typer.Option(Path("anchor.json"), "--out", help="Where to write the anchor."),
+    with_backend: list[str] = typer.Option(
+        [], "--with",
+        help="Also obtain an external attestation of this anchor from a backend. "
+             "Repeatable. Run `evalseal anchor --list-backends` to see what is available.",
+    ),
+    list_backends: bool = typer.Option(
+        False, "--list-backends", help="List anchor backends and exit."),
 ):
     """Bind a receipt, its ledger head and its signature state into one checkable file.
 
@@ -978,11 +986,18 @@ def anchor(
     it. It is not a timestamp: created_at is this machine's clock, and external_proof is
     null. See docs/external-anchoring.md for what an independent anchor adds.
     """
+    if list_backends:
+        for name in available_backends():
+            console.print(name)
+        raise typer.Exit(code=0)
+    if source is None:
+        raise typer.BadParameter("a receipt or ledger to anchor is required")
     if ledger is None and _looks_like_ledger(source):
         ledger = source
     try:
         record = load_receipt(source)
-        result = build_anchor(record, source, ledger, list(artifact))
+        result = build_anchor(record, source, ledger, list(artifact),
+                              backends=list(with_backend))
     except AnchorError as e:
         console.print(f"[red]Not anchored:[/red] {rich_escape(str(e))}")
         raise typer.Exit(code=1) from None

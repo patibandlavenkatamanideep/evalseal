@@ -113,3 +113,32 @@ def test_verify_artifacts_says_so_when_a_record_binds_none(recorded):
     record = load_all(ledger)[-1]
     record.manifest.artifacts = []
     assert check_artifacts(record) == []
+
+
+def test_anchor_verify_catches_a_cassette_edited_after_sealing(recorded):
+    """Phase 4's acceptance criterion, through the anchor rather than verify."""
+    from evalseal.anchor import anchor_passed, build_anchor, verify_anchor
+    from evalseal.diffing import load_receipt
+
+    workspace, ledger, cassette = recorded
+    receipt = workspace / "report.json"
+    record = load_receipt(receipt)
+    anchor = build_anchor(record, receipt, ledger)
+    assert any(a["role"] == "cassette" for a in anchor["sealed_artifacts"])
+
+    before = {c.name: c for c in verify_anchor(anchor, record, ledger=ledger,
+                                               base_dir=workspace)}
+    assert before["sealed:cassette"].passed
+    assert anchor_passed(verify_anchor(anchor, record, ledger=ledger, base_dir=workspace))
+
+    data = json.loads(cassette.read_text(encoding="utf-8"))
+    entry = next(iter(data["entries"]))
+    data["entries"][entry]["choices"][0]["message"]["content"] = "swapped"
+    cassette.write_text(json.dumps(data), encoding="utf-8")
+
+    after = {c.name: c for c in verify_anchor(anchor, record, ledger=ledger,
+                                              base_dir=workspace)}
+    assert not after["sealed:cassette"].passed
+    assert "changed since the receipt was sealed" in after["sealed:cassette"].detail
+    assert not anchor_passed(verify_anchor(anchor, record, ledger=ledger,
+                                           base_dir=workspace))

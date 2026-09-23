@@ -67,7 +67,7 @@ def test_an_anchor_binds_the_receipt_ledger_and_sealed_identity(sealed):
     record, receipt, ledger = sealed
     a = build_anchor(record, receipt, ledger)
 
-    assert a["anchor_version"] == 1
+    assert a["anchor_version"] == 2
     assert a["receipt_hash"] == record.hash
     assert a["ledger"] == {"path": ledger.as_posix(), "receipt_index": 0,
                            "length": 1, "head_hash": record.hash}
@@ -81,7 +81,7 @@ def test_an_anchor_binds_the_receipt_ledger_and_sealed_identity(sealed):
 
 def test_an_anchor_says_it_is_not_an_external_timestamp(sealed):
     a = build_anchor(*sealed)
-    assert a["external_proof"] is None
+    assert a["external_proofs"] == []
     assert "not an independent timestamp" in a["notes"]
     assert "does not prove the evaluation ran as described" in a["notes"]
 
@@ -112,7 +112,7 @@ def test_the_subject_digest_ignores_fields_about_the_anchor_itself(sealed):
     digest = a["subject_digest"]
     a["created_at"] = "some other time"
     a["notes"] = "different prose"
-    a["external_proof"] = {"kind": "added later"}
+    a["external_proofs"] = [{"backend": "added later"}]
     assert subject_digest(a) == digest
 
 
@@ -403,3 +403,88 @@ def test_a_swapped_embedded_key_fails_the_fingerprint(sealed, tmp_path):
     check = _checks_by_name(verify_anchor(anchor, record))["embedded signature"]
     assert not check.passed
     assert "does not match the recorded fingerprint" in check.detail
+
+
+# --- backends ----------------------------------------------------------------------
+
+class _FakeExternalBackend:
+    """A stand-in for a real attestation service, for tests only.
+
+    It is registered by the tests that use it and never ships as a default, because a
+    fake that looks like an anchor is worse than no anchor.
+    """
+
+    name = "fake-tsa"
+
+    def __init__(self):
+        self.submitted: list[str] = []
+
+    def submit(self, subject_digest: str) -> dict:
+        self.submitted.append(subject_digest)
+        return {"backend": self.name, "id": "tsa-42",
+                "proof": f"attested:{subject_digest}",
+                "established": "existence no later than the attested time, on this "
+                               "authority's word (TEST DOUBLE - attests nothing)"}
+
+    def check(self, subject_digest: str, proof: dict) -> tuple[bool, str]:
+        ok = proof.get("proof") == f"attested:{subject_digest}"
+        return (ok, "the proof covers this anchor's subject digest" if ok
+                else "the proof does not cover this anchor's subject digest")
+
+
+@pytest.fixture
+def fake_backend():
+    from evalseal.anchor import _BACKENDS, register_backend
+
+    backend = _FakeExternalBackend()
+    register_backend(backend)
+    yield backend
+    _BACKENDS.pop(backend.name, None)
+
+
+def test_the_default_anchor_attests_nothing_and_says_so(sealed):
+    from evalseal.anchor import available_backends
+
+    assert "local" in available_backends()
+    checks = _checks_by_name(verify_anchor(build_anchor(*sealed), sealed[0]))
+    assert "nothing here establishes when it was made" in checks["external proof"].detail
+
+
+def test_a_backend_attests_the_subject_digest(sealed, fake_backend):
+    record, receipt, ledger = sealed
+    anchor = build_anchor(record, receipt, ledger, backends=["fake-tsa"])
+
+    assert fake_backend.submitted == [anchor["subject_digest"]]
+    proof = anchor["external_proofs"][0]
+    assert proof["backend"] == "fake-tsa" and proof["id"] == "tsa-42"
+    assert "submitted_at" in proof
+
+    checks = _checks_by_name(verify_anchor(anchor, record, ledger=ledger))
+    assert checks["external proof (fake-tsa)"].passed
+    assert anchor_passed(verify_anchor(anchor, record, ledger=ledger))
+
+
+def test_a_proof_that_covers_a_different_digest_fails(sealed, fake_backend):
+    record, receipt, ledger = sealed
+    anchor = build_anchor(record, receipt, ledger, backends=["fake-tsa"])
+    anchor["external_proofs"][0]["proof"] = "attested:something-else"
+
+    checks = _checks_by_name(verify_anchor(anchor, record, ledger=ledger))
+    assert not checks["external proof (fake-tsa)"].passed
+    assert not anchor_passed(verify_anchor(anchor, record, ledger=ledger))
+
+
+def test_a_proof_from_an_unavailable_backend_is_not_checked_rather_than_passed(sealed):
+    record, receipt, ledger = sealed
+    anchor = build_anchor(record, receipt, ledger)
+    anchor["external_proofs"].append({"backend": "some-service", "proof": "x"})
+
+    check = _checks_by_name(verify_anchor(anchor, record, ledger=ledger))[
+        "external proof (some-service)"]
+    assert not check.passed and not check.required
+    assert "no backend named" in check.detail
+
+
+def test_an_unknown_backend_is_refused_at_anchor_time(sealed):
+    with pytest.raises(AnchorError, match="unknown anchor backend"):
+        build_anchor(*sealed, backends=["nope"])

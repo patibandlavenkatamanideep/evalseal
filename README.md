@@ -1,13 +1,50 @@
 # EvalSeal
 
-**Reproducibility receipts for LLM evals: run it N times, report the score with its noise, and seal what actually ran.**
+**A single eval score is one sample. EvalSeal runs the eval N times, seals what actually
+graded it, and refuses to compare two runs that were graded differently.**
+
+Two models on 150 GSM8K problems, five runs each, same grading:
+
+| | gemini-2.5-flash | gemma-4-26b-a4b-it |
+|---|---|---|
+| accuracy | 0.976 | 0.961 |
+| items that flipped between runs | **1 of 150** | **9 of 150** |
+
+A single run of each reports 0.976 and 0.961 and looks like a close race. The paired test
+on that 1.5-point gap is **inconclusive** - the experiment had no power to resolve it, and
+EvalSeal says so rather than calling it a win. What the receipts *do* show, without needing
+a test, is that one model answers the same way when asked again and the other often does
+not. That is the [whole thesis](examples/gsm8k_compare/RESULTS.md), and it is why a score
+alone is not enough.
+
+## What it does
+
+- **Runs each case N times** and reports a flip rate and a Wilson interval per case, not
+  one aggregate number.
+- **Seals the instrument.** The rubric, prompt template, judge model, endpoint and
+  sampling parameters, the scorer and its settings, the dataset and the exact case set are
+  hashed into an *evaluator fingerprint*.
+- **Refuses misleading comparisons.** If the fingerprint changed, `diff` reports
+  `non_comparable` and names the fields that moved, before any score delta.
+- **Separates drift from variance.** `evalseal drift` says whether verdicts moved because
+  the grader changed, because the judge is a sampler, or because the model did.
+- **Makes receipts checkable by someone else.** A hash-linked ledger, optional Ed25519
+  signatures, artifact digests including the cassette, and a portable anchor file.
+- **Gates CI on comparability, not just thresholds**, with a
+  [pull-request workflow](docs/pr-receipt-workflow.md) that explains why a check passed.
+
+What it deliberately does **not** claim: that the eval ran, that the provider served the
+model it named, or when anything happened. [THREAT_MODEL.md](THREAT_MODEL.md) draws that
+line precisely.
 
 ## The problem
 
 An eval score from a single run is one sample of a random process. Run the same eval again
 and borderline items quietly flip from PASS to FAIL, especially when an LLM judge grades
-them. Reports also name the model you *asked* for, not the one that *answered*. EvalSeal
-measures the flips, records the real provenance, and seals both into a tamper-evident ledger.
+them. Worse, the grader itself drifts: an edited rubric or a bumped judge temperature moves
+the score while the model sits still. Reports also name the model you *asked* for, not the
+one that *answered*. EvalSeal measures the flips, seals what graded them, and refuses to
+compare runs that were not graded the same way.
 
 ## Quickstart
 
@@ -314,10 +351,18 @@ Every sealed record carries two fingerprints, and they are not interchangeable:
 | **evaluator** | *Are these runs comparable?* How the run was graded. | `gate --expect-evaluator`, policy `run.expect_evaluator` |
 | **config** | *What exactly ran?* The grading plus the target under test. | `gate --expect-config`, policy `run.expect_config` |
 
-The **evaluator fingerprint** hashes the scorer type, the rubric hash, the judge prompt
-hash, the judge model and its parameters (temperature, seed, top_p), and the dataset hash.
-The dataset hash is the SHA-256 of the dataset file's bytes, so it covers the case ids,
-prompts and expected answers; the ids of the cases that actually ran are sealed separately.
+The **evaluator fingerprint** (scheme 2) hashes everything that decides how a response
+scores: the scorer type **and its own settings** (a regex pattern, a numeric tolerance),
+the judge's provider, endpoint, model and sampling parameters (temperature, top_p,
+max_tokens, seed), the rubric hash, the prompt template hash, the dataset hash, and the
+exact set of case ids that ran. Change any of them and two runs stop being comparable.
+
+Scheme 1 missed three of those, and each omission was a way to be misled: `regex "^yes$"`
+and `regex "^no$"` fingerprinted identically, the same judge model reached through a
+different endpoint looked like the same grader, and `max_tokens` was not sealed at all, so
+a receipt could not explain a truncated verdict. Fingerprints now carry their scheme
+(`evalseal-fp/2:sha256:…`), so a pin made under an older one fails with an explanation
+rather than an unexplained mismatch.
 
 It deliberately **excludes the target model and its parameters**. Comparing target model A
 with target model B is the entire point of a benchmark, so a different target must not make
@@ -427,6 +472,45 @@ gsm8k and codeqa actually look like, and where repeats do nothing), `bernoulli` 
 repeat an independent coin flip - the optimistic end), or `--from-receipt` to use a real
 run's observed per-item rates. Method and assumptions are in `src/evalseal/power.py`.
 
+## Did the judge behave the same way when you re-ran it?
+
+`diff` asks whether the score moved. `evalseal drift` asks what moved underneath it, and
+names the cause from the receipts rather than guessing:
+
+| label | what it means | what you should do |
+|---|---|---|
+| `evaluator_drift` | the grading setup changed between the two runs | re-run the baseline with the current evaluator; the numbers are not two readings of the same thing |
+| `judge_variance` | identical grading, same target model, verdicts still moved | the judge is a sampler; `evalseal decompose` can separate it from the target |
+| `target_variance` | the grader is deterministic and unchanged | only the target can have changed |
+| `target_change` | a different model under test | this is a comparison, not drift; use `diff` |
+| `stable` | no case changed its majority verdict | nothing moved |
+
+```console
+$ evalseal drift 0 1 --ledger .evalseal/compare.jsonl
+                      Judge drift: target change
+
+The grading is identical and the target model changed, so this is a comparison,
+not drift: 0 of 40 shared case(s) returned a different verdict. Use evalseal diff
+for the paired test.
+
+                       before                       after
+ evaluator fingerprint  evalseal-fp/2:sha256:10555…  evalseal-fp/2:sha256:10555…
+ comparable             yes
+ mean flip rate         0.0%                         0.0%
+ cases with a changed   0 of 40
+ verdict
+```
+
+The distinction the labels protect is the one that matters most: **a verdict that moved
+because someone edited the rubric is not the model getting worse.** When the evaluator
+fingerprint changed, the report says so in words and attributes none of the movement to
+the model - there is a test asserting the words "improved", "better", "worse" and
+"regression" never appear in that summary.
+
+Where two causes genuinely cannot be separated from two receipts - an identical judge and
+an identical target, both re-sampling - the report says that too, and points at
+`decompose`, which holds one response fixed and re-judges it.
+
 ## A real case: inconclusive on accuracy, clear on stability
 
 This is the shortest argument for why EvalSeal exists, and it comes from a comparison
@@ -487,7 +571,7 @@ happen. Verify what the page claims with `evalseal verify`.
 | command | what it does | exit code |
 |---|---|---|
 | `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `report.json` + `report.md`; `--html` also writes a receipt. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error |
-| `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures. | `0` intact · `1` tampered or broken |
+| `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures, `--artifacts` re-hashes the cassette, dataset and suite. | `0` intact · `1` tampered or broken |
 | `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - item by item: comparability, a paired test on the score difference, and which cases started or stopped flipping. `--json` for CI, `--html` to share. | `0` |
 | `evalseal power` | Estimates how many items or repeats it would take to detect a difference you care about. `--from-receipt` uses a real run's per-item rates. | `0` |
 | `evalseal decompose` | For `llm_judge` suites: splits flips into the judge's share and the target's, by judging one fixed response N times versus sampling the target N times. | `0` |
@@ -497,6 +581,7 @@ happen. Verify what the page claims with `evalseal verify`.
 | `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--expect-evaluator` pins the grading setup, `--expect-config` the whole configuration. `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy |
 | `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp; see [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
 | `evalseal anchor-verify` | Re-checks every claim in an anchor, reporting what it could not check as not checked. | `0` verified · `1` failed |
+| `evalseal drift A B` | Did the judge behave the same way when the suite was re-run? Labels the cause: evaluator drift, judge variance, target variance or a target change. `--json` for CI. | `0` |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
 HTTP 429/408/5xx and connection errors, honouring `Retry-After`), `--timeout`, and

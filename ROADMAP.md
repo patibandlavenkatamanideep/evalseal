@@ -85,12 +85,14 @@ Make a pull request the natural place to read a receipt.
       workflow is a few lines rather than a file to copy.
 - [ ] Baseline retrieval that does not depend on committing receipts: fetch the latest
       receipt from the default branch's artifacts.
-- [ ] **Provenance completeness.** Seal `max_tokens`, which the Anthropic adapter sends but
-      the sealed parameters drop, and bring the judge's endpoint into the evaluator
-      fingerprint. Both change content hashes and every pinned fingerprint value, so they
-      ship with a fingerprint scheme version that makes an old pin fail with "fingerprint
-      scheme changed" rather than an unexplained mismatch, plus fingerprint-stability
-      tests.
+- [x] **Provenance completeness.** Done as fingerprint scheme 2 and schema 1.4: the
+      judge's endpoint and provider, `max_tokens`, the scorer's own settings and the case
+      set are all in the evaluator fingerprint, and fingerprints carry their scheme so an
+      old pin fails with an explanation. A third gap found on the way - the cassette
+      digest was not sealed, so the responses behind the verdicts were not bound to the
+      receipt - is fixed in the same change.
+- [x] **Judge drift as a first-class report** (`evalseal drift`), labelling evaluator
+      drift, judge variance, target variance and target change from the receipts.
 
 Accepted when: a repository with no API key can adopt the workflow by copying one file,
 and a reviewer can tell from the step summary alone why the check passed or failed.
@@ -99,7 +101,9 @@ and a reviewer can tell from the step summary alone why the check passed or fail
 
 Give a third party a timestamp and custody claim that does not rest on the signer's clock.
 
-- [ ] An adapter interface over the local anchor object, filling its `external_proof`.
+- [x] An adapter interface over the local anchor object, filling its `external_proofs`.
+      `AnchorBackend` is a two-method protocol; the local backend attests nothing and
+      says so; a real adapter is additive.
 - [ ] RFC 3161 timestamp authority adapter.
 - [ ] Sigstore / Rekor transparency log adapter.
 - [ ] OpenTimestamps-style adapter.

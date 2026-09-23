@@ -22,7 +22,7 @@ The workflow file is [pr-receipt-workflow.yml](pr-receipt-workflow.yml). Copy it
 | step | command | fails the job when |
 |---|---|---|
 | replay the suite | `evalseal run --suite … --html receipt.html --fail-on none` | the replay breaks, e.g. the cassette no longer matches the dataset |
-| verify | `evalseal verify` | the sealed record's hash does not match its content |
+| verify | `evalseal verify --artifacts` | the record's hash does not match its content, or the cassette changed since it was sealed |
 | gate | `evalseal gate --policy … --json` | a policy rule fails (recorded here, acted on last) |
 | drift, if a baseline exists | `evalseal diff baseline report.json --json` and `--html` | never: `diff` reports, it does not gate |
 | anchor | `evalseal anchor report.json --ledger …` | the receipt does not verify against its ledger |

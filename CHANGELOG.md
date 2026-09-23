@@ -12,7 +12,76 @@ Targeted at **2.1.0**. It was planned as a 2.0.2 hygiene release, but it adds co
 patch release for fixes. Nothing here removes or changes the meaning of an existing
 command, exit code or JSON field, apart from the sealed-field fix under *Fixed* below.
 
+### Added
+
+- **Evaluator fingerprint scheme 2.** The fingerprint decides whether two runs can be
+  compared, and it was missing parts of the instrument it claims to identify. It now
+  covers the scorer type **and its own settings**, the judge's provider, endpoint, model
+  and sampling parameters including `max_tokens` and `seed`, the rubric and prompt
+  template hashes, the dataset hash and the exact set of case ids. The target model, its
+  parameters and the suite hash stay out on purpose: swapping the model under test is the
+  reason to run a benchmark. Fingerprints carry their scheme
+  (`evalseal-fp/2:sha256:…`), so a pin made under an older one fails with "made under an
+  unversioned scheme - re-pin" rather than an unexplained mismatch.
+- **`evalseal drift A B`**, judge drift as a first-class report. It labels the cause from
+  the receipts: `evaluator_drift` when the grading setup changed, `judge_variance` when an
+  identical judge disagreed with itself, `target_variance` when a deterministic grader
+  means only the target can have moved, `target_change`, or `stable`. It carries both
+  fingerprints, per-case verdict strips, pass/fail/other counts, flip rates, stability
+  changes, the least stable cases and a plain-English summary, as Markdown or JSON.
+  Evaluator drift is never phrased as the model improving or worsening, and a test asserts
+  those words cannot appear in that summary.
+- **Artifact binding.** Receipts seal digests of the cassette, dataset and suite, with an
+  explicit `kind` - `hashed`, `embedded` or `external` - so a reader never has to guess
+  what the receipt holds. `evalseal verify --artifacts` re-hashes them and reports ok,
+  changed, missing or unverifiable, and `anchor-verify` checks them too. A missing file is
+  reported as missing, never as passing.
+- **An anchor backend protocol.** `submit` a subject digest, `check` a proof later, and
+  say what it establishes. The local backend is kept and is honest: it attests nothing and
+  its check says so. Backends register themselves, so an adapter for a real service is
+  additive. No fake backend ships - the test double lives in the tests, because a fake
+  that looks like an anchor is worse than no anchor. `evalseal anchor --with <backend>`
+  and `--list-backends`.
+- **`THREAT_MODEL.md`**: what each layer protects, who must be trusted for each claim, and
+  the specific questions - a changed judge, a changed dataset, concurrent CI writers, a
+  lying clock, a provider that changes behaviour behind a stable model name.
+- Integration docs for LangSmith/Langfuse and replay-style workflows, and an explicit
+  trust boundary on every integration.
+
 ### Fixed
+
+- **Two different regexes fingerprinted identically.** The scorer's own settings were
+  sealed nowhere, so `regex "^yes$"` and `regex "^no$"` - opposite graders - produced the
+  same evaluator fingerprint and `diff` called two runs comparable that measured opposite
+  things. Schema 1.4 seals a scorer config hash.
+- **The judge's endpoint was not part of the fingerprint**, so the same model name reached
+  through a proxy or a different deployment looked like the same grader.
+- **`max_tokens` was dropped from the sealed parameters**, so a receipt could not explain a
+  truncated verdict even though the run warned about one.
+- **The cassette was not bound to the receipt.** It holds the responses the verdicts came
+  from, and nothing in the receipt described it, so responses could be swapped and the
+  receipt still verified.
+- **`diff` now emits `non_comparable` as a single token** with a `reason`, and names the
+  exact evaluator fields that moved instead of reporting "something changed". Two records
+  sealed either side of schema 1.4 get a reason that says so, because the older one does
+  not carry the fields the newer one is being compared on.
+
+### Changed
+
+- **Schema 1.4** adds the provider and `max_tokens` for target and judge, the scorer
+  config hash, and the artifact list. Older records still verify, re-hashed under the
+  schema that sealed them.
+- `TargetResponse.provider` is defaulted rather than required, so a custom `Target`
+  written before this keeps working and reports `unknown`.
+- Anchor format version 2: `external_proofs` is a list, and the anchor carries the
+  digests the receipt itself sealed.
+
+### Adoption readiness, earlier in this cycle
+
+The rest of this entry covers the first half of the cycle: hygiene, the PR receipt
+workflow, the local anchor and the fingerprint/gate corrections that preceded scheme 2.
+
+#### Fixed
 
 - **LLM-judge suites were reported "not comparable" across target models, and their
   receipts were not reproducible.** The sealed `judge_prompt_hash` was the hash of the
@@ -56,7 +125,7 @@ command, exit code or JSON field, apart from the sealed-field fix under *Fixed* 
   `name 2` copies macOS and iCloud create. It now matches `.coverage*` and the receipts
   EvalSeal generates.
 
-### Added
+#### Added
 
 - **`evalseal anchor` and `evalseal anchor-verify`.** A local anchor binds a receipt to
   the ledger it was sealed into, the ledger's head and length, the signature (bytes,
@@ -86,7 +155,7 @@ command, exit code or JSON field, apart from the sealed-field fix under *Fixed* 
 - `ledger.check_record_hash`, the one definition of "does this record's hash hold" that
   `verify` and `anchor` now share; `signing.public_key_fingerprint`.
 
-### Changed
+#### Changed
 
 - **Schema 1.3.** No field is added; `scorer.judge_prompt_hash` changes meaning, from an
   instantiated prompt to the template. Records sealed under 1.2 still verify. A 1.2 judge
@@ -96,17 +165,13 @@ command, exit code or JSON field, apart from the sealed-field fix under *Fixed* 
   longer embeds case text or a response. It still carries the rubric verbatim, so it
   stays opt-in.
 
-### Known gaps, now documented
+#### Gaps found mid-cycle and closed in it
 
-- Neither fingerprint covers the judge's endpoint, which is sealed as provenance only.
-- `max_tokens`, sent by the Anthropic adapter, is dropped from the sealed parameters.
-- A receipt does not seal its cassette's hash, so responses are bound only through
-  `anchor --artifact`.
+The judge's endpoint, `max_tokens` and the cassette digest were documented as known gaps
+partway through this cycle and are fixed above, under fingerprint scheme 2 and schema 1.4.
+They are listed here because the intermediate commits mention them as open.
 
-All three change content hashes or pinned fingerprints to fix, and are scheduled in
-ROADMAP.md with a fingerprint-scheme version rather than folded in here.
-
-### Recorded evidence
+#### Recorded evidence
 
 - **A pre-registered comparison, reported inconclusive.** `gemini-2.5-flash` against
   `gemma-4-26b-a4b-it` on 150 GSM8K problems, five repeats each, designed and its power

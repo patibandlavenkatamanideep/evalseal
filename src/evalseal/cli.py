@@ -33,7 +33,7 @@ from .anchor import (
 )
 from .decompose import decompose as run_decompose
 from .decompose import render as render_decomposition
-from .diffing import diff_records, load_receipt, mean_flip_rate
+from .diffing import ReceiptError, diff_records, load_receipt, mean_flip_rate
 from .drift import analyze_drift
 from .drift import render as render_drift
 from .executor import run_eval
@@ -82,6 +82,7 @@ from .signing import (
 # Distinct from 1 (uncaught error) and 2 (usage error) so CI can tell
 # "the eval is unstable" apart from "the tool broke".
 EXIT_UNSTABLE = 3
+EXIT_BAD_INPUT = 2       # the file you passed is not the file this command wanted
 EXIT_INTERRUPTED = 130   # conventional 128 + SIGINT
 
 app = typer.Typer(add_completion=False, help="Reproducibility receipts for LLM evals.")
@@ -450,6 +451,20 @@ def sign(
     )
 
 
+def _read_receipt(source: str | Path) -> RunRecord:
+    """Load a receipt, or exit with a message that names what the file turned out to be.
+
+    Handing `evalseal report --json` output to a command that wants a receipt is an
+    ordinary mistake - both get called report.json - and an ordinary mistake must not
+    print a stack trace at someone.
+    """
+    try:
+        return load_receipt(source)
+    except ReceiptError as e:
+        console.print(f"[red]Not a receipt:[/red] {rich_escape(str(e))}")
+        raise typer.Exit(code=EXIT_BAD_INPUT) from None
+
+
 def _resolve_record(token: str, ledger: Path) -> RunRecord:
     """A receipt path or a ledger index, whichever the user typed.
 
@@ -458,7 +473,7 @@ def _resolve_record(token: str, ledger: Path) -> RunRecord:
     """
     path = Path(token)
     if path.exists():
-        return load_receipt(path)
+        return _read_receipt(path)
     try:
         index = int(token)
     except ValueError:
@@ -933,7 +948,9 @@ def _looks_like_ledger(path: Path) -> bool:
 def anchor(
     source: Path | None = typer.Argument(
         None, exists=True, dir_okay=False,
-        help="A receipt (report.json) or a ledger, whose head is then the receipt."),
+        help="The sealed receipt to anchor: the report.json `evalseal run` writes, or a "
+             ".jsonl ledger, whose head is then the receipt. Not the output of "
+             "`evalseal report --json`, which summarises a receipt rather than being one."),
     ledger: Path | None = typer.Option(
         None, "--ledger", exists=True, dir_okay=False,
         help="The ledger the receipt was sealed into. Defaults to SOURCE when it is one."),
@@ -964,8 +981,8 @@ def anchor(
         raise typer.BadParameter("a receipt or ledger to anchor is required")
     if ledger is None and _looks_like_ledger(source):
         ledger = source
+    record = _read_receipt(source)
     try:
-        record = load_receipt(source)
         result = build_anchor(record, source, ledger, list(artifact),
                               backends=list(with_backend))
     except AnchorError as e:
@@ -1007,7 +1024,7 @@ def anchor_verify(
         raise typer.Exit(code=1) from None
     if ledger is None and _looks_like_ledger(source):
         ledger = source
-    record = load_receipt(source)
+    record = _read_receipt(source)
     checks = verify_anchor(anchor_obj, record, ledger=ledger)
     passed = anchor_passed(checks)
 

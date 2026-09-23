@@ -7,6 +7,7 @@ target model sits still, so comparability is reported first and the score second
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -132,23 +133,115 @@ class DiffResult:
         }
 
 
+class ReceiptError(ValueError):
+    """A file was handed to EvalSeal where a sealed receipt was expected.
+
+    Its message has to name the file, say what kind of file it turned out to be, and
+    say what to pass instead. A pydantic traceback tells a user that
+    `input_value='}'` failed to parse, which describes this module's fallback path
+    rather than their mistake.
+    """
+
+
+_RECEIPT_KEYS = {"manifest", "results", "aggregate"}
+# `evalseal report --json` writes a summary *of* a receipt, not a receipt. The two are
+# easy to confuse because both are called report.json in different docs, so name it.
+_REPORT_KEYS = {"summary", "provenance", "cases"}
+
+_WHAT_IS_EXPECTED = (
+    "Expected a sealed receipt: the report.json that `evalseal run` writes, or a "
+    "ledger (.jsonl) whose head is the receipt."
+)
+
+
+def _describe_shape(data: object, source: str | Path) -> str:
+    """Say what the file actually is, in the user's terms rather than pydantic's."""
+    if isinstance(data, list):
+        return (f"{source} holds a JSON list. {_WHAT_IS_EXPECTED} A list is what a "
+                "dataset file looks like.")
+    if not isinstance(data, dict):
+        return f"{source} holds a bare JSON {type(data).__name__}. {_WHAT_IS_EXPECTED}"
+    keys = set(data)
+    if keys >= _REPORT_KEYS and "manifest" not in keys:
+        return (f"{source} is the output of `evalseal report --json`, which summarises a "
+                f"receipt rather than being one. {_WHAT_IS_EXPECTED} The receipt is "
+                "written beside report.md when the run is sealed.")
+    if "anchor_version" in keys or data.get("kind") == "evalseal.local-anchor":
+        return (f"{source} is an anchor, not the receipt it anchors. {_WHAT_IS_EXPECTED} "
+                "`anchor-verify` takes both, anchor first.")
+    missing = sorted(_RECEIPT_KEYS - keys)
+    if missing:
+        return (f"{source} is a JSON object but not a sealed receipt: it has no "
+                f"{', '.join(missing)}. {_WHAT_IS_EXPECTED}")
+    return ""          # shaped like a receipt; the field-level error below is the story
+
+
+def _parse_one(text: str, source: str | Path) -> RunRecord:
+    """Validate one JSON document, translating both failure modes into plain English."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        raise ReceiptError(
+            f"{source} is not valid JSON ({e.msg} at line {e.lineno} column {e.colno}). "
+            + _WHAT_IS_EXPECTED
+        ) from None
+    shape = _describe_shape(data, source)
+    if shape:
+        raise ReceiptError(shape)
+    try:
+        return RunRecord.model_validate(data)
+    except ValidationError as e:
+        # Shaped like a receipt and still invalid: the field names are the useful part,
+        # so keep them and drop pydantic's urls and input dumps.
+        fields = sorted({".".join(str(p) for p in err["loc"]) for err in e.errors()})
+        raise ReceiptError(
+            f"{source} looks like a receipt but {len(fields)} field(s) are wrong or "
+            f"missing: {', '.join(fields[:8])}"
+            + (" ..." if len(fields) > 8 else "")
+            + ". It may have been written by a newer EvalSeal, or edited by hand."
+        ) from None
+
+
 def load_receipt(source: str | Path) -> RunRecord:
     """Read a sealed record from either a receipt file or a ledger.
 
     `report.json` is one pretty-printed record; a ledger is one compact record per line.
     Try the whole file first, and only then treat it as JSONL and take the head, so a
     multi-line receipt is not mistaken for a ledger whose last line is a lone brace.
+
+    Every failure raises `ReceiptError` naming the file and what it turned out to be.
+    Passing the wrong file is an ordinary mistake - `report --json` output and an anchor
+    are both one tab-completion away - and an ordinary mistake must not print a stack.
     """
-    text = Path(source).read_text(encoding="utf-8").strip()
-    if not text:
-        raise ValueError(f"{source} is empty")
+    path = Path(source)
     try:
-        return RunRecord.model_validate_json(text)
-    except ValidationError:
-        lines = [line for line in text.splitlines() if line.strip()]
-        if not lines:
-            raise
-        return RunRecord.model_validate_json(lines[-1])
+        text = path.read_text(encoding="utf-8").strip()
+    except OSError as e:
+        raise ReceiptError(f"{source} could not be read: {e.strerror}") from None
+    if not text:
+        raise ReceiptError(f"{source} is empty. " + _WHAT_IS_EXPECTED)
+
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) > 1:
+        # A ledger is one record per line; a receipt is one pretty-printed record. Try
+        # the whole file first so a multi-line receipt is not read as a ledger whose
+        # last line is a lone brace, and report the whole-file failure if both fail:
+        # for a receipt that is the real error, and for a ledger the last line's own
+        # error surfaces instead.
+        try:
+            return _parse_one(text, source)
+        except ReceiptError as whole_file:
+            try:
+                return _parse_one(lines[-1], source)
+            except ReceiptError as last_line:
+                raise (last_line if _looks_like_jsonl(lines) else whole_file) from None
+    return _parse_one(text, source)
+
+
+def _looks_like_jsonl(lines: list[str]) -> bool:
+    """Whether the file reads as one JSON document per line, as a ledger does."""
+    return all(line.lstrip().startswith("{") and line.rstrip().endswith("}")
+               for line in lines)
 
 
 def mean_flip_rate(record: RunRecord) -> float:
@@ -170,8 +263,8 @@ def _unstable(record: RunRecord) -> list[str]:
 
 # `per_case_halfwidth` is defined in paired.py, beside the test that took over its old
 # role as a threshold. Re-exported here because this is where callers looked for it.
-__all__ = ["DiffResult", "FieldChange", "diff_records", "load_receipt",
-           "mean_flip_rate", "per_case_halfwidth"]
+__all__ = ["DiffResult", "FieldChange", "ReceiptError", "diff_records",
+           "load_receipt", "mean_flip_rate", "per_case_halfwidth"]
 
 
 # Which of the fields below decide comparability. Kept beside `_config_fields` so the

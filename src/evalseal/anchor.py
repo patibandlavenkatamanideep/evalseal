@@ -201,6 +201,45 @@ def write_anchor(anchor: dict, path: Path) -> None:
 
 
 @dataclass
+class ArtifactCheck:
+    """One sealed artifact, re-hashed against the file on disk now."""
+    role: str
+    status: str          # ok | changed | missing | unverifiable
+    detail: str
+
+
+def check_artifacts(record: RunRecord, base_dir: Path | None = None) -> list[ArtifactCheck]:
+    """Re-hash every artifact a record was sealed against.
+
+    A file that is absent is reported as missing, never as passing: a verification that
+    quietly skips what it cannot find reads as more than it proved.
+    """
+    base = base_dir or Path(".")
+    checks: list[ArtifactCheck] = []
+    for art in record.manifest.artifacts:
+        if art.sha256 is None or art.path is None:
+            checks.append(ArtifactCheck(
+                art.role, "unverifiable",
+                art.note or "sealed without a digest, so there is nothing to check"))
+            continue
+        path = Path(art.path)
+        if not path.is_absolute():
+            path = base / path
+        if not path.exists():
+            checks.append(ArtifactCheck(
+                art.role, "missing", f"{path} is not here; its digest cannot be checked"))
+            continue
+        actual = _sha256_bytes(path.read_bytes())
+        if actual == art.sha256:
+            checks.append(ArtifactCheck(art.role, "ok", f"{path} matches the sealed digest"))
+        else:
+            checks.append(ArtifactCheck(
+                art.role, "changed",
+                f"{path} does not match the digest sealed with this record"))
+    return checks
+
+
+@dataclass
 class AnchorCheck:
     name: str
     passed: bool

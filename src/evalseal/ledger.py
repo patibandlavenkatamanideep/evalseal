@@ -24,6 +24,7 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
         ("manifest", "run_config", "concurrency"),
     ],
     "1.4": [
+        ("manifest", "artifacts"),
         ("manifest", "target", "provider"),
         ("manifest", "target", "effective_params", "max_tokens"),
         ("manifest", "scorer", "config_hash"),

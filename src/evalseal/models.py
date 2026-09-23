@@ -80,6 +80,26 @@ class EnvironmentProvenance(BaseModel):
     implementation: str | None = None
 
 
+ArtifactKind = Literal["hashed", "embedded", "external"]
+
+
+class ArtifactProvenance(BaseModel):
+    """A file the run depended on, bound to the receipt by hash.
+
+    `kind` says what the receipt holds, so a reader is never left guessing:
+      hashed   - the digest is here, the bytes are not. The default, and the only kind
+                 that is safe for a file holding prompts or responses.
+      embedded - the content itself is in the receipt, because someone asked for it.
+      external - the file was named but not readable when the record was sealed, so
+                 there is nothing to check it against.
+    """
+    role: str                              # cassette | dataset | suite | ...
+    kind: ArtifactKind = "hashed"
+    sha256: str | None = None
+    path: str | None = None
+    note: str | None = None
+
+
 class DatasetProvenance(BaseModel):
     hash: str
     n_cases: int
@@ -103,6 +123,10 @@ class ProvenanceManifest(BaseModel):
     suite: SuiteProvenance | None = None
     code: CodeProvenance = Field(default_factory=CodeProvenance)
     environment: EnvironmentProvenance = Field(default_factory=EnvironmentProvenance)
+    # The files this run depended on, by digest. The cassette is the one that matters:
+    # it holds the responses the verdicts came from, and until 1.4 nothing bound it to
+    # the receipt, so the responses could be swapped without the receipt noticing.
+    artifacts: list[ArtifactProvenance] = Field(default_factory=list)
 
 
 class CaseResult(BaseModel):

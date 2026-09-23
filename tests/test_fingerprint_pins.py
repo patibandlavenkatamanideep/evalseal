@@ -120,3 +120,38 @@ def test_gate_json_reports_both_fingerprints(tmp_path):
     payload = json.loads(result.output)
     assert payload["evaluator_fingerprint"] == evaluator_fingerprint(record)
     assert payload["config_fingerprint"] == config_fingerprint(record)
+
+
+def test_a_pin_from_an_older_scheme_says_so_instead_of_blaming_the_grading(tmp_path):
+    """A scheme-1 pin cannot match a scheme-2 fingerprint, and nothing about the run
+    changed. Reporting "the grading setup changed" would send someone hunting a change
+    that was never made."""
+    ledger = _ledger(tmp_path, _record())
+    stale = "sha256:" + "0" * 64          # how scheme 1 wrote them: no scheme tag
+
+    result = runner.invoke(app, ["gate", "--ledger", str(ledger), "--no-verify-ledger",
+                                 "--expect-evaluator", stale])
+    assert result.exit_code == EXIT_UNSTABLE
+    text = _text(result)
+    assert "made under an unversioned scheme" in text
+    assert "Re-pin from" in text
+    assert "grading setup changed" not in text
+
+
+def test_a_pin_from_a_future_scheme_is_also_named(tmp_path):
+    ledger = _ledger(tmp_path, _record())
+    future = "evalseal-fp/99:sha256:" + "0" * 64
+    result = runner.invoke(app, ["gate", "--ledger", str(ledger), "--no-verify-ledger",
+                                 "--expect-config", future])
+    assert result.exit_code == EXIT_UNSTABLE
+    assert "made under scheme 99" in _text(result)
+
+
+def test_a_current_scheme_mismatch_still_explains_the_difference(tmp_path):
+    """Same scheme, genuinely different grading: the old explanation still applies."""
+    pinned = evaluator_fingerprint(_record(rubric="Be strict."))
+    ledger = _ledger(tmp_path, _record(rubric="Be lenient."))
+    result = runner.invoke(app, ["gate", "--ledger", str(ledger), "--no-verify-ledger",
+                                 "--expect-evaluator", pinned])
+    assert result.exit_code == EXIT_UNSTABLE
+    assert "grading setup changed" in _text(result)

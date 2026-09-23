@@ -22,16 +22,25 @@ from .adapters.scorer import (
     RegexScorer,
 )
 from .adapters.target import AnthropicTarget, OpenAICompatibleTarget
-from .anchor import AnchorError, anchor_passed, build_anchor, verify_anchor, write_anchor
+from .anchor import (
+    AnchorError,
+    anchor_passed,
+    build_anchor,
+    check_artifacts,
+    verify_anchor,
+    write_anchor,
+)
 from .decompose import decompose as run_decompose
 from .decompose import render as render_decomposition
 from .diffing import diff_records, load_receipt, mean_flip_rate
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
 from .ledger import (
+    FINGERPRINT_SCHEME,
     LEDGER_PATH,
     config_fingerprint,
     evaluator_fingerprint,
+    fingerprint_scheme,
     last_hash,
     load_all,
     seal_and_append,
@@ -307,6 +316,13 @@ def run(
                 ) if suite else None,
                 dataset_path=str(dataset),
                 store_judge_prompt=store_judge_prompt,
+                # Hashed inside run_eval, once the units have finished: the cassette is
+                # still being written while they run.
+                artifact_paths={
+                    "cassette": str(cassette),
+                    "dataset": str(dataset),
+                    **({"suite": str(suite)} if suite else {}),
+                },
             )
     except RuntimeError as e:
         console.print(f"[red]{e}[/red]")
@@ -363,8 +379,14 @@ def verify(
     signed: bool = typer.Option(
         False, "--signed", help="Require signatures, whoever made them."
     ),
+    artifacts: bool = typer.Option(
+        False, "--artifacts",
+        help="Also re-hash the files the records were sealed against (cassette, dataset, "
+             "suite) and report any that changed or are absent.",
+    ),
+    index: int = typer.Option(-1, help="Which record's artifacts to check; -1 = latest."),
 ):
-    """Check the ledger chain integrity, and signatures when asked."""
+    """Check the ledger chain integrity, and signatures or artifacts when asked."""
     ok, msg = verify_chain(ledger)
     console.print(f"[{'green' if ok else 'red'}]{msg}[/{'green' if ok else 'red'}]")
     if not ok:
@@ -373,6 +395,23 @@ def verify(
         sig_ok, sig_msg = verify_signatures(ledger, public_key)
         console.print(f"[{'green' if sig_ok else 'red'}]{sig_msg}[/{'green' if sig_ok else 'red'}]")
         if not sig_ok:
+            raise typer.Exit(code=1)
+    if artifacts:
+        recs = load_all(ledger)
+        if not -len(recs) <= index < len(recs):
+            raise typer.BadParameter(
+                f"index {index} out of range; ledger has {len(recs)} record(s)")
+        results = check_artifacts(recs[index])
+        if not results:
+            console.print("[yellow]No artifacts are sealed in this record.[/yellow] "
+                          "Records sealed before schema 1.4 bind none.")
+        for r in results:
+            colour = {"ok": "green", "changed": "red", "missing": "yellow",
+                      "unverifiable": "yellow"}[r.status]
+            console.print(
+                f"[{colour}]{r.status:<12}[/{colour}] {rich_escape(r.role)}: "
+                f"{rich_escape(r.detail)}")
+        if any(r.status == "changed" for r in results):
             raise typer.Exit(code=1)
     raise typer.Exit(code=0)
 
@@ -406,6 +445,37 @@ def sign(
     console.print(
         f"[green]Signed record {entry['record_index']} ({entry['hash'][:20]}...)[/green]\n"
         f"signature -> {signatures_path(ledger)}\npublic key: {entry['public_key']}"
+    )
+
+
+def _pin_failure(kind: str, pinned: str, actual: str) -> str:
+    """Explain a fingerprint pin that did not match, scheme difference first.
+
+    A pin written under an older scheme cannot match a scheme-2 fingerprint, and saying
+    "the grading setup changed" about it would be wrong: nothing changed except what the
+    fingerprint covers. That needs re-pinning, not investigating.
+    """
+    pinned_scheme = fingerprint_scheme(pinned)
+    if pinned_scheme != FINGERPRINT_SCHEME:
+        named = f"scheme {pinned_scheme}" if pinned_scheme else "an unversioned scheme"
+        return (
+            f"The pinned {kind} fingerprint was made under {named}; this build computes "
+            f"scheme {FINGERPRINT_SCHEME}, which covers fields the older scheme did not. "
+            "The two cannot be compared. Re-pin from `evalseal report --json`."
+        )
+    if kind == "evaluator":
+        return (
+            "Not directly comparable: the evaluator fingerprint differs from the pinned "
+            f"one (expected {pinned[:28]}..., got {actual[:28]}...). The grading setup "
+            "changed, so this score cannot be compared with the baseline."
+        )
+    # A mismatched config hash says that something changed, not which side of it: a
+    # different target model also changes it, and that leaves the runs comparable.
+    return (
+        f"Configuration differs from the pinned one (expected {pinned[:28]}..., got "
+        f"{actual[:28]}...). Something about what ran changed; this alone does not mean "
+        "the runs are incomparable, since a different target model also changes it. Pin "
+        "--expect-evaluator to require the same grading setup."
     )
 
 
@@ -646,25 +716,12 @@ def gate(
     if expect_evaluator is not None:
         actual = evaluator_fingerprint(record)
         if actual != expect_evaluator:
-            failures.append(
-                "Not directly comparable: the evaluator fingerprint differs from the pinned "
-                f"one (expected {expect_evaluator[:20]}..., got {actual[:20]}...). The "
-                "grading setup changed, so this score cannot be compared with the baseline."
-            )
+            failures.append(_pin_failure("evaluator", expect_evaluator, actual))
 
     if expect_config is not None:
         actual = config_fingerprint(record)
         if actual != expect_config:
-            # A mismatched hash says that something changed, not which side of it. Until
-            # 2.0.2 this message said "not directly comparable", which is false whenever
-            # only the target model changed - the one comparison a benchmark exists for.
-            failures.append(
-                "Configuration differs from the pinned one "
-                f"(expected {expect_config[:20]}..., got {actual[:20]}...). Something about "
-                "what ran changed; this alone does not mean the runs are incomparable, "
-                "since a different target model also changes it. Pin --expect-evaluator "
-                "to require the same grading setup."
-            )
+            failures.append(_pin_failure("config", expect_config, actual))
 
     if as_json:
         console.print_json(json.dumps({

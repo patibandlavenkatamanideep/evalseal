@@ -33,6 +33,8 @@ from .anchor import (
 from .decompose import decompose as run_decompose
 from .decompose import render as render_decomposition
 from .diffing import diff_records, load_receipt, mean_flip_rate
+from .drift import analyze_drift
+from .drift import render as render_drift
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
 from .ledger import (
@@ -1044,3 +1046,32 @@ def anchor_verify(
         else "[red]Anchor does not verify.[/red]"
     )
     raise typer.Exit(code=0 if passed else 1)
+
+
+@app.command(context_settings={"ignore_unknown_options": True})
+def drift(
+    a: str = typer.Argument(..., help="The earlier run: a receipt file, or a ledger index."),
+    b: str = typer.Argument(..., help="The later run: a receipt file, or a ledger index."),
+    ledger: Path = LedgerOpt,
+    as_json: bool = typer.Option(False, "--json", help="Emit the whole report as JSON."),
+    out: Path | None = typer.Option(None, "--out", help="Write the Markdown report here."),
+):
+    """Did the judge behave the same way when the suite was run again?
+
+    `diff` asks whether the score moved. This asks what moved underneath it: whether the
+    grading setup changed between the two runs, which cases came back with a different
+    verdict, and whether that can be blamed on the judge, on the target, or on neither
+    because the instrument itself changed. Exit status is always 0: it reports.
+    """
+    report = analyze_drift(_resolve_record(a, ledger), _resolve_record(b, ledger))
+
+    if as_json:
+        console.print_json(json.dumps(report.to_dict()))
+        raise typer.Exit(code=0)
+
+    text = render_drift(report)
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+        console.print(f"[green]Drift report -> {out}[/green]")
+    console.print(Markdown(text))
+    raise typer.Exit(code=0)

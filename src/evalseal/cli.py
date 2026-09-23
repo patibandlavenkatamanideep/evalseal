@@ -39,11 +39,10 @@ from .drift import render as render_drift
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
 from .ledger import (
-    FINGERPRINT_SCHEME,
     LEDGER_PATH,
     config_fingerprint,
     evaluator_fingerprint,
-    fingerprint_scheme,
+    explain_fingerprint_mismatch,
     last_hash,
     load_all,
     seal_and_append,
@@ -451,37 +450,6 @@ def sign(
     )
 
 
-def _pin_failure(kind: str, pinned: str, actual: str) -> str:
-    """Explain a fingerprint pin that did not match, scheme difference first.
-
-    A pin written under an older scheme cannot match a scheme-2 fingerprint, and saying
-    "the grading setup changed" about it would be wrong: nothing changed except what the
-    fingerprint covers. That needs re-pinning, not investigating.
-    """
-    pinned_scheme = fingerprint_scheme(pinned)
-    if pinned_scheme != FINGERPRINT_SCHEME:
-        named = f"scheme {pinned_scheme}" if pinned_scheme else "an unversioned scheme"
-        return (
-            f"The pinned {kind} fingerprint was made under {named}; this build computes "
-            f"scheme {FINGERPRINT_SCHEME}, which covers fields the older scheme did not. "
-            "The two cannot be compared. Re-pin from `evalseal report --json`."
-        )
-    if kind == "evaluator":
-        return (
-            "Not directly comparable: the evaluator fingerprint differs from the pinned "
-            f"one (expected {pinned[:28]}..., got {actual[:28]}...). The grading setup "
-            "changed, so this score cannot be compared with the baseline."
-        )
-    # A mismatched config hash says that something changed, not which side of it: a
-    # different target model also changes it, and that leaves the runs comparable.
-    return (
-        f"Configuration differs from the pinned one (expected {pinned[:28]}..., got "
-        f"{actual[:28]}...). Something about what ran changed; this alone does not mean "
-        "the runs are incomparable, since a different target model also changes it. Pin "
-        "--expect-evaluator to require the same grading setup."
-    )
-
-
 def _resolve_record(token: str, ledger: Path) -> RunRecord:
     """A receipt path or a ledger index, whichever the user typed.
 
@@ -719,12 +687,14 @@ def gate(
     if expect_evaluator is not None:
         actual = evaluator_fingerprint(record)
         if actual != expect_evaluator:
-            failures.append(_pin_failure("evaluator", expect_evaluator, actual))
+            failures.append(
+                explain_fingerprint_mismatch("evaluator", expect_evaluator, actual))
 
     if expect_config is not None:
         actual = config_fingerprint(record)
         if actual != expect_config:
-            failures.append(_pin_failure("config", expect_config, actual))
+            failures.append(
+                explain_fingerprint_mismatch("config", expect_config, actual))
 
     if as_json:
         console.print_json(json.dumps({

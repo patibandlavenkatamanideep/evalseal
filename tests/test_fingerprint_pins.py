@@ -67,7 +67,9 @@ def test_config_pin_mismatch_does_not_claim_the_runs_are_incomparable(tmp_path):
     assert result.exit_code == EXIT_UNSTABLE
     assert "Configuration differs from the pinned one" in _text(result)
     assert "Not directly comparable" not in _text(result)
+    # Actionable in both places the pin can live.
     assert "--expect-evaluator" in _text(result)
+    assert "run.expect_evaluator" in _text(result)
 
 
 def test_evaluator_pin_passes_when_only_the_target_model_changed(tmp_path):
@@ -155,3 +157,41 @@ def test_a_current_scheme_mismatch_still_explains_the_difference(tmp_path):
                                  "--expect-evaluator", pinned])
     assert result.exit_code == EXIT_UNSTABLE
     assert "grading setup changed" in _text(result)
+
+
+def test_a_policy_file_pin_from_an_older_scheme_explains_itself_too(tmp_path):
+    """The path that matters most: the PR workflow gates through a policy file.
+
+    A policy pin written under scheme 1 must get the same re-pin explanation the flag
+    gets, not a raw "expected sha256:aaa..., got evalseal-fp/2:sha256..." mismatch.
+    """
+    ledger = _ledger(tmp_path, _record())
+    policy = tmp_path / "p.json"
+    policy.write_text(json.dumps(
+        {"run": {"expect_evaluator": "sha256:" + "a" * 64, "verify_ledger": False}}),
+        encoding="utf-8")
+
+    result = runner.invoke(app, ["gate", "--ledger", str(ledger), "--policy", str(policy),
+                                 "--json"])
+    assert result.exit_code == EXIT_UNSTABLE
+    detail = next(c["detail"] for c in json.loads(result.output)["checks"]
+                  if c["rule"] == "run.expect_evaluator")
+    assert "made under an unversioned scheme" in detail
+    assert "Re-pin from" in detail
+    assert "grading setup changed" not in detail
+
+
+def test_a_policy_pin_that_matches_says_so(tmp_path):
+    record = _record()
+    ledger = _ledger(tmp_path, record)
+    policy = tmp_path / "p.json"
+    policy.write_text(json.dumps(
+        {"run": {"expect_evaluator": evaluator_fingerprint(record), "verify_ledger": False}}),
+        encoding="utf-8")
+
+    result = runner.invoke(app, ["gate", "--ledger", str(ledger), "--policy", str(policy),
+                                 "--json"])
+    assert result.exit_code == 0, result.output
+    check = next(c for c in json.loads(result.output)["checks"]
+                 if c["rule"] == "run.expect_evaluator")
+    assert check["passed"] and "matches the pinned fingerprint" in check["detail"]

@@ -7,10 +7,49 @@ older version still verifies.
 
 ## [Unreleased]
 
-Targeted at **2.1.0**. It was planned as a 2.0.2 hygiene release, but it adds commands
-(`anchor`, `anchor-verify`) and a flag (`gate --expect-evaluator`), and semver reserves a
-patch release for fixes. Nothing here removes or changes the meaning of an existing
-command, exit code or JSON field, apart from the sealed-field fix under *Fixed* below.
+Targeted at **2.1.0**. It adds commands (`anchor`, `anchor-verify`, `drift`) and flags,
+so semver rules out a patch release.
+
+No command is removed and no exit code changes meaning. Three things do change shape, all
+of them covered under *Migrating from 2.0.x* directly below: fingerprint values now carry
+a scheme prefix, `diff`'s comparability verdict is the single token `non_comparable`, and
+the sealed-record schema moves to 1.4. Receipts sealed by earlier versions keep
+verifying.
+
+### Migrating from 2.0.x
+
+Two changes affect existing users, and both were designed to fail loudly rather than
+quietly. Nothing else needs doing.
+
+**Old receipts keep verifying.** Records sealed under schema 1.1, 1.2 or 1.3 are
+re-hashed under the schema that sealed them, so `verify` still passes and says which:
+
+```console
+$ evalseal verify --ledger old.jsonl
+Chain intact: 1 record(s). 1 older schema version(s) verified under their own rules (1.1).
+$ echo $?
+0
+```
+
+**Pinned fingerprints must be re-pinned once.** A fingerprint written by 2.0.x has no
+scheme tag and cannot match a scheme-2 value. Rather than reporting that as a content
+mismatch - which would send someone hunting a change nobody made - the pin fails with
+an explanation, whether it lives in a `--expect-evaluator` flag or a policy file's
+`run.expect_evaluator`:
+
+```console
+$ evalseal gate --expect-evaluator sha256:aaaa...
+FAIL The pinned evaluator fingerprint was made under an unversioned scheme; this build
+computes scheme 2, which covers fields the older scheme did not. The two cannot be
+compared. Re-pin from `evalseal report --json`.
+$ echo $?
+3
+```
+
+To re-pin: `evalseal report --json | jq -r .provenance.evaluator_fingerprint` (or
+`.config_fingerprint`) and paste the new value into the flag or the policy file. A pin is
+a statement that the instrument has not changed; scheme 2 measures more of the
+instrument, so the statement has to be made again.
 
 ### Added
 
@@ -22,7 +61,9 @@ command, exit code or JSON field, apart from the sealed-field fix under *Fixed* 
   parameters and the suite hash stay out on purpose: swapping the model under test is the
   reason to run a benchmark. Fingerprints carry their scheme
   (`evalseal-fp/2:sha256:…`), so a pin made under an older one fails with "made under an
-  unversioned scheme - re-pin" rather than an unexplained mismatch.
+  unversioned scheme - re-pin" rather than an unexplained mismatch. The same explanation
+  is given whether the pin is a `--expect-*` flag or a policy file's `run.expect_*` rule:
+  one function answers the question, because two answers would eventually disagree.
 - **`evalseal drift A B`**, judge drift as a first-class report. It labels the cause from
   the receipts: `evaluator_drift` when the grading setup changed, `judge_variance` when an
   identical judge disagreed with itself, `target_variance` when a deterministic grader

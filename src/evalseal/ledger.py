@@ -270,6 +270,41 @@ def fingerprint_scheme(value: str) -> int | None:
     return None
 
 
+def explain_fingerprint_mismatch(kind: str, pinned: str, actual: str) -> str:
+    """Why a pinned fingerprint did not match, scheme difference first.
+
+    A pin written under an older scheme cannot match a scheme-2 fingerprint, and nothing
+    about the run has to have changed for that to happen. Saying "the grading setup
+    changed" would send someone hunting a change nobody made, so the scheme is checked
+    before the contents are blamed.
+
+    Lives here rather than in the CLI because both the `--expect-*` flags and a policy
+    file's `run.expect_*` rules ask the same question, and two answers to it would
+    eventually disagree.
+    """
+    pinned_scheme = fingerprint_scheme(pinned)
+    if pinned_scheme != FINGERPRINT_SCHEME:
+        named = f"scheme {pinned_scheme}" if pinned_scheme else "an unversioned scheme"
+        return (
+            f"The pinned {kind} fingerprint was made under {named}; this build computes "
+            f"scheme {FINGERPRINT_SCHEME}, which covers fields the older scheme did not. "
+            "The two cannot be compared. Re-pin from `evalseal report --json`."
+        )
+    if kind == "evaluator":
+        return (
+            "Not directly comparable: the evaluator fingerprint differs from the pinned "
+            f"one (expected {pinned[:28]}..., got {actual[:28]}...). The grading setup "
+            "changed, so this score cannot be compared with the baseline."
+        )
+    return (
+        f"Configuration differs from the pinned one (expected {pinned[:28]}..., got "
+        f"{actual[:28]}...). Something about what ran changed; this alone does not mean "
+        "the runs are incomparable, since a different target model also changes it. To "
+        "require the same grading setup, pin the evaluator fingerprint instead: "
+        "`--expect-evaluator`, or `run.expect_evaluator` in a policy file."
+    )
+
+
 def records_share_fingerprint_inputs(before: RunRecord, after: RunRecord) -> bool:
     """Whether both records recorded the fields scheme 2 hashes.
 

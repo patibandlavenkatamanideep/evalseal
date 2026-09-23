@@ -28,6 +28,10 @@ class TargetResponse:
     # A response cut off at the token limit is not a wrong answer, it is an absent one.
     # Scored naively it looks like a model failure, so the run says so instead.
     truncated: bool = False
+    # Which wire format answered. Defaulted rather than required: TargetResponse is public,
+    # and a custom Target written before 1.4 should keep working and report "unknown"
+    # rather than fail to construct.
+    provider: str = "unknown"
 
 
 @runtime_checkable
@@ -45,6 +49,7 @@ class LocalCallableTarget:
     def generate(self, prompt: str) -> TargetResponse:
         return TargetResponse(
             text=self.fn(prompt),
+            provider="local",
             requested_model=self.name,
             served_model=self.name,
             system_fingerprint=None,
@@ -146,6 +151,7 @@ class OpenAICompatibleTarget:
 
         return TargetResponse(
             text=raw["choices"][0]["message"]["content"] or "",
+            provider="openai_compatible",
             requested_model=self.model,
             served_model=raw.get("model"),
             system_fingerprint=raw.get("system_fingerprint"),
@@ -154,6 +160,7 @@ class OpenAICompatibleTarget:
                 "temperature": self.temperature,
                 "seed": self.seed,
                 "top_p": None,
+                "max_tokens": None,     # this adapter never sets one
             },
             params_source=params_source,
             truncated=raw["choices"][0].get("finish_reason") == "length",
@@ -225,6 +232,7 @@ class AnthropicTarget:
 
         return TargetResponse(
             text=extract_text(raw),
+            provider="anthropic",
             requested_model=self.model,
             served_model=raw.get("model"),
             # Anthropic exposes no backend identifier. Reporting None is honest;

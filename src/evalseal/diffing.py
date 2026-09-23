@@ -12,9 +12,17 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from .ledger import evaluator_fingerprint
+from .ledger import (
+    _case_set_hash,
+    evaluator_fingerprint,
+    records_share_fingerprint_inputs,
+)
 from .models import RunRecord
 from .paired import INCONCLUSIVE, PairedComparison, compare_runs, per_case_halfwidth
+
+# The verdict when the two runs were not graded the same way. It is not a score result,
+# and it is reported before any score so it cannot be read as one.
+NON_COMPARABLE = "non_comparable"
 
 
 @dataclass
@@ -56,6 +64,8 @@ class DiffResult:
 
     cases_added: list[str] = field(default_factory=list)
     cases_removed: list[str] = field(default_factory=list)
+    # Why the runs are not comparable, in one sentence. Empty when they are.
+    reason: str = ""
 
     @property
     def evaluator_changes(self) -> list[FieldChange]:
@@ -88,12 +98,14 @@ class DiffResult:
         not tell, which at N=5 is the usual outcome.
         """
         if not self.comparable:
-            return "not comparable"
+            return NON_COMPARABLE
         return self.paired.verdict if self.paired else INCONCLUSIVE
 
     def to_dict(self) -> dict[str, object]:
         return {
             "comparable": self.comparable,
+            "verdict": self.score_verdict,
+            "reason": self.reason,
             "config_changes": [c.to_dict() for c in self.config_changes],
             # The subset that decides comparability. A reader explaining why two runs are
             # not comparable should list these, not every config change: a different
@@ -165,20 +177,45 @@ __all__ = ["DiffResult", "FieldChange", "diff_records", "load_receipt",
 # Which of the fields below decide comparability. Kept beside `_config_fields` so the
 # two cannot drift apart: `evaluator_fingerprint` is the authority, this names the same
 # ground in a form a reader can be shown.
-EVALUATOR_FIELDS = frozenset({"scorer type", "judge model", "judge prompt", "rubric",
-                              "dataset"})
+# Every field the evaluator fingerprint hashes, by the name a reader sees. Kept beside
+# `_config_fields` so the two cannot drift: if the fingerprint covers something this set
+# does not name, a diff can only say "something changed", which is not an explanation.
+EVALUATOR_FIELDS = frozenset({
+    "scorer type", "scorer settings", "judge provider", "judge endpoint", "judge model",
+    "judge temperature", "judge top_p", "judge max_tokens", "judge seed",
+    "judge prompt", "rubric", "dataset", "case set",
+})
 
 
 def _config_fields(record: RunRecord) -> dict[str, str | None]:
+    """Every field either fingerprint covers, flattened for display."""
     m = record.manifest
+    judge = m.scorer.judge
+    jp = judge.effective_params if judge else None
+    tp = m.target.effective_params
     return {
-        "target model": m.target.requested_model,
-        "target temperature": str(m.target.effective_params.temperature),
+        # The instrument.
         "scorer type": m.scorer.type,
-        "judge model": m.scorer.judge.requested_model if m.scorer.judge else None,
+        "scorer settings": m.scorer.config_hash,
+        "judge provider": judge.provider if judge else None,
+        "judge endpoint": judge.base_url if judge else None,
+        "judge model": judge.requested_model if judge else None,
+        "judge temperature": str(jp.temperature) if jp else None,
+        "judge top_p": str(jp.top_p) if jp else None,
+        "judge max_tokens": str(jp.max_tokens) if jp else None,
+        "judge seed": str(jp.seed) if jp else None,
         "judge prompt": m.scorer.judge_prompt_hash,
         "rubric": m.scorer.rubric_hash,
         "dataset": m.dataset.hash,
+        "case set": _case_set_hash(record),
+        # The subject under test, and the suite that names it: provenance, not
+        # comparability. Listed so a reader sees them, excluded from EVALUATOR_FIELDS.
+        "target provider": m.target.provider,
+        "target endpoint": m.target.base_url,
+        "target model": m.target.requested_model,
+        "target temperature": str(tp.temperature),
+        "target top_p": str(tp.top_p),
+        "target max_tokens": str(tp.max_tokens),
         "suite": m.suite.hash if m.suite else None,
     }
 
@@ -197,6 +234,34 @@ def _provenance_fields(record: RunRecord) -> dict[str, str | None]:
     }
 
 
+def _incomparability_reason(
+    before: RunRecord, after: RunRecord, config: list[FieldChange]
+) -> str:
+    """One sentence saying why the evaluator fingerprints differ.
+
+    A schema difference gets named first. A record sealed before schema 1.4 has no
+    judge endpoint, no `max_tokens` and no scorer config hash, so a fingerprint
+    difference against a newer record may be an artefact of the older schema rather than
+    a change anyone made, and saying "the rubric changed" would be wrong.
+    """
+    if not records_share_fingerprint_inputs(before, after):
+        versions = sorted({before.manifest.schema_version, after.manifest.schema_version})
+        return (
+            f"the two runs were sealed under different schema versions "
+            f"({', '.join(versions)}). Fields the evaluator fingerprint covers from 1.4 - "
+            "the judge endpoint, max_tokens, the scorer's own settings - are absent from "
+            "the older record, so they cannot be compared. Re-record the older run to "
+            "compare these directly."
+        )
+    changed = [c.name for c in config if c.changed and c.name in EVALUATOR_FIELDS]
+    if changed:
+        return f"the grading setup changed: {', '.join(changed)}."
+    return (
+        "the evaluator fingerprints differ although no named field did, which means a "
+        "judge parameter or scorer setting changed that this summary does not list."
+    )
+
+
 def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
     """Compare two sealed runs across score, stability and evaluator configuration."""
     config = [
@@ -208,6 +273,7 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
     # Comparability is about the grader, not the subject: a different target model is
     # exactly what a benchmark compares.
     comparable = evaluator_fingerprint(before) == evaluator_fingerprint(after)
+    reason = _incomparability_reason(before, after, config) if not comparable else ""
 
     paired = compare_runs(before, after)
     ids_b = {c.case_id for c in before.results}
@@ -241,4 +307,5 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
         still_unstable=sorted(set(unstable_a) & set(unstable_b)),
         cases_added=sorted(ids_a - ids_b),
         cases_removed=sorted(ids_b - ids_a),
+        reason=reason,
     )

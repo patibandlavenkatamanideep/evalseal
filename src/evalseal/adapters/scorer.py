@@ -83,9 +83,23 @@ class Scorer(Protocol):
     def score(self, prompt: str, response_text: str, expected: str | None) -> ScoreResult: ...
 
 
+def scorer_config(scorer: object) -> dict:
+    """The scorer's own settings that change a verdict, for the receipt to seal.
+
+    The scorer type alone is not the instrument: `regex "^yes$"` and `regex "^no$"` are
+    different graders, and until schema 1.4 they fingerprinted identically, so `diff`
+    called two runs comparable that measured opposite things.
+    """
+    config = getattr(scorer, "config", None)
+    return dict(config()) if callable(config) else {}
+
+
 @dataclass
 class ExactMatchScorer:
     kind: ScorerKind = "exact"
+
+    def config(self) -> dict:
+        return {}
 
     def score(self, prompt, response_text, expected):
         ok = expected is not None and response_text.strip() == expected.strip()
@@ -96,6 +110,9 @@ class ExactMatchScorer:
 class RegexScorer:
     pattern: str
     kind: ScorerKind = "regex"
+
+    def config(self) -> dict:
+        return {"pattern": self.pattern}
 
     def score(self, prompt, response_text, expected):
         ok = re.search(self.pattern, response_text) is not None
@@ -119,6 +136,9 @@ class AnswerMatchScorer:
     """
     tolerance: float = 1e-6
     kind: ScorerKind = "answer_match"
+
+    def config(self) -> dict:
+        return {"tolerance": self.tolerance}
 
     def score(self, prompt, response_text, expected):
         if expected is None:
@@ -155,6 +175,11 @@ class LLMJudgeScorer:
     judge: Target
     rubric: str
     kind: ScorerKind = "llm_judge"
+
+    def config(self) -> dict:
+        # The rubric and prompt template are hashed separately; the judge is a target
+        # and carries its own provenance.
+        return {}
     # Informational only, and racy under concurrency. Never sealed: until schema 1.3 the
     # receipt hashed this, which made the judge prompt hash depend on whichever case was
     # scored last and on that case's response.

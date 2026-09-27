@@ -3,11 +3,18 @@
 > **What EvalSeal does here today:** it seals the files that define an agent's
 > environment into the receipt, by digest, and re-checks them on verification.
 >
+> It also **checks the shape** of those files before sealing them, against the schema
+> below, and refuses the run if they do not match.
+>
 > **What it does not do:** run or replay agents. EvalSeal calls a target and scores the
 > reply. It has no tool loop, no planner and no sandbox, and this page does not pretend
 > otherwise. If your harness produces the two artifacts described below, EvalSeal can
 > make them part of a receipt that a third party can check. Producing them is your
 > harness's job.
+>
+> Validation is **shape, not truth**. It catches a malformed manifest, a duplicated call
+> key, a `denied` call carrying a response digest, an `allowed` tool the manifest never
+> defines. It cannot catch a harness that reports tool calls it never made.
 
 ## Why the ACL is not enough
 
@@ -162,6 +169,40 @@ A worked pair of files is in [examples/agent/](../examples/agent/), and
 `tests/test_agent_artifacts.py` checks that every digest in them is internally
 consistent.
 
+### Validation, and what it refuses
+
+Sealing a file under one of the agent roles - `tool_acl`, `tool_manifest`,
+`tool_responses`, `tool_calls` - holds it to the schema. A file under any other role is
+opaque: its digest is sealed and its content is nobody's business, which is what keeps
+`--artifact` general.
+
+Validation **fails closed**, for the same reason an `external` artifact does: a digest
+over a broken file produces a receipt that verifies perfectly and describes an
+environment nobody can reconstruct. That receipt would be sound and useless at once.
+
+```console
+$ evalseal run --suite agent-suite.json --artifact tool_acl=tools.json
+Error: 2 problem(s) in the agent artifact(s) you are sealing:
+  tool_acl: `response_mode` is 'teleported'; expected one of live, recorded, mocked, external
+  tool_acl: allowed[0] permits 'ghost', which `tools` does not define
+The schema is in docs/agent-eval-receipts.md. EvalSeal checks the shape of these files,
+not whether the agent really made these calls.
+```
+
+What it checks: the `schema` string, a `response_mode` from the four above, every tool
+having a name and a valid `definition_sha256`, no tool both allowed and denied, no
+duplicate tool names, unique `(case_id, repeat, seq)` call keys, a valid `input_sha256`
+on every call, a `response_sha256` on every `ok` call and none on a `denied` one, and a
+well-formed `manifest_sha256` when present.
+
+The API is available to a harness that wants to check its own output before writing it:
+
+```python
+from evalseal.agent_artifacts import validate_tool_manifest, validate_tool_responses
+
+problems = validate_tool_manifest(manifest)   # [] when it is well formed
+```
+
 ## Mapping an existing harness onto this
 
 None of these are integrations EvalSeal ships. They are the shape of the adapter you
@@ -197,4 +238,8 @@ response. One `calls` entry per pair.
 What it does establish is the thing that was missing: two agent runs whose ACL *and*
 frozen responses hash identically had the same environment, and a receipt whose
 `tool_responses` digest no longer matches has had that environment changed underneath
-it.
+it. Plus, now, that the files were the shape they claimed when they were sealed.
+
+**EvalSeal stays a binder.** Validating a schema is not executing an agent, and it is
+not evidence about one. If EvalSeal ever does replay agents, that will be a separate
+decision announced as one, not something inferred from this page.

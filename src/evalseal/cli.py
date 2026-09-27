@@ -22,6 +22,7 @@ from .adapters.scorer import (
     RegexScorer,
 )
 from .adapters.target import AnthropicTarget, OpenAICompatibleTarget
+from .agent_artifacts import validate_agent_artifact
 from .anchor import (
     AnchorError,
     anchor_passed,
@@ -140,8 +141,32 @@ def load_dotenv(path: Path = Path(".env")) -> None:
             os.environ.setdefault(key, value)
 
 
+def _show_version(value: bool) -> None:
+    """Print the version that would be sealed into a receipt, and exit.
+
+    Two strings, because they can disagree and the difference matters: `__version__` is
+    what this build says it is, and `harness_version` is what a receipt produced by it
+    records. An editable checkout whose metadata lags is exactly when someone needs to
+    see both.
+    """
+    if not value:
+        return
+    from . import __version__
+    from .models import SCHEMA_VERSION, RunConfig
+
+    console.print(
+        f"evalseal {__version__}\n"
+        f"sealed as {RunConfig().harness_version} · record schema {SCHEMA_VERSION}"
+    )
+    raise typer.Exit(code=0)
+
+
 @app.callback()
-def _main() -> None:
+def _main(
+    version: bool = typer.Option(
+        False, "--version", "-V", callback=_show_version, is_eager=True,
+        help="Show the version and the record schema it seals, then exit."),
+) -> None:
     load_dotenv()
 
 
@@ -277,8 +302,8 @@ _RESERVED_ROLES = {"cassette", "dataset", "suite"}
 # backend without being told which half of its check EvalSeal actually performs.
 _BACKEND_NOTES = {
     "local": "   attests nothing: binds files together, establishes no time",
-    "rfc3161": " experimental: needs --tsa URL; the token's signature is not "
-               "verified by EvalSeal",
+    "rfc3161": " EXPERIMENTAL - message imprint checked, TSA signature NOT verified "
+               "by EvalSeal; needs --tsa URL",
 }
 
 
@@ -304,6 +329,21 @@ def _parse_artifacts(pairs: list[str]) -> dict[str, str]:
         if role in out:
             raise typer.BadParameter(f"--artifact role {role!r} given twice")
         out[role] = path
+
+    # Fail closed on a malformed agent artifact, for the same reason an `external`
+    # artifact fails closed: a digest over a broken file produces a receipt that
+    # verifies perfectly and describes an environment nobody can reconstruct.
+    problems = [
+        (role, problem)
+        for role, path in out.items()
+        for problem in validate_agent_artifact(role, path)
+    ]
+    if problems:
+        listed = "\n".join(f"  {role}: {problem}" for role, problem in problems)
+        raise typer.BadParameter(
+            f"{len(problems)} problem(s) in the agent artifact(s) you are sealing:\n"
+            f"{listed}\nThe schema is in docs/agent-eval-receipts.md. EvalSeal checks "
+            "the shape of these files, not whether the agent really made these calls.")
     return out
 
 
@@ -1345,10 +1385,13 @@ def preregister(
         [], "--require-artifact",
         help="An artifact role the receipt must seal by digest, such as `cassette`. "
              "Repeatable."),
-    require_ci: bool = typer.Option(
-        False, "--require-ci",
-        help="Require the receipt to carry CI markers. This is the environment's own "
-             "claim; see docs/pre-registration.md for what it is worth."),
+    require_ci_claim: bool = typer.Option(
+        False, "--require-ci-claim",
+        help="Require the receipt to carry CI markers. Named `claim` because that is "
+             "all it is: any shell can export GITHUB_ACTIONS=true, so this catches a "
+             "receipt produced on a laptop by accident, not one produced there on "
+             "purpose. Stronger evidence needs a resolvable run URL and a ledger "
+             "signature from a key only CI holds. See docs/pre-registration.md."),
     require_anchor: bool = typer.Option(
         False, "--require-anchor", help="Require a verifying anchor at gate time."),
     require_external_anchor: bool = typer.Option(
@@ -1398,7 +1441,7 @@ def preregister(
         case_ids=case_ids,
         evaluator_fingerprint_pin=pin,
         required_artifacts=list(require_artifact),
-        require_ci=require_ci,
+        require_ci_claim=require_ci_claim,
         require_anchor=require_anchor,
         require_external_anchor=require_external_anchor,
         baseline=baseline,

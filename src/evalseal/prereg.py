@@ -98,7 +98,7 @@ class Preregistration(_Strict):
     # Explicit, because "the cassette was not there" must never pass by default.
     allow_external_artifacts: list[str] = Field(default_factory=list)
 
-    require_ci: bool = False
+    require_ci_claim: bool = False
     require_signature: bool = False
     require_anchor: bool = False
     require_external_anchor: bool = False
@@ -147,7 +147,7 @@ def build_preregistration(
     case_ids: list[str] | None = None,
     evaluator_fingerprint_pin: str | None = None,
     required_artifacts: list[str] | None = None,
-    require_ci: bool = False,
+    require_ci_claim: bool = False,
     require_signature: bool = False,
     require_anchor: bool = False,
     require_external_anchor: bool = False,
@@ -184,7 +184,7 @@ def build_preregistration(
         runs=RunContract(n_repeats=n_repeats, min_repeats_per_case=min_repeats_per_case),
         evaluator_fingerprint=evaluator_fingerprint_pin,
         required_artifacts=sorted(required_artifacts or []),
-        require_ci=require_ci,
+        require_ci_claim=require_ci_claim,
         require_signature=require_signature,
         require_anchor=require_anchor,
         require_external_anchor=require_external_anchor,
@@ -281,18 +281,21 @@ def check_preregistration(
 
     checks.extend(_artifact_checks(prereg, record))
 
-    if prereg.require_ci:
+    if prereg.require_ci_claim:
         ci = record.manifest.environment.ci
         ok = bool(ci and ci.claimed)
         where = f" ({ci.provider}" + (f", {ci.run_url}" if ci and ci.run_url else "") + ")" \
             if ci and ci.claimed else ""
         checks.append(Check(
-            "prereg.require_ci", ok,
-            f"the receipt claims it was produced in CI{where}. This is the environment's "
-            "own claim: check the run URL, and sign the ledger with a key only CI holds"
+            "prereg.require_ci_claim", ok,
+            # Never phrased as "produced in CI". Environment variables are the only
+            # evidence here, and `GITHUB_ACTIONS=true` costs a laptop nothing.
+            f"CLAIM ONLY, not proof: the environment said CI{where}. Any shell can "
+            "export the same variables. For evidence, open the run URL and require a "
+            "ledger signature from a key only CI holds"
             if ok else
-            "the receipt carries no CI markers, so it was produced outside CI (or by a "
-            "runner EvalSeal does not recognise)"))
+            "the receipt carries no CI markers, so it was not produced by a CI runner "
+            "EvalSeal recognises"))
 
     checks.extend(_anchor_checks(prereg, anchor))
     return checks

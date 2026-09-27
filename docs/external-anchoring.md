@@ -152,7 +152,13 @@ Every adapter's `verify` must say in `established` what the proof shows *and who
 rests on*. Only the digest is sent to any service, never the anchor, the receipt, or
 anything they hash.
 
-### RFC 3161 timestamp authority — **implemented, experimental**
+### RFC 3161 timestamp authority — **EXPERIMENTAL**
+
+> **message imprint checked, TSA signature NOT verified by EvalSeal**
+>
+> This is the whole boundary, and it is what the tool prints on every proof it stores and
+> every check it runs. A stored token is **not verified external timestamping**. Until
+> CMS signature validation lives inside EvalSeal, do not describe it as such.
 
 This one exists now, as the `rfc3161` backend:
 
@@ -178,8 +184,9 @@ authority asserts in `genTime`.
 **What it does not do: verify the authority's signature.** That means validating a CMS
 `SignedData` against a certificate chain, which neither EvalSeal's parser nor
 `cryptography`'s public API does, and adding an ASN.1 dependency to do it has not been
-done. So every message this backend produces says which half ran, carries
-`verified_by_evalseal: false`, and hands back the command that does the other half:
+done. So every message this backend produces leads with the boundary, carries
+`verified_by_evalseal: false` and a `boundary` field repeating it, and hands back the
+command that does the other half:
 
 ```bash
 openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <tsa-ca.pem>

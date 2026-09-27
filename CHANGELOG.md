@@ -49,6 +49,20 @@ Two things are worth knowing:
   ok/denied/error and a response mode of live/recorded/mocked/external - and maps
   Kitaru-style replay, Langfuse and Braintrust traces onto them. **EvalSeal does not run
   or replay agents**, has no tool loop, and a test fails if the page stops saying so.
+- **`evalseal --version`** (`-V`), printing the version, the `harness_version` it seals
+  into receipts and the record schema. Two strings because they can disagree, and an
+  editable checkout whose metadata lags is exactly when someone needs to see both.
+- **Schema validation for agent artifacts.** A file sealed under an agent role -
+  `tool_acl`, `tool_manifest`, `tool_responses`, `tool_calls` - is checked against the
+  documented schema and the run is **refused** if it does not match, for the same reason
+  an `external` artifact fails closed: a digest over a broken file produces a receipt
+  that verifies perfectly and describes an environment nobody can reconstruct. It
+  catches a bad `response_mode`, an `allowed` tool the manifest never defines, a tool
+  both allowed and denied, duplicate `(case_id, repeat, seq)` keys, a missing
+  `response_sha256` on a successful call and a present one on a denied call. This is
+  **shape validation, not truth**: EvalSeal still does not run or replay agents, and
+  cannot tell whether a harness reported calls it never made. A role outside that set
+  stays opaque, so `--artifact` remains general.
 - **An RFC 3161 anchor backend**, experimental. The objection: *"a local signature proves
   integrity after signing, but not independent time or custody."* `anchor --with rfc3161
   --tsa URL` builds a real DER `TimeStampReq`, submits it to an authority **you** name,
@@ -69,10 +83,13 @@ Two things are worth knowing:
   [docs/suite-format.md](docs/suite-format.md) explains the split, and why the section
   digests are recorded rather than fingerprinted.
 - **CI provenance in the receipt (schema 1.5)**, so a pre-registration can require that a
-  receipt came from CI. The field is named `claimed` because that is what it is: env vars
-  can be set anywhere, and the check's own text says a resolvable run URL and a CI-held
-  signing key are what make it evidence. Only a fixed allowlist of variables is read,
-  named one at a time rather than by prefix, so `GITHUB_TOKEN` cannot be swept in.
+  receipt came from CI. Both the field and the rule are named for what they are -
+  `claimed`, and `require_ci_claim` - because a rule called `require_ci` reads as proof,
+  and this is a claim: `GITHUB_ACTIONS=true evalseal run` on a laptop passes it. The
+  check's output leads with `CLAIM ONLY, not proof` and says that a resolvable run URL
+  and a CI-held signing key are what make it evidence. Only a fixed allowlist of
+  variables is read, named one at a time rather than by prefix, so `GITHUB_TOKEN` cannot
+  be swept in.
 - **A much fuller PR workflow**: artifact verification, the pre-registration gate, a judge
   drift report beside the score diff, and an anchor that is re-verified after being
   written. The step summary gained the pre-registration clauses, what moved underneath
@@ -121,6 +138,15 @@ Two things are worth knowing:
   signature, each artifact, the clock, the external proof - and a test asserts it.
 - **The PR step summary leads with comparability**, ahead of the gate verdict and every
   number, because a score delta between differently graded runs is not a change.
+- **The RFC 3161 backend states its boundary in one phrase, everywhere.** *"message
+  imprint checked, TSA signature NOT verified by EvalSeal"* now leads every proof, every
+  check result, `--list-backends`, the README, the threat model and
+  docs/external-anchoring.md, and proofs carry a `boundary` field repeating it. For a
+  tool whose claim is "here is exactly what was established", a partial check that reads
+  like a full one is the worst possible output.
+- **A required artifact fails closed.** A role sealed as `external` - named but
+  unreadable, so no digest exists - fails the gate unless listed in
+  `allow_external_artifacts`. A named test records the decision.
 
 ## [2.1.0] - 2026-09-23
 

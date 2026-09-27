@@ -86,12 +86,15 @@ class CodeProvenance(BaseModel):
 class CIProvenance(BaseModel):
     """What the environment said about the CI job, sealed as a claim.
 
-    `claimed` is the honest name for the whole object: every field is an environment
-    variable, and a laptop can export the same ones. It catches a receipt that was
-    produced locally and attached to a pull request by accident or convenience. It
-    does not stop someone who sets GITHUB_ACTIONS=true on purpose, and a policy that
-    requires CI has to lean on `run_url` being resolvable and on the ledger being
-    signed by a key the CI job holds and a developer does not.
+    `claimed` is the honest name for the whole object, and `require_ci_claim` is the
+    honest name for the rule that checks it. **This is a claim, never proof.** Every
+    field is an environment variable, and a laptop can export the same ones:
+    `GITHUB_ACTIONS=true evalseal run` produces a receipt that claims CI.
+
+    So it catches a receipt produced locally and attached to a pull request by accident
+    or convenience. It does not stop anyone who sets the variable on purpose. A policy
+    that wants evidence has to lean on `run_url` being resolvable and on the ledger
+    being signed by a key the CI job holds and a developer does not.
     """
     claimed: bool = False
     provider: str | None = None            # github_actions | gitlab_ci | ... | unknown

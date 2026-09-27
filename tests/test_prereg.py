@@ -203,15 +203,15 @@ def test_a_sealed_artifact_passes_and_reports_its_digest(tmp_path):
 
 # --- CI, and what it is honestly worth -------------------------------------------------
 
-def test_a_receipt_produced_outside_ci_fails_only_when_ci_is_required():
+def test_a_receipt_produced_outside_ci_fails_only_when_the_claim_is_required():
     record = _record()
     assert record.manifest.environment.ci is None
 
-    assert _failed(check_preregistration(_contract(require_ci=False), record)) == []
+    assert _failed(check_preregistration(_contract(require_ci_claim=False), record)) == []
 
-    checks = _by_rule(check_preregistration(_contract(require_ci=True), record))
-    assert not checks["prereg.require_ci"].passed
-    assert "outside CI" in checks["prereg.require_ci"].detail
+    checks = _by_rule(check_preregistration(_contract(require_ci_claim=True), record))
+    assert not checks["prereg.require_ci_claim"].passed
+    assert "no CI markers" in checks["prereg.require_ci_claim"].detail
 
 
 def test_a_ci_receipt_passes_and_the_check_says_it_is_only_a_claim():
@@ -219,11 +219,14 @@ def test_a_ci_receipt_passes_and_the_check_says_it_is_only_a_claim():
     record.manifest.environment.ci = CIProvenance(
         claimed=True, provider="github_actions",
         run_url="https://github.com/o/r/actions/runs/42")
-    checks = _by_rule(check_preregistration(_contract(require_ci=True), record))
-    assert checks["prereg.require_ci"].passed
-    detail = checks["prereg.require_ci"].detail
-    assert "environment's own claim" in detail        # never "proves it ran in CI"
+    checks = _by_rule(check_preregistration(_contract(require_ci_claim=True), record))
+    assert checks["prereg.require_ci_claim"].passed
+    detail = checks["prereg.require_ci_claim"].detail
+    # Leads with the boundary; never phrased as "produced in CI".
+    assert detail.startswith("CLAIM ONLY, not proof")
+    assert "Any shell can export the same variables" in detail
     assert "run URL" in detail
+    assert "produced in CI" not in detail
 
 
 def test_ci_provenance_reads_only_the_allowlist(monkeypatch):
@@ -272,7 +275,7 @@ def test_requiring_an_external_proof_fails_on_a_local_anchor():
 # --- the file itself ---------------------------------------------------------------------
 
 def test_a_pre_registration_round_trips(tmp_path):
-    contract = _contract(required_artifacts=["cassette"], require_ci=True)
+    contract = _contract(required_artifacts=["cassette"], require_ci_claim=True)
     path = tmp_path / "prereg.json"
     path.write_text(contract.to_json(), encoding="utf-8")
     assert load_preregistration(path) == contract
@@ -282,7 +285,7 @@ def test_an_unknown_key_is_refused_rather_than_ignored(tmp_path):
     """Same rule as policy.py: a typo must not read as "no opinion"."""
     path = tmp_path / "prereg.json"
     data = json.loads(_contract().to_json())
-    data["require_c1"] = True                      # a plausible typo for require_ci
+    data["require_c1"] = True                      # a plausible typo for require_ci_claim
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(PreregError) as e:
         load_preregistration(path)
@@ -463,3 +466,23 @@ def test_the_suite_runs_with_no_inherited_ci_claim():
 
     assert ci_provenance() is None
     assert _record().manifest.environment.ci is None
+
+
+def test_a_required_artifact_fails_closed_by_default(tmp_path):
+    """The decision, recorded as a test: fail-closed, not fail-open.
+
+    A role sealed as `external` was named and unreadable, so no digest exists. That is a
+    digest-shaped hole where the evidence should be, and it must never pass by default -
+    only when someone writes the role into `allow_external_artifacts` on purpose.
+    """
+    record = run_eval(
+        make_dataset("a", "b"),
+        LocalCallableTarget(scripted({"a": ["yes"], "b": ["yes"]})),
+        RegexScorer(r"^yes$"), n_repeats=5,
+        artifact_paths={"cassette": str(tmp_path / "never-existed.json")})
+    assert record.manifest.artifacts[0].kind == "external"
+
+    default = _contract(required_artifacts=["cassette"])
+    assert default.allow_external_artifacts == []          # nothing allowed implicitly
+    assert not _by_rule(check_preregistration(default, record))[
+        "prereg.artifact[cassette]"].passed

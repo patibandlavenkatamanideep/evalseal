@@ -47,9 +47,9 @@ That file pins, by digest, before the run:
 | `case_set_hash` over the case ids | dropping the eight items that failed |
 | `n_repeats` and `min_repeats_per_case` | reporting a lucky single run as a five-repeat one |
 | evaluator fingerprint (with `--pin-from`) | swapping the judge or the rubric after seeing the score |
-| required artifact roles | publishing a score with no cassette behind it |
+| required artifact roles | publishing a score with no cassette behind it (**fail-closed**: a role sealed as `external` fails unless allow-listed) |
 | an embedded policy | loosening the threshold after a failure |
-| `require_ci` | producing the receipt on the laptop of the person being measured |
+| `require_ci_claim` | producing the receipt on the laptop of the person being measured (a *claim*, see below) |
 
 Then, at gate time:
 
@@ -91,8 +91,9 @@ swing on a re-roll, and per-case flip rates make an unstable suite visible.
 
 ## The CI clause, in particular
 
-`require_ci` deserves its own warning, because it is the clause most likely to be
-over-read.
+`require_ci_claim` deserves its own warning, because it is the clause most likely to be
+over-read. It is named `..._claim` rather than `require_ci` on purpose: a rule whose name
+promises proof will be read as proof no matter what the docs say underneath it.
 
 Schema 1.5 seals what the environment *claimed* about the CI job: provider, run id, run
 URL, repository, ref, commit, event. The field is called `claimed` for a reason. Every
@@ -100,7 +101,7 @@ value is an environment variable, and `GITHUB_ACTIONS=true evalseal run` produce
 receipt that claims CI from a laptop. The check's own output says so:
 
 ```console
-ok   prereg.require_ci: the receipt claims it was produced in CI (github_actions,
+ok   prereg.require_ci_claim: the receipt claims it was produced in CI (github_actions,
      https://github.com/owner/repo/actions/runs/42). This is the environment's own
      claim: check the run URL, and sign the ledger with a key only CI holds
 ```

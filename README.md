@@ -87,13 +87,17 @@ stops being a quiet edit. Neither can prove a hidden run never happened; see
 **Why artifact binding?** A score is a claim about responses. If the cassette holding
 those responses can be edited without the receipt noticing, the receipt vouches for
 nothing in particular. For agent evals the same argument covers the tool ACL *and* the
-frozen tool responses: [docs/agent-eval-receipts.md](docs/agent-eval-receipts.md).
+frozen tool responses, whose shape is validated before sealing so a digest is never taken
+over a broken file: [docs/agent-eval-receipts.md](docs/agent-eval-receipts.md). EvalSeal
+binds and validates these files; it does **not** run or replay agents.
 
 **Why anchoring?** A hash chain proves a sequence was not edited after it was written. It
 says nothing about *when* it was written, and it does not constrain the key holder, who
 can rebuild and re-sign. An attestation by someone else is the only fix, which is why
-EvalSeal runs no timestamp service of its own:
-[docs/external-anchoring.md](docs/external-anchoring.md).
+EvalSeal runs no timestamp service of its own. The RFC 3161 backend is **experimental**
+and says exactly which half it checked — *message imprint checked, TSA signature NOT
+verified by EvalSeal* — because a partial check that reads like a full one is worse than
+no check: [docs/external-anchoring.md](docs/external-anchoring.md).
 
 ## Quickstart
 
@@ -629,7 +633,8 @@ happen. Verify what the page claims with `evalseal verify`.
 | `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
 | `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--prereg` also checks it against a pre-registration. `--expect-evaluator` pins the grading setup, `--expect-config` the whole configuration. `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy or contract |
 | `evalseal preregister` | Declares an evaluation before it runs: suite, dataset, case-id set, repeat count, required artifacts, optionally an embedded policy and a pinned evaluator fingerprint. See [docs/pre-registration.md](docs/pre-registration.md). | `0` |
-| `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp. `--with rfc3161 --tsa URL` adds a timestamp-authority proof (experimental); see [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
+| `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp. `--with rfc3161 --tsa URL` adds a timestamp-authority proof — **experimental: message imprint checked, TSA signature NOT verified by EvalSeal**; see [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
+| `evalseal --version` | The version, the `harness_version` it seals into receipts, and the record schema. | `0` |
 | `evalseal anchor-verify` | Re-checks every claim in an anchor, reporting what it could not check as not checked. | `0` verified · `1` failed |
 | `evalseal drift A B` | Did the judge behave the same way when the suite was re-run? Labels the cause: evaluator drift, judge variance, target variance or a target change. `--json` for CI. | `0` |
 

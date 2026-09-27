@@ -71,16 +71,27 @@ be read as including the timestamp.
 **It does not protect against:** backdating, or the key holder re-anchoring a rebuilt
 ledger. Both need an external attestation.
 
-**External anchoring, as it stands.** `evalseal anchor --with rfc3161 --tsa URL`
-submits the subject digest to a timestamp authority you name and stores the token.
-`anchor-verify` re-reads it offline and confirms the token is about this anchor's
-subject digest, and reports the time the authority asserts. It **does not verify the
-authority's signature** - that needs CMS validation EvalSeal does not do - so the proof
-carries `verified_by_evalseal: false` and the check hands back the `openssl ts -verify`
-command that finishes the job. Until that check moves inside EvalSeal, treat an RFC 3161
-proof as evidence a third party can confirm, not as something EvalSeal confirmed. There
-is no default authority, by design:
-[docs/external-anchoring.md](docs/external-anchoring.md).
+**External anchoring, as it stands: EXPERIMENTAL.** The boundary, in the words the tool
+itself prints: **message imprint checked, TSA signature NOT verified by EvalSeal.**
+
+`evalseal anchor --with rfc3161 --tsa URL` submits the subject digest to an authority you
+name and stores the token. `anchor-verify` re-reads it offline and establishes exactly
+two things: that the token's message imprint is this anchor's subject digest, and what
+time the authority asserts. It does **not** validate the authority's CMS signature
+against its certificate chain.
+
+So a stored token is **not verified external timestamping**. It is evidence that an
+authority was asked about this digest and answered, which anyone can finish checking:
+
+```bash
+openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <tsa-ca.pem>
+```
+
+Every proof carries `verified_by_evalseal: false` and a `boundary` field saying the same
+thing, `anchor --list-backends` marks the backend EXPERIMENTAL, and a test fails if any
+message starts implying a signature was verified. Until CMS validation lives inside
+EvalSeal, this must not be described as external timestamping. There is no default
+authority, by design: [docs/external-anchoring.md](docs/external-anchoring.md).
 
 ### Artifact digests
 
@@ -88,7 +99,10 @@ The receipt seals digests of the cassette, dataset and suite. `evalseal verify
 --artifacts` re-hashes them.
 
 **Protects against:** responses being swapped after the fact, a dataset changing under a
-saved score.
+saved score. A pre-registration's required artifacts **fail closed**: a role sealed as
+`external` - named but unreadable when the record was sealed, so no digest exists - fails
+the gate unless that role is listed in `allow_external_artifacts`. A digest-shaped hole
+never passes by default.
 **Does not protect against:** an artifact that no longer exists. A digest can only be
 matched against a file someone kept, which is why anyone who may need to prove what a
 model said must retain the raw artifacts themselves, securely, outside EvalSeal.
@@ -118,8 +132,9 @@ that passed.
 **4. What would external anchoring add?** An independent timestamp, or inclusion in a
 transparency log, letting a third party confirm the receipt existed by a given time -
 which is what stops backdating and stops a key holder silently replacing a signed state.
-The `rfc3161` backend stores a real token today; it is experimental because EvalSeal does
-not yet validate the authority's signature. See
+The `rfc3161` backend stores a real token today, and it is **EXPERIMENTAL: message
+imprint checked, TSA signature NOT verified by EvalSeal.** Do not read a stored token as
+verified external timestamping until that changes. See
 [docs/external-anchoring.md](docs/external-anchoring.md).
 
 **5. Why is the suite hash not in the evaluator fingerprint?** Because a flat suite file
@@ -149,7 +164,7 @@ run count, the ledger, the artifacts, the CI receipt and the anchors verifiable:
 | swap the judge or edit the rubric after seeing the score | pinned evaluator fingerprint |
 | loosen the threshold after a failure | a policy committed before the run; the change is a commit |
 | publish a score with no responses behind it | required artifact roles, re-hashed by `verify --artifacts` |
-| produce the receipt on the laptop of the person being measured | `require_ci`, and a signing key only CI holds |
+| produce the receipt on the laptop of the person being measured | `require_ci_claim`, and a signing key only CI holds |
 | backdate it | an external anchor - and only an external one |
 
 None of that stops a determined author from pre-registering, running privately until
@@ -247,11 +262,19 @@ limits.
 
 Schema 1.5 seals what the environment *claimed* about the CI job - provider, run id,
 run URL, repository, ref, commit, event - and a pre-registration can require it with
-`require_ci`. The field is named `claimed` because that is exactly what it is.
+`require_ci_claim`. Both the field and the rule are named for what they are - `claimed`,
+and `require_ci_claim` - because a rule called `require_ci` would read as proof.
 
 **The trust boundary:** every value is an environment variable. `GITHUB_ACTIONS=true
-evalseal run` on a laptop produces a receipt that claims CI. The check's own output
-says so rather than implying more.
+evalseal run` on a laptop produces a receipt that claims CI. The check's own output leads
+with that rather than implying more:
+
+```console
+ok   prereg.require_ci_claim: CLAIM ONLY, not proof: the environment said CI
+     (github_actions, https://github.com/owner/repo/actions/runs/42). Any shell can
+     export the same variables. For evidence, open the run URL and require a ledger
+     signature from a key only CI holds
+```
 
 What turns the claim into evidence lives outside the receipt, and both parts are yours
 to arrange:

@@ -225,14 +225,17 @@ def _proof(digest: str = DIGEST, **kwargs) -> dict:
 def test_check_confirms_the_token_is_about_this_digest():
     ok, detail = Rfc3161Backend().check(DIGEST, _proof())
     assert ok
-    assert "about this anchor's subject digest" in detail
+    assert "matches this anchor's subject digest" in detail
     assert "2026-09-23T12:00:00+00:00" in detail
+    # The boundary leads, before anything the token establishes.
+    assert detail.startswith("message imprint checked, TSA signature NOT verified")
 
 
 def test_check_never_claims_the_signature_was_verified():
-    """The one thing this backend must not imply."""
+    """The one thing this backend must not imply, in the exact agreed phrasing."""
     _, detail = Rfc3161Backend().check(DIGEST, _proof())
-    assert "did not verify the authority's signature" in detail
+    assert "message imprint checked, TSA signature NOT verified by EvalSeal" in detail
+    assert "EXPERIMENTAL" in detail
     assert "openssl ts -verify" in detail
     for overclaim in ("signature verified", "cryptographically verified", "proven"):
         assert overclaim not in detail.lower()
@@ -321,7 +324,10 @@ def test_an_anchor_carries_the_proof_and_verifies_offline(tmp_path, monkeypatch)
     assert anchor_passed(checks)
     proof_check = next(c for c in checks if "rfc3161" in c.name)
     assert proof_check.passed
-    assert "did not verify the authority's signature" in proof_check.detail
+    assert ("message imprint checked, TSA signature NOT verified by EvalSeal"
+            in proof_check.detail)
+    assert proof["boundary"] == (
+        "message imprint checked, TSA signature NOT verified by EvalSeal")
 
 
 def test_a_tampered_anchor_breaks_the_proof_binding(tmp_path, monkeypatch):

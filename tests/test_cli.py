@@ -125,3 +125,21 @@ def test_replay_without_cassette_fails_loudly(example):
     assert result.exit_code == 1
     assert "No cassette entry" in result.output
     assert load_all() == []
+
+
+def test_version_flag_reports_what_a_receipt_would_seal():
+    """Two strings, because they can disagree: what this build says it is, and what a
+    receipt produced by it records."""
+    import evalseal
+    from evalseal.models import SCHEMA_VERSION
+
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    out = " ".join(result.output.split())
+    assert f"evalseal {evalseal.__version__}" in out
+    assert f"evalseal/{evalseal.__version__}" in out      # the harness_version
+    assert f"record schema {SCHEMA_VERSION}" in out
+
+
+def test_version_short_flag_matches():
+    assert runner.invoke(app, ["-V"]).output == runner.invoke(app, ["--version"]).output

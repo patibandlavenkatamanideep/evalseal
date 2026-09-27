@@ -14,7 +14,7 @@
   "note": "Example contract for the GSM8K replay suite. See docs/pre-registration.md.",
   "policy": null,
   "require_anchor": false,
-  "require_ci": false,
+  "require_ci_claim": false,
   "require_external_anchor": false,
   "require_signature": false,
   "required_artifacts": [

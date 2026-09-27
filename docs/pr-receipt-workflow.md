@@ -77,7 +77,7 @@ Each clause becomes a named check in the same table as the policy rules:
 Dropping the cases that failed, halving the repeat count or swapping the judge now fails
 the build by name. It still **cannot prove that nobody ran the suite privately first** -
 nothing that runs on the author's machine can. [docs/pre-registration.md](pre-registration.md)
-is explicit about where that line falls, including what `require_ci` is and is not worth.
+is explicit about where that line falls, including what `require_ci_claim` is and is not worth.
 
 ## Why a policy file rather than flags
 

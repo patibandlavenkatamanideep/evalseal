@@ -216,10 +216,15 @@ def parse_gen_time(text: str) -> str | None:
 
 # --- the backend -------------------------------------------------------------------------
 
+# The boundary, in one phrase, leading every message this module produces. For a tool
+# whose whole claim is "here is exactly what was established", a partial check that
+# reads like a full one is the worst possible output.
+_BOUNDARY = "message imprint checked, TSA signature NOT verified by EvalSeal"
+
 _UNVERIFIED = (
-    "EvalSeal did not verify the authority's signature - that needs the TSA's "
-    "certificate chain. Verify it with: openssl ts -verify -digest <digest> "
-    "-in token.tsr -CAfile <tsa-ca.pem>"
+    f"EXPERIMENTAL - {_BOUNDARY}. Verifying the signature needs the authority's "
+    "certificate chain, which EvalSeal does not validate. Finish the check yourself: "
+    "openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <tsa-ca.pem>"
 )
 
 
@@ -276,10 +281,11 @@ class Rfc3161Backend:
             "attested_time": parse_gen_time(info["gen_time"]) or info["gen_time"],
             "proof": base64.b64encode(der).decode("ascii"),
             "verified_by_evalseal": False,
+            "boundary": _BOUNDARY,
             "established": (
-                f"{self.url} asserts this digest existed no later than "
+                f"{_BOUNDARY}. {self.url} asserts this digest existed no later than "
                 f"{parse_gen_time(info['gen_time']) or info['gen_time']}, on that "
-                f"authority's word. {_UNVERIFIED}"),
+                f"authority's word alone. {_UNVERIFIED}"),
         }
 
     def check(self, subject_digest: str, proof: dict) -> tuple[bool, str]:
@@ -303,5 +309,6 @@ class Rfc3161Backend:
         when = parse_gen_time(info["gen_time"]) or info["gen_time"]
         authority = proof.get("authority", "the authority")
         return (True,
-                f"the token is about this anchor's subject digest and {authority} "
-                f"asserts it existed no later than {when}. {_UNVERIFIED}")
+                f"{_BOUNDARY}. The imprint matches this anchor's subject digest, and "
+                f"{authority} asserts it existed no later than {when} - on that "
+                f"authority's word, unverified here. {_UNVERIFIED}")

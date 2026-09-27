@@ -163,9 +163,9 @@ def _describe_shape(data: object, source: str | Path) -> str:
         return f"{source} holds a bare JSON {type(data).__name__}. {_WHAT_IS_EXPECTED}"
     keys = set(data)
     if keys >= _REPORT_KEYS and "manifest" not in keys:
-        return (f"{source} is the output of `evalseal report --json`, which summarises a "
-                f"receipt rather than being one. {_WHAT_IS_EXPECTED} The receipt is "
-                "written beside report.md when the run is sealed.")
+        return (f"{source}: this looks like report JSON, not a sealed receipt. Use the "
+                "receipt JSON produced by `evalseal run` - it is written as report.json "
+                f"beside report.md when the run is sealed. {_WHAT_IS_EXPECTED}")
     if "anchor_version" in keys or data.get("kind") == "evalseal.local-anchor":
         return (f"{source} is an anchor, not the receipt it anchors. {_WHAT_IS_EXPECTED} "
                 "`anchor-verify` takes both, anchor first.")

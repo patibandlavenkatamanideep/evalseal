@@ -151,6 +151,20 @@ jobs:
           judge_drift = load("judge-drift.json")
           lines = ["# EvalSeal receipt", ""]
 
+          # Comparability is the headline, ahead of the gate result and every number.
+          # A score delta between runs that were graded differently is not a change, so
+          # it must not be the first thing a reviewer's eye lands on - and a reviewer
+          # who reads only one line should read this one.
+          if drift is None:
+              lines += ["**Comparability:** no baseline receipt, so nothing was compared.", ""]
+          elif drift["comparable"]:
+              lines += ["**Comparable with the baseline:** yes, same grading setup.", ""]
+          else:
+              changed = ", ".join(c["field"] for c in drift["evaluator_changes"]) or "unknown"
+              lines += [f"# NOT COMPARABLE with the baseline ({changed} changed)", "",
+                        "The grading setup moved, so any score difference below is not a "
+                        "change in the model and must not be read as one.", ""]
+
           if gate is None:
               lines += ["**No gate result.** An earlier step failed; open the job log.", ""]
           else:
@@ -172,8 +186,6 @@ jobs:
                   paired = drift.get("paired") or {}
                   ci = paired.get("ci95", [0, 0])
                   lines += [
-                      "**Comparable with the baseline:** yes, same grading setup.",
-                      "",
                       "| baseline | this PR | difference | 95% CI | p | discordant items | verdict |",
                       "|---|---|---|---|---|---|---|",
                       f"| {drift['score']['before']:.3f} | {drift['score']['after']:.3f} "
@@ -191,9 +203,7 @@ jobs:
                   # target model, which is not a grading change.
                   changed = ", ".join(c["field"] for c in drift["evaluator_changes"]) or "unknown"
                   lines += [
-                      "**NOT COMPARABLE with the baseline.** The grading setup changed "
-                      f"({changed}), so the score difference below is not a change in the "
-                      "model and must not be read as one.",
+                      f"Evaluator fields that changed: {changed}.",
                       "",
                       f"Score {drift['score']['before']:.3f} to {drift['score']['after']:.3f} "
                       "(not comparable).",

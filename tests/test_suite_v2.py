@@ -263,3 +263,21 @@ def test_the_evaluator_fingerprint_does_not_depend_on_the_suite_format(
     assert evaluator_fingerprint(from_v2) == evaluator_fingerprint(from_flat)
     assert from_v2.manifest.suite.evaluator_hash is not None
     assert from_flat.manifest.suite.evaluator_hash is None
+
+
+def test_cases_may_be_a_bare_list(tmp_path):
+    """`"cases": ["c0"]` is the obvious thing to write, so it means `only`."""
+    cfg = _load_suite(_write(tmp_path, _v2(cases=["c0", "c1"])))
+    assert cfg["only"] == ["c0", "c1"]
+
+
+def test_cases_as_a_mapping_still_works(tmp_path):
+    cfg = _load_suite(_write(tmp_path, _v2(cases={"only": ["c0"]})))
+    assert cfg["only"] == ["c0"]
+
+
+def test_another_section_given_as_a_list_is_still_refused(tmp_path):
+    """The sugar is for `cases` only; elsewhere a list is a mistake worth naming."""
+    with pytest.raises(typer.BadParameter) as e:
+        _load_suite(_write(tmp_path, _v2(run=[{"n_repeats": 5}])))
+    assert "must be a mapping" in str(e.value)

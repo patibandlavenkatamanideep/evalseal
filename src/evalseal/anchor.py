@@ -427,6 +427,16 @@ def verify_anchor(
             "matches the digest sealed in the receipt" if same
             else f"{path} changed since the receipt was sealed"))
 
+    # Reported rather than left out. Every other line above is a check that passed or
+    # failed; this one is a check that *cannot* be made, and a reader comparing two
+    # anchors needs to see that stated where they read the rest of the verdict.
+    stamped = anchor.get("created_at") or "not recorded"
+    checks.append(AnchorCheck(
+        "created_at (not verified)", True,
+        f"{stamped} is the anchoring machine's own clock. Nothing here establishes that "
+        "the anchor was made then; a backdated clock produces a backdated anchor",
+        required=False))
+
     proofs = anchor.get("external_proofs") or []
     if not proofs:
         checks.append(AnchorCheck(

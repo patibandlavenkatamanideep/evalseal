@@ -51,9 +51,8 @@ def test_report_json_output_is_named_as_such(tmp_path, sealed):
 
     with pytest.raises(ReceiptError) as e:
         load_receipt(summary)
-    message = str(e.value)
-    assert "report --json" in message          # names the command that wrote it
-    assert "summarises a receipt rather than being one" in message
+    message = " ".join(str(e.value).split())
+    assert "looks like report JSON, not a sealed receipt" in message
     assert "evalseal run" in message           # and what to pass instead
 
 
@@ -201,3 +200,17 @@ def test_diff_exits_cleanly_on_a_non_receipt(tmp_path, sealed):
     assert "Traceback" not in result.output
     # The console wraps to the terminal width, so compare against unwrapped text.
     assert "not a sealed receipt" in " ".join(result.output.split())
+
+
+def test_the_report_json_message_uses_the_wording_the_objection_asked_for(tmp_path, sealed):
+    """Verbatim, because this is the sentence someone hitting the mistake will search."""
+    _, receipt, _ = sealed
+    summary = tmp_path / "summary.json"
+    summary.write_text(
+        runner.invoke(app, ["report", str(receipt), "--json"]).stdout, encoding="utf-8")
+
+    with pytest.raises(ReceiptError) as e:
+        load_receipt(summary)
+    message = " ".join(str(e.value).split())
+    assert "this looks like report JSON, not a sealed receipt" in message
+    assert "Use the receipt JSON produced by `evalseal run`" in message

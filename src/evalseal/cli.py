@@ -181,6 +181,11 @@ def _flatten_v2(suite: dict, path: Path) -> dict:
         body = suite.get(section)
         if body is None:
             continue
+        # `"cases": ["a", "b"]` is sugar for `{"only": [...]}`. A bare list is the
+        # obvious thing to write, and rejecting it would be pedantry; anything else
+        # being a list is a mistake worth naming.
+        if section == "cases" and isinstance(body, list):
+            body = {"only": body}
         if not isinstance(body, dict):
             raise typer.BadParameter(f"{path}: section {section!r} must be a mapping")
         extra = set(body) - allowed

@@ -488,3 +488,51 @@ def test_a_proof_from_an_unavailable_backend_is_not_checked_rather_than_passed(s
 def test_an_unknown_backend_is_refused_at_anchor_time(sealed):
     with pytest.raises(AnchorError, match="unknown anchor backend"):
         build_anchor(*sealed, backends=["nope"])
+
+
+def test_verification_says_created_at_is_an_unverified_local_clock(sealed):
+    """A verdict that lists what it checked must also state what it could not."""
+    record, receipt, ledger = sealed
+    anchor = build_anchor(record, receipt, ledger)
+    checks = _checks_by_name(verify_anchor(anchor, record, ledger=ledger))
+
+    clock = checks["created_at (not verified)"]
+    assert clock.required is False          # its absence cannot fail an anchor
+    assert anchor["created_at"] in clock.detail
+    assert "anchoring machine's own clock" in clock.detail
+    assert "backdated clock produces a backdated anchor" in clock.detail
+
+
+def test_every_layer_of_the_verdict_is_named_separately(tmp_path):
+    """Phase D's requirement: a reader can tell which layer established what.
+
+    Built with a sealed artifact and a signature, so every layer is present and the
+    test would notice one going missing rather than passing on its absence.
+    """
+    from evalseal.adapters.target import LocalCallableTarget
+
+    bound = tmp_path / "cassette.json"
+    bound.write_text("{}", encoding="utf-8")
+    record = run_eval(
+        make_dataset("a", "b"),
+        LocalCallableTarget(scripted({"a": ["yes"], "b": ["yes"]})),
+        RegexScorer(r"^yes$"), n_repeats=5,
+        artifact_paths={"cassette": str(bound)})
+
+    ledger = tmp_path / "ledger.jsonl"
+    record = seal_and_append(record, ledger, relink=True)
+    receipt = tmp_path / "report.json"
+    write_json(record, receipt)
+    generate_keypair(tmp_path / "k.key", tmp_path / "k.pub")
+    sign_head(ledger, tmp_path / "k.key")
+
+    anchor = build_anchor(record, receipt, ledger)
+    names = {c.name for c in verify_anchor(anchor, record, ledger=ledger)}
+
+    assert "receipt integrity" in names          # receipt hash
+    assert "ledger head" in names                # ledger head
+    assert "ledger chain" in names
+    assert any("signature" in n for n in names)  # signature state
+    assert any(n.startswith("sealed:") for n in names)   # artifacts
+    assert "created_at (not verified)" in names  # untrusted local clock
+    assert "external proof" in names             # absent, and reported as absent

@@ -168,13 +168,36 @@ def test_a_non_comparable_baseline_is_not_hidden_behind_its_delta(tmp_path):
     result = run_workflow(ws)
 
     s = result["summary"]
-    assert "**NOT COMPARABLE with the baseline.**" in s
+    assert "# NOT COMPARABLE with the baseline" in s
     assert "must not be read as one" in s
     assert "(not comparable)" in s
-    reasons = s.split("grading setup changed (", 1)[1].split(")", 1)[0]
+    reasons = s.split("# NOT COMPARABLE with the baseline (", 1)[1].split(")", 1)[0]
     assert "scorer type" in reasons and "dataset" in reasons
     assert "target model" not in reasons       # not a grading change
     assert s.index("NOT COMPARABLE") < s.index("| check | result |")
+    # Comparability leads: it comes before the gate verdict and before any number.
+    assert s.index("NOT COMPARABLE") < s.index("Gate ")
+    assert s.index("NOT COMPARABLE") < s.index("mean score")
+
+
+def test_comparability_is_the_headline_above_the_gate_result(tmp_path):
+    """Phase F's ordering: a reviewer who reads one line reads comparability."""
+    ws = _workspace(tmp_path)
+    _baseline(ws, "examples/gsm8k/suite.json")
+    result = run_workflow(ws)
+    assert not result["failed"], (result["failed_step"], result["log"])
+
+    s = result["summary"]
+    assert "**Comparable with the baseline:** yes" in s
+    assert s.index("Comparable with the baseline") < s.index("Gate ")
+    assert s.index("Comparable with the baseline") < s.index("mean score")
+
+
+def test_without_a_baseline_the_headline_says_nothing_was_compared(tmp_path):
+    result = run_workflow(_workspace(tmp_path))
+    s = result["summary"]
+    assert "no baseline receipt, so nothing was compared" in s
+    assert s.index("Comparability:") < s.index("Gate ")
 
 
 def test_a_failing_gate_fails_the_job_but_still_writes_the_summary(tmp_path):

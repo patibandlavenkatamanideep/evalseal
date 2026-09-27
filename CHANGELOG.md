@@ -7,8 +7,12 @@ older version still verifies.
 
 ## [Unreleased]
 
-Targeted at **2.1.0**. It adds commands (`anchor`, `anchor-verify`, `drift`) and flags,
-so semver rules out a patch release.
+Nothing yet.
+
+## [2.1.0] - 2026-09-23
+
+A minor release: it adds commands (`anchor`, `anchor-verify`, `drift`) and flags, so
+semver rules out a patch release.
 
 No command is removed and no exit code changes meaning. Three things do change shape, all
 of them covered under *Migrating from 2.0.x* directly below: fingerprint values now carry
@@ -654,7 +658,8 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
-[Unreleased]: https://github.com/patibandlavenkatamanideep/evalseal/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/patibandlavenkatamanideep/evalseal/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/patibandlavenkatamanideep/evalseal/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.1
 [2.0.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.0
 [1.7.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v1.7.0

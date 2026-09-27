@@ -141,6 +141,7 @@ def build_preregistration(
     *,
     suite: Path | None = None,
     dataset: Path | None = None,
+    dataset_hash: str | None = None,
     n_repeats: int = 5,
     min_repeats_per_case: int | None = None,
     case_ids: list[str] | None = None,
@@ -171,7 +172,13 @@ def build_preregistration(
             sha256=file_hash(suite) if suite else None),
         dataset=DatasetContract(
             path=_readable_path(dataset),
-            sha256=file_hash(dataset) if dataset else None,
+            # `dataset_hash` is the digest a *receipt* carries, which is over the
+            # decoded text rather than the raw bytes. The caller passes it because the
+            # two are not the same value: reading a CRLF file translates newlines, so
+            # `file_hash` and `Dataset.hash` disagree on Windows, and a contract pinned
+            # with the wrong one fails the dataset clause for a reason that has nothing
+            # to do with the dataset. One definition, as with `_hash_ids`.
+            sha256=dataset_hash or (file_hash(dataset) if dataset else None),
             n_cases=len(case_ids) if case_ids else None,
             case_set_hash=_hash_ids(case_ids) if case_ids else None),
         runs=RunContract(n_repeats=n_repeats, min_repeats_per_case=min_repeats_per_case),

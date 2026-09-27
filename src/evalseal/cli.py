@@ -1381,7 +1381,8 @@ def preregister(
         raise typer.BadParameter(
             "no dataset: pass --dataset, or a --suite that names one")
 
-    case_ids = [c.case_id for c in Dataset.from_jsonl(dataset_path).cases]
+    loaded = Dataset.from_jsonl(dataset_path)
+    case_ids = [c.case_id for c in loaded.cases]
     declared_repeats = n_repeats or cfg.get("n_repeats", 5)
 
     pin = None
@@ -1391,6 +1392,7 @@ def preregister(
     contract = build_preregistration(
         suite=suite,
         dataset=dataset_path,
+        dataset_hash=loaded.hash,
         n_repeats=declared_repeats,
         min_repeats_per_case=min_repeats_per_case,
         case_ids=case_ids,

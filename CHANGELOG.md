@@ -92,6 +92,12 @@ Two things are worth knowing:
 - **The README claimed the cassette's hash was not sealed.** It has been since schema
   1.4, and `verify --artifacts` re-checks it. The bullet now states the real limit: a
   digest can only be matched against a file someone kept.
+- **A pre-registration pinned the dataset with the wrong digest of the two.** A receipt's
+  dataset hash is taken over the decoded text; `file_hash` is over the raw bytes. Reading
+  a CRLF file translates newlines, so the two disagree on Windows and the dataset clause
+  failed for a reason that had nothing to do with the dataset. The contract now pins the
+  digest a receipt carries - one definition, as with the case-set hash. Found by CI on
+  Windows, which is the only place it could have been found.
 
 ### Changed
 

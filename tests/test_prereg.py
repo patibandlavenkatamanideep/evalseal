@@ -31,6 +31,7 @@ from evalseal.prereg import (
     check_preregistration,
     load_preregistration,
 )
+from evalseal.provenance import file_hash
 from evalseal.report import write_json
 
 runner = CliRunner()
@@ -395,3 +396,70 @@ def test_docs_do_not_overclaim():
     for forbidden in ("proves no cherry-picking", "prevents cherry-picking",
                       "guarantees no hidden runs", "proves nobody"):
         assert forbidden not in lowered
+
+
+# --- two bugs a real runner found, and their regression tests -------------------------
+
+def test_the_pinned_dataset_digest_is_the_one_a_receipt_carries(tmp_path):
+    """`file_hash` and `Dataset.hash` are different values, and the contract needs the
+    second one.
+
+    A receipt's dataset hash is taken over the *decoded text*; `file_hash` is over the
+    raw bytes. Reading a CRLF file translates newlines, so on Windows the two disagree
+    and a contract pinned with the wrong one fails its dataset clause for a reason that
+    has nothing to do with the dataset. CI on Windows is where this surfaced.
+    """
+    crlf = tmp_path / "dataset.jsonl"
+    crlf.write_bytes(b'{"case_id": "c0", "prompt": "a", "expected": "yes"}\r\n')
+
+    loaded = Dataset.from_jsonl(crlf)
+    assert loaded.hash != file_hash(crlf), "the two definitions must actually differ here"
+
+    contract = build_preregistration(dataset=crlf, dataset_hash=loaded.hash, n_repeats=5)
+    assert contract.dataset.sha256 == loaded.hash
+
+    record = run_eval(loaded, LocalCallableTarget(scripted({"a": ["yes"]})),
+                      RegexScorer(r"^yes$"), n_repeats=5, dataset_path=str(crlf))
+    checks = _by_rule(check_preregistration(contract, record))
+    assert checks["prereg.dataset"].passed, checks["prereg.dataset"].detail
+
+    # The other direction, so this test would have caught the bug: pinned with the
+    # byte-based digest instead, the same receipt fails the same clause.
+    wrong = build_preregistration(dataset=crlf, n_repeats=5)
+    assert wrong.dataset.sha256 == file_hash(crlf)
+    assert not _by_rule(check_preregistration(wrong, record))["prereg.dataset"].passed
+
+
+def test_preregister_pins_a_crlf_dataset_that_the_gate_then_accepts(tmp_path):
+    """The same bug, end to end through the CLI, which is where it bit."""
+    crlf = tmp_path / "dataset.jsonl"
+    crlf.write_bytes(
+        b'{"case_id": "c0", "prompt": "a", "expected": "yes"}\r\n'
+        b'{"case_id": "c1", "prompt": "b", "expected": "yes"}\r\n')
+    ledger = tmp_path / "ledger.jsonl"
+    record = run_eval(Dataset.from_jsonl(crlf),
+                      LocalCallableTarget(scripted({"a": ["yes"], "b": ["yes"]})),
+                      RegexScorer(r"^yes$"), n_repeats=5, dataset_path=str(crlf))
+    seal_and_append(record, ledger, relink=True)
+
+    prereg = tmp_path / "prereg.json"
+    created = runner.invoke(app, ["preregister", "--dataset", str(crlf),
+                                  "--n-repeats", "5", "--out", str(prereg)])
+    assert created.exit_code == 0, created.output
+
+    gated = runner.invoke(app, ["gate", "--ledger", str(ledger), "--prereg", str(prereg)])
+    assert gated.exit_code == 0, gated.output
+
+
+def test_the_suite_runs_with_no_inherited_ci_claim():
+    """Documents the conftest fixture, and why it exists.
+
+    Without it, "a receipt produced outside CI" means one thing on a laptop and the
+    opposite on a GitHub runner, so the tests asserting it passed locally and inverted
+    the first time they ran in CI. A test suite whose meaning depends on where it runs
+    is not testing what it claims to.
+    """
+    from evalseal.provenance import ci_provenance
+
+    assert ci_provenance() is None
+    assert _record().manifest.environment.ci is None

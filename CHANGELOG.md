@@ -7,7 +7,114 @@ older version still verifies.
 
 ## [Unreleased]
 
-Nothing yet.
+Targeted at **2.2.0**. It adds commands (`preregister`) and flags, and no command is
+removed.
+
+Everything here answers an objection raised about 2.1.0 rather than an idea about what
+to build next. The objections, and the honest answer to each, are in the sections below.
+
+### Migrating from 2.1.0
+
+**Nothing is required.** Old receipts verify, old suite files load, old policies apply
+and existing pins are unchanged.
+
+Two things are worth knowing:
+
+- **Schema 1.5 records what the environment claimed about CI** and the section digests
+  of a version-2 suite. Records sealed under 1.4 and earlier verify as before, re-hashed
+  under their own schema.
+- **The evaluator fingerprint did not change.** It is still scheme 2, and a suite moved
+  to the new sectioned format produces the same fingerprint as the flat file it
+  replaces - asserted by a test that runs both. No re-pinning.
+
+### Added
+
+- **`evalseal preregister`, and `gate --prereg`.** The objection: *"does EvalSeal stop
+  someone rerunning until they get a good result and only sealing that one?"* It does
+  not, and [docs/pre-registration.md](docs/pre-registration.md) says so in those words -
+  no local tool can prove a private run never happened. What a pre-registration does is
+  fix the contract **before any number exists**: the suite, dataset, exact case-id set,
+  repeat count, a per-case score floor, required artifact roles, optionally an embedded
+  policy and a pinned evaluator fingerprint. Dropping the eight items that failed,
+  halving the repeats or swapping the judge then fails the gate by name instead of
+  being a quiet edit. Every clause is one named check, passing ones reported too.
+- **Agent eval receipts.** The objection: *"for agent evals, sealing the tool ACL is not
+  enough - mocked and frozen tool responses must be sealed too."* Correct, and for the
+  same reason sealing a judge's model name without its rubric is not enough: the ACL can
+  be byte-identical while `search_docs` returns something new. `run --artifact
+  ROLE=PATH` binds any file into a receipt by digest, so `verify --artifacts` re-checks
+  it. [docs/agent-eval-receipts.md](docs/agent-eval-receipts.md) defines the two
+  artifacts - a tool manifest with per-tool definition digests, and frozen responses
+  keyed by (case, repeat, seq) with per-call input and response digests, an outcome of
+  ok/denied/error and a response mode of live/recorded/mocked/external - and maps
+  Kitaru-style replay, Langfuse and Braintrust traces onto them. **EvalSeal does not run
+  or replay agents**, has no tool loop, and a test fails if the page stops saying so.
+- **An RFC 3161 anchor backend**, experimental. The objection: *"a local signature proves
+  integrity after signing, but not independent time or custody."* `anchor --with rfc3161
+  --tsa URL` builds a real DER `TimeStampReq`, submits it to an authority **you** name,
+  and stores the token. Verification is offline and partial, and says which half ran: it
+  confirms the token's message imprint is this anchor's subject digest and reports the
+  asserted time, and does **not** validate the authority's CMS signature. Proofs carry
+  `verified_by_evalseal: false` and every message hands back the `openssl ts -verify`
+  command that finishes the check. There is no default authority, because a default would
+  make one service part of this project's trust root. Only the 32-byte digest is sent; a
+  test asserts the request body stays under 128 bytes.
+- **Sectioned suite files (version 2).** The objection: *"the suite hash is excluded from
+  the evaluator fingerprint because suites bundle target config; eventually suite files
+  should split evaluator and target sections."* They now can:
+  `evaluator`, `target`, `dataset`, `cases`, `run`, `policy`. The evaluator and target
+  section digests are sealed separately, so a receipt shows which half of a changed suite
+  moved. `cases.only` filters the run and `policy.file` is applied by `gate --suite` -
+  neither is accepted and ignored. The flat format keeps working;
+  [docs/suite-format.md](docs/suite-format.md) explains the split, and why the section
+  digests are recorded rather than fingerprinted.
+- **CI provenance in the receipt (schema 1.5)**, so a pre-registration can require that a
+  receipt came from CI. The field is named `claimed` because that is what it is: env vars
+  can be set anywhere, and the check's own text says a resolvable run URL and a CI-held
+  signing key are what make it evidence. Only a fixed allowlist of variables is read,
+  named one at a time rather than by prefix, so `GITHUB_TOKEN` cannot be swept in.
+- **A much fuller PR workflow**: artifact verification, the pre-registration gate, a judge
+  drift report beside the score diff, and an anchor that is re-verified after being
+  written. The step summary gained the pre-registration clauses, what moved underneath
+  the score with the least stable cases, the served model when it differs, and the
+  verification output quoted verbatim. When no pre-registration was applied it says so.
+
+### Fixed
+
+- **`evalseal anchor` tracebacked when handed the output of `report --json`.** Both files
+  get called report.json in different places, so passing the wrong one is an ordinary
+  mistake - and it produced a pydantic `ValidationError: input_value='}'`, which
+  described this project's own JSONL fallback rather than anything the user did. Loading
+  a receipt now names the file and what it turned out to be, telling apart invalid JSON
+  (with the position), a report summary, an anchor, a JSON list, an object missing
+  receipt keys, and a receipt whose fields are wrong - that last naming the fields. Exit
+  code 2, already documented as "bad arguments".
+- **The README claimed the cassette's hash was not sealed.** It has been since schema
+  1.4, and `verify --artifacts` re-checks it. The bullet now states the real limit: a
+  digest can only be matched against a file someone kept.
+
+### Changed
+
+- **Schema 1.5** adds `environment.ci` and the suite's `evaluator_hash` and
+  `target_hash`. Older records verify, re-hashed under the schema that sealed them.
+- **`provenance.py` now reads environment variables**, which it previously never did. Its
+  no-secrets invariant moved from "reads nothing" to "reads only this allowlist, named
+  one variable at a time", asserted on the module source and, end to end, on the sealed
+  bytes of a record produced with secrets in the environment.
+- **THREAT_MODEL.md** gained *Five questions people actually ask* - cherry-picking, what
+  an agent receipt should seal, what a local anchor proves, what an external one would
+  add, and why the suite hash stays out of the evaluator fingerprint - plus the long
+  cherry-picking answer, the CI trust boundary and tool-response drift for agent evals.
+  README gained *Why each piece exists*. ROADMAP records what the v2.2 anchoring
+  milestone actually met and the one gap that keeps it experimental.
+  docs/integrations.md replaces the hypothetical replay mapping with the command that
+  seals it today.
+- **`anchor-verify` reports `created_at` as an unverified local clock**, on its own line
+  marked not-verified, rather than leaving it unmentioned beside the checks that passed.
+  Every layer is now separately named - receipt hash, ledger chain, ledger head,
+  signature, each artifact, the clock, the external proof - and a test asserts it.
+- **The PR step summary leads with comparability**, ahead of the gate verdict and every
+  number, because a score delta between differently graded runs is not a change.
 
 ## [2.1.0] - 2026-09-23
 

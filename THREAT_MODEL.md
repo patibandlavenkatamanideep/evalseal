@@ -31,6 +31,8 @@ of a run that did. Everything below is an attempt to say exactly where that line
 - **When anything happened.** See "if the machine lies about time" below.
 - **That the model is good.** A receipt measures reproducibility and provenance. It says
   nothing about whether the task matters or the scoring is sensible.
+- **That this was the only time the suite ran.** See "Can EvalSeal stop cherry-picking?"
+  below: it cannot, and nothing that runs on the author's machine can.
 
 ## What each layer protects
 
@@ -62,7 +64,10 @@ one file a third party can re-check. Today's anchors are **local**: `created_at`
 anchoring machine's clock and `external_proofs` is empty.
 
 **A local anchor protects against:** a receipt being swapped for a different one, or an
-artifact changing, between you and whoever you hand it to.
+artifact changing, between you and whoever you hand it to. `anchor-verify` names each
+layer separately - receipt hash, ledger chain, ledger head, signature, each artifact -
+and prints `created_at` on its own line marked *not verified*, so a clean verdict cannot
+be read as including the timestamp.
 **It does not protect against:** backdating, or the key holder re-anchoring a rebuilt
 ledger. Both need an external attestation.
 
@@ -87,6 +92,76 @@ saved score.
 **Does not protect against:** an artifact that no longer exists. A digest can only be
 matched against a file someone kept, which is why anyone who may need to prove what a
 model said must retain the raw artifacts themselves, securely, outside EvalSeal.
+
+## Five questions people actually ask
+
+Short answers, each linking to the long one. These are the questions raised about 2.1.0,
+in the words they were asked in.
+
+**1. Can EvalSeal stop cherry-picking?** No. No local tool can prove hidden private
+reruns never happened. EvalSeal reduces the risk by making the declared suite, run
+count, evaluator, artifacts, ledger, CI receipt and anchor verifiable. The long answer
+is the next section.
+
+**2. What should an agent eval receipt seal?** Target model, evaluator fingerprint, tool
+ACL, tool manifest, the frozen replay or mocked responses, the per-call tool inputs and
+outputs, the dataset and case set, and the policy. The ACL alone is not enough: it says
+what the agent *could* call, and the frozen responses are the world it was evaluated
+inside. See [docs/agent-eval-receipts.md](docs/agent-eval-receipts.md).
+
+**3. What does local anchoring prove?** Integrity of the receipt, the ledger head, the
+signature state and the bound artifacts, from the moment the anchor was created. **It
+does not prove independent time.** `created_at` is the anchoring machine's own clock, and
+`anchor-verify` prints it on a line marked *not verified* rather than beside the checks
+that passed.
+
+**4. What would external anchoring add?** An independent timestamp, or inclusion in a
+transparency log, letting a third party confirm the receipt existed by a given time -
+which is what stops backdating and stops a key holder silently replacing a signed state.
+The `rfc3161` backend stores a real token today; it is experimental because EvalSeal does
+not yet validate the authority's signature. See
+[docs/external-anchoring.md](docs/external-anchoring.md).
+
+**5. Why is the suite hash not in the evaluator fingerprint?** Because a flat suite file
+bundles the target model config. Hashing the whole suite would make "same evaluator,
+different target model" non-comparable - and that comparison is the reason to run a
+benchmark. The version-2 suite split separates the two, and
+[docs/suite-format.md](docs/suite-format.md) explains why the section digests are
+recorded rather than folded into the fingerprint.
+
+## Can EvalSeal stop cherry-picking?
+
+**No.** No local tool can prove that hidden runs never happened.
+
+The ledger is a file on the author's machine. It records what was appended to it.
+Someone who runs a suite five times can delete the ledger four times and seal the fifth
+run into a fresh one; the result verifies perfectly, because nothing outside that
+machine saw the other four. A hash chain shows that a sequence was not edited *after*
+it was written. It says nothing about sequences that were never written down.
+
+What EvalSeal does instead is reduce the risk by making the evaluation contract, the
+run count, the ledger, the artifacts, the CI receipt and the anchors verifiable:
+
+| move | what makes it visible |
+|---|---|
+| drop the items that failed | `case_set_hash` in a pre-registration, checked by name |
+| shorten the runs and report the best | declared `n_repeats` and a per-case score floor |
+| swap the judge or edit the rubric after seeing the score | pinned evaluator fingerprint |
+| loosen the threshold after a failure | a policy committed before the run; the change is a commit |
+| publish a score with no responses behind it | required artifact roles, re-hashed by `verify --artifacts` |
+| produce the receipt on the laptop of the person being measured | `require_ci`, and a signing key only CI holds |
+| backdate it | an external anchor - and only an external one |
+
+None of that stops a determined author from pre-registering, running privately until
+the result is good, and publishing the run that matched. What it costs them is
+optionality: every parameter they might have tuned in response to the result was fixed
+by digest beforehand. The remaining move - re-rolling the same declared evaluation
+until noise favours them - is what `evalseal power` and per-case flip rates exist to
+make expensive.
+
+The honest summary: **a pre-registration makes the contract checkable, not the author
+honest.** [docs/pre-registration.md](docs/pre-registration.md) says the same thing at
+length.
 
 ## Specific questions
 
@@ -142,6 +217,58 @@ What does show it: running the suite again and comparing. Verdicts that move wit
 identical evaluator fingerprint are exactly the signal, and `evalseal drift` reports
 them. Whether that movement is the provider or ordinary sampling variance cannot be
 separated from two receipts alone.
+
+### What happens if a mocked tool response changes? (agent evals)
+
+A tool ACL says which tools an agent could call. It does not say what they returned,
+and the returns are half the environment: `search_docs` surfacing a different top
+result, or a mock edited to be friendlier after a bad run, changes behaviour while the
+ACL stays byte-identical. A receipt that sealed only the ACL would report two
+incomparable runs as comparable - the same failure as sealing a judge's model name but
+not its rubric.
+
+Seal both, by digest, and `verify --artifacts` re-checks both:
+
+```bash
+evalseal run --suite agent-suite.json \
+  --artifact tool_acl=tools.json --artifact tool_responses=responses.json
+```
+
+**Protects against:** a mock, a recorded transcript or an ACL changing under a saved
+score.
+**Does not protect against:** a harness that reports tool calls it did not make, a
+`live` tool mode (which is not reproducible by definition and labels itself so), or a
+recorded response that was wrong when it was recorded. EvalSeal binds the file; it did
+not observe the agent, and it does not replay agents.
+[docs/agent-eval-receipts.md](docs/agent-eval-receipts.md) has the schema and the
+limits.
+
+### What does a receipt produced in CI establish?
+
+Schema 1.5 seals what the environment *claimed* about the CI job - provider, run id,
+run URL, repository, ref, commit, event - and a pre-registration can require it with
+`require_ci`. The field is named `claimed` because that is exactly what it is.
+
+**The trust boundary:** every value is an environment variable. `GITHUB_ACTIONS=true
+evalseal run` on a laptop produces a receipt that claims CI. The check's own output
+says so rather than implying more.
+
+What turns the claim into evidence lives outside the receipt, and both parts are yours
+to arrange:
+
+1. **The run URL resolves** to a job a reviewer can open and see running this suite.
+2. **The ledger is signed by a key only CI holds.** If the signing key is in CI secrets
+   and not on developer machines, a locally produced receipt cannot carry a valid
+   signature. This is the part that actually moves receipt production off the machine
+   of the person being measured, and it is a property of your key management.
+
+A CI runner is also not a neutral party: whoever controls the workflow file controls
+what runs. A receipt from CI raises the cost of producing a dishonest one; it does not
+make one impossible.
+
+Only a fixed allowlist of variables is read, named one at a time rather than by prefix,
+so a secret in the environment cannot reach a sealed record. A test asserts both the
+allowlist and, end to end, that no secret appears in the sealed bytes.
 
 ### What requires retaining the original private artifacts?
 

@@ -31,6 +31,13 @@ and each one names them.
   for every command that reports, and self-contained HTML receipts.
 - **Experiment sizing and attribution.** `power` says how many items a difference would
   need; `decompose` separates judge variance from target variance on one suite.
+- **A declared evaluation contract.** `preregister` fixes the suite, dataset, exact case
+  ids, repeat count, per-case score floor and required artifacts before any number
+  exists; `gate --prereg` checks a receipt against each clause by name.
+- **Artifact binding, including agent environments.** The cassette, dataset and suite are
+  sealed by digest and re-checked by `verify --artifacts`; `run --artifact ROLE=PATH`
+  binds anything else, which is how an agent eval seals its tool ACL *and* its frozen
+  tool responses.
 
 ### What it does not prove
 
@@ -104,10 +111,23 @@ Give a third party a timestamp and custody claim that does not rest on the signe
 - [x] An adapter interface over the local anchor object, filling its `external_proofs`.
       `AnchorBackend` is a two-method protocol; the local backend attests nothing and
       says so; a real adapter is additive.
-- [ ] RFC 3161 timestamp authority adapter.
-- [ ] Sigstore / Rekor transparency log adapter.
+- [x] RFC 3161 timestamp authority adapter, **experimental**. It builds a real DER
+      `TimeStampReq`, submits it to an authority the caller names with `--tsa` (there is
+      no default), and stores the token.
+- [x] `anchor-verify` checks the external proof offline: it confirms the token's message
+      imprint is this anchor's subject digest and reports the asserted time.
+- [ ] **Validate the RFC 3161 signature inside EvalSeal.** This is the one gap that keeps
+      the adapter experimental. Verification today does not check the authority's CMS
+      signature against its certificate chain, so proofs carry
+      `verified_by_evalseal: false` and hand back the `openssl ts -verify` command that
+      finishes the job. Closing it needs an ASN.1 dependency (`asn1crypto` or
+      `pyasn1-modules`), which is the trade-off to weigh.
+- [ ] Sigstore / Rekor transparency log adapter. Note that a Rekor entry is **public**;
+      that is a different privacy posture from a private authority, and the choice should
+      be the user's.
 - [ ] OpenTimestamps-style adapter.
-- [ ] `anchor-verify` checks the external proof offline where the proof format allows it.
+- [x] `anchor-verify` reports `created_at` as an unverified local clock rather than
+      leaving it unmentioned beside the checks that did pass.
 
 The design, including what each proof does and does not establish, is in
 [docs/external-anchoring.md](docs/external-anchoring.md). EvalSeal will not run a timestamp
@@ -115,7 +135,11 @@ server or a verifier of its own: the trust root has to be someone other than the
 being audited.
 
 Accepted when: a receipt anchored by one person verifies for another with no access to
-the first person's machine, and the verifier output says exactly what was proven.
+the first person's machine, and the verifier output says exactly what was proven. **Half
+met.** The local half is done and the RFC 3161 half stores a real token, but until the
+signature check moves inside EvalSeal the verifier says "this token is about this digest
+and the authority asserts this time, and I did not check its signature" - which is an
+honest sentence, not a finished one.
 
 ### v2.3 - integrations with promptfoo and Braintrust
 

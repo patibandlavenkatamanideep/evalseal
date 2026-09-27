@@ -108,7 +108,11 @@ The summary is ordered so that nothing misleading comes first:
 7. **Artifacts**, and what to inspect.
 
 The anchor line restates its own limit where someone reads the result: a local anchor
-is the runner's clock and establishes nothing about *when*.
+is the runner's clock and establishes nothing about *when*. `anchor-verify` prints
+`created_at` on a line marked *not verified* for the same reason.
+
+What each part of this summary does and does not establish is answered in five short
+paragraphs at the top of [THREAT_MODEL.md](../THREAT_MODEL.md).
 
 A non-comparable baseline does not fail the gate by itself. The baseline in the workflow's
 env is for reporting. To make comparability a requirement, add a drift rule to the policy:

@@ -30,6 +30,9 @@ alone is not enough.
   the grader changed, because the judge is a sampler, or because the model did.
 - **Makes receipts checkable by someone else.** A hash-linked ledger, optional Ed25519
   signatures, artifact digests including the cassette, and a portable anchor file.
+- **Checks the run against what was declared beforehand.** `evalseal preregister` fixes
+  the suite, dataset, case ids, repeat count and required artifacts before any number
+  exists; `gate --prereg` then reports each clause by name.
 - **Gates CI on comparability, not just thresholds**, with a
   [pull-request workflow](docs/pr-receipt-workflow.md) that explains why a check passed.
 
@@ -45,6 +48,52 @@ them. Worse, the grader itself drifts: an edited rubric or a bumped judge temper
 the score while the model sits still. Reports also name the model you *asked* for, not the
 one that *answered*. EvalSeal measures the flips, seals what graded them, and refuses to
 compare runs that were not graded the same way.
+
+## Why each piece exists
+
+Every part of EvalSeal answers one objection. If a part does not, it should not be here.
+
+**What does EvalSeal prove?** That a receipt has not been edited since it was sealed;
+that a record is the one that was in the ledger, in that position; that the files a run
+used are the ones whose digests it carries; that a signed receipt came from the holder
+of a key; that two runs were graded the same way; and that a score difference is or is
+not larger than the paired test can resolve.
+
+**What does it not prove?** That the eval ran at all, that the provider served the model
+it named, that the inputs were honest, when anything happened, or that no private run
+happened first. [THREAT_MODEL.md](THREAT_MODEL.md) draws each line precisely.
+
+**Why repeated runs?** One score is one sample. An LLM judge is a sampler, and so is a
+target above temperature zero. Running once and reporting the number treats a draw from
+a distribution as a measurement of it.
+
+**Why per-case verdict strips?** An aggregate hides which items are unstable. `PFPPF`
+next to a case says the grader could not make up its mind about *that* item, which is
+where a human should look - and it distinguishes a suite that is 90% accurate on every
+item from one that is 100% on nine and a coin flip on the tenth.
+
+**Why evaluator fingerprinting?** Because the most misleading eval comparison is not a
+wrong number, it is a right number compared against something graded differently. The
+fingerprint decides comparability from the grading side only, so swapping the model
+under test - the reason to run a benchmark - keeps two runs comparable, and editing the
+rubric does not.
+
+**Why policy and pre-registration?** A policy fixes what "good enough" means in a file
+someone reviews, so loosening it appears in `git log`. A pre-registration fixes *what
+evaluation was promised* before the number exists, so dropping the cases that failed
+stops being a quiet edit. Neither can prove a hidden run never happened; see
+[docs/pre-registration.md](docs/pre-registration.md).
+
+**Why artifact binding?** A score is a claim about responses. If the cassette holding
+those responses can be edited without the receipt noticing, the receipt vouches for
+nothing in particular. For agent evals the same argument covers the tool ACL *and* the
+frozen tool responses: [docs/agent-eval-receipts.md](docs/agent-eval-receipts.md).
+
+**Why anchoring?** A hash chain proves a sequence was not edited after it was written. It
+says nothing about *when* it was written, and it does not constrain the key holder, who
+can rebuild and re-sign. An attestation by someone else is the only fix, which is why
+EvalSeal runs no timestamp service of its own:
+[docs/external-anchoring.md](docs/external-anchoring.md).
 
 ## Quickstart
 
@@ -578,8 +627,9 @@ happen. Verify what the page claims with `evalseal verify`.
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
 | `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
-| `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--expect-evaluator` pins the grading setup, `--expect-config` the whole configuration. `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy |
-| `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp; see [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
+| `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--prereg` also checks it against a pre-registration. `--expect-evaluator` pins the grading setup, `--expect-config` the whole configuration. `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy or contract |
+| `evalseal preregister` | Declares an evaluation before it runs: suite, dataset, case-id set, repeat count, required artifacts, optionally an embedded policy and a pinned evaluator fingerprint. See [docs/pre-registration.md](docs/pre-registration.md). | `0` |
+| `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp. `--with rfc3161 --tsa URL` adds a timestamp-authority proof (experimental); see [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
 | `evalseal anchor-verify` | Re-checks every claim in an anchor, reporting what it could not check as not checked. | `0` verified · `1` failed |
 | `evalseal drift A B` | Did the judge behave the same way when the suite was re-run? Labels the cause: evaluator drift, judge variance, target variance or a target change. `--json` for CI. | `0` |
 
@@ -797,6 +847,11 @@ tracked target).
   flag, Python version and platform.
 - **Two fingerprints over that provenance.** An evaluator fingerprint that decides whether
   two runs are comparable, and a config fingerprint that identifies exactly what ran.
+- **Artifact digests that are re-checkable.** The cassette, dataset and suite are sealed
+  by digest with an explicit kind, and `verify --artifacts` reports each as ok, changed,
+  missing or unverifiable - never passing a file it could not read.
+- **A declared contract, checked clause by clause.** `gate --prereg` reports each clause
+  of a pre-registration by name, passing ones included.
 
 ## What EvalSeal does not guarantee
 
@@ -823,11 +878,15 @@ tracked target).
   holder from altering a ledger; it does not stop the key holder re-signing a rebuilt one.
   An independent timestamp needs a party other than the author;
   [docs/external-anchoring.md](docs/external-anchoring.md) sets out what that would add.
-- **It does not bind the model's responses to the receipt yet.** The receipt seals hashes
-  of the dataset, rubric and judge prompt template; the responses live in the cassette,
-  whose hash is not sealed. Until it is, bind a cassette to a receipt with
-  `evalseal anchor --artifact <cassette>`, and keep the cassette: a hash can only be
-  matched against an artifact that still exists.
+- **It cannot check an artifact nobody kept.** The receipt seals digests of the cassette,
+  dataset and suite, and `verify --artifacts` re-hashes them - but a digest can only be
+  matched against a file that still exists. Anyone who may need to prove what a model
+  said must retain the cassette themselves.
+- **It cannot prove that no hidden run happened.** Someone can run a suite five times and
+  seal the fifth. A pre-registration makes the interesting moves - dropping the cases
+  that failed, halving the repeat count, swapping the judge - visible rather than silent,
+  and [docs/pre-registration.md](docs/pre-registration.md) is explicit that this is
+  narrowing the room to move, not proof.
 
 ## Two providers, two wire formats
 

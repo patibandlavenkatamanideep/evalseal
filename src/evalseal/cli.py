@@ -22,18 +22,20 @@ from .adapters.scorer import (
     RegexScorer,
 )
 from .adapters.target import AnthropicTarget, OpenAICompatibleTarget
+from .agent_artifacts import validate_agent_artifact
 from .anchor import (
     AnchorError,
     anchor_passed,
     available_backends,
     build_anchor,
     check_artifacts,
+    register_backend,
     verify_anchor,
     write_anchor,
 )
 from .decompose import decompose as run_decompose
 from .decompose import render as render_decomposition
-from .diffing import diff_records, load_receipt, mean_flip_rate
+from .diffing import ReceiptError, diff_records, load_receipt, mean_flip_rate
 from .drift import analyze_drift
 from .drift import render as render_drift
 from .executor import run_eval
@@ -60,7 +62,14 @@ from .power import (
     required_items,
     required_repeats,
 )
-from .provenance import file_hash
+from .prereg import (
+    AnchorState,
+    PreregError,
+    build_preregistration,
+    check_preregistration,
+    load_preregistration,
+)
+from .provenance import file_hash, text_hash
 from .report import (
     case_rows,
     failing_cases,
@@ -72,6 +81,7 @@ from .report import (
     write_junit,
     write_markdown,
 )
+from .rfc3161 import Rfc3161Backend
 from .signing import (
     generate_keypair,
     sign_head,
@@ -82,6 +92,7 @@ from .signing import (
 # Distinct from 1 (uncaught error) and 2 (usage error) so CI can tell
 # "the eval is unstable" apart from "the tool broke".
 EXIT_UNSTABLE = 3
+EXIT_BAD_INPUT = 2       # the file you passed is not the file this command wanted
 EXIT_INTERRUPTED = 130   # conventional 128 + SIGINT
 
 app = typer.Typer(add_completion=False, help="Reproducibility receipts for LLM evals.")
@@ -130,32 +141,210 @@ def load_dotenv(path: Path = Path(".env")) -> None:
             os.environ.setdefault(key, value)
 
 
+def _show_version(value: bool) -> None:
+    """Print the version that would be sealed into a receipt, and exit.
+
+    Two strings, because they can disagree and the difference matters: `__version__` is
+    what this build says it is, and `harness_version` is what a receipt produced by it
+    records. An editable checkout whose metadata lags is exactly when someone needs to
+    see both.
+    """
+    if not value:
+        return
+    from . import __version__
+    from .models import SCHEMA_VERSION, RunConfig
+
+    console.print(
+        f"evalseal {__version__}\n"
+        f"sealed as {RunConfig().harness_version} · record schema {SCHEMA_VERSION}"
+    )
+    raise typer.Exit(code=0)
+
+
 @app.callback()
-def _main() -> None:
+def _main(
+    version: bool = typer.Option(
+        False, "--version", "-V", callback=_show_version, is_eager=True,
+        help="Show the version and the record schema it seals, then exit."),
+) -> None:
     load_dotenv()
+
+
+_FLAT_SUITE_KEYS = {
+    "dataset", "target", "scorer", "n_repeats", "concurrency", "cassette",
+    "fail_on", "max_retries", "timeout", "ledger", "junit_xml", "sign_key",
+}
+_PATH_KEYS = ("dataset", "target", "scorer", "cassette", "ledger", "junit_xml", "sign_key")
+
+# Version 2 splits the file into sections so a reader can see which parts describe the
+# instrument and which describe the thing being measured. See docs/suite-format.md.
+_V2_SECTIONS = {"version", "evaluator", "target", "dataset", "cases", "run", "policy"}
+_V2_KEYS: dict[str, set[str]] = {
+    "evaluator": {"scorer"},
+    "target": {"config"},
+    "dataset": {"path"},
+    "cases": {"only"},
+    "run": {"n_repeats", "concurrency", "cassette", "fail_on", "max_retries", "timeout",
+            "ledger", "junit_xml", "sign_key"},
+    "policy": {"file"},
+}
+
+
+def _flatten_v2(suite: dict, path: Path) -> dict:
+    """Turn a sectioned suite into the flat mapping the rest of the CLI already uses.
+
+    One internal shape, two file formats. Translating at the edge keeps every command
+    below this line unchanged, which is what makes supporting both cheap enough to be
+    worth doing rather than a migration nobody finishes.
+    """
+    unknown = set(suite) - _V2_SECTIONS
+    if unknown:
+        raise typer.BadParameter(
+            f"unknown section(s) in {path}: {', '.join(sorted(unknown))}")
+    flat: dict = {}
+    for section, allowed in _V2_KEYS.items():
+        body = suite.get(section)
+        if body is None:
+            continue
+        # `"cases": ["a", "b"]` is sugar for `{"only": [...]}`. A bare list is the
+        # obvious thing to write, and rejecting it would be pedantry; anything else
+        # being a list is a mistake worth naming.
+        if section == "cases" and isinstance(body, list):
+            body = {"only": body}
+        if not isinstance(body, dict):
+            raise typer.BadParameter(f"{path}: section {section!r} must be a mapping")
+        extra = set(body) - allowed
+        if extra:
+            raise typer.BadParameter(
+                f"unknown key(s) in {path} section {section!r}: {', '.join(sorted(extra))}")
+        flat.update(body)
+    # Section-local names, mapped onto the flat ones the commands read.
+    if "config" in flat:
+        flat["target"] = flat.pop("config")
+    if "path" in flat:
+        flat["dataset"] = flat.pop("path")
+    if "file" in flat:
+        flat["policy"] = flat.pop("file")
+    return flat
 
 
 def _load_suite(path: Path | None) -> dict:
     """A suite file names the dataset, target, scorer and run settings in one place.
-    Explicit flags still win, so a suite is a default, not a cage."""
+
+    Two formats are accepted. Version 2 is sectioned; anything without a `version` key
+    is the original flat format and keeps working unchanged, because a file format
+    that breaks on upgrade is a reason not to upgrade.
+
+    Explicit flags still win, so a suite is a default, not a cage.
+    """
     if path is None:
         return {}
     suite = json.loads(path.read_text(encoding="utf-8"))
-    unknown = set(suite) - {
-        "dataset", "target", "scorer", "n_repeats", "concurrency", "cassette",
-        "fail_on", "max_retries", "timeout", "ledger", "junit_xml", "sign_key",
-    }
-    if unknown:
-        raise typer.BadParameter(f"unknown key(s) in {path}: {', '.join(sorted(unknown))}")
+    if not isinstance(suite, dict):
+        raise typer.BadParameter(f"{path} must contain a mapping at the top level")
+
+    if suite.get("version") == 2:
+        suite = _flatten_v2(suite, path)
+    elif "version" in suite:
+        raise typer.BadParameter(
+            f"{path}: unknown suite version {suite['version']!r}; expected 2, or omit "
+            "the key for the original flat format")
+    else:
+        unknown = set(suite) - _FLAT_SUITE_KEYS
+        if unknown:
+            raise typer.BadParameter(
+                f"unknown key(s) in {path}: {', '.join(sorted(unknown))}")
+
     base = path.parent
 
     def resolve(value: str) -> str:      # paths are relative to the suite file
         return str((base / value).resolve()) if value else value
 
-    for key in ("dataset", "target", "scorer", "cassette", "ledger", "junit_xml", "sign_key"):
+    for key in (*_PATH_KEYS, "policy"):
         if key in suite:
             suite[key] = resolve(suite[key])
     return suite
+
+
+def _suite_section_hashes(path: Path | None) -> dict[str, str | None]:
+    """Digest the evaluator and target sections separately.
+
+    Why separate: the whole-file suite hash cannot go into the evaluator fingerprint,
+    because the file also carries the target model, and swapping the model under test
+    is the reason to run a benchmark. Hashing the sections apart records what the
+    whole-file hash cannot distinguish - "the grading changed" from "the model
+    changed" - and `evalseal diff` can then name which one moved.
+
+    These digests are recorded, not fingerprinted. Scheme 2 already covers the
+    evaluator's substance through the scorer config, judge identity, rubric and prompt
+    template hashes, so adding this would change every existing pin without covering
+    anything new. See docs/suite-format.md.
+    """
+    out: dict[str, str | None] = {"evaluator_hash": None, "target_hash": None}
+    if path is None:
+        return out
+    try:
+        suite = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return out
+    if not isinstance(suite, dict) or suite.get("version") != 2:
+        return out          # the flat format has no sections to hash apart
+    for section, field in (("evaluator", "evaluator_hash"), ("target", "target_hash")):
+        if section in suite:
+            out[field] = text_hash(
+                json.dumps(suite[section], sort_keys=True, separators=(",", ":")))
+    return out
+
+
+_RESERVED_ROLES = {"cassette", "dataset", "suite"}
+
+# Shown beside `anchor --list-backends`, so nobody reaches for an experimental
+# backend without being told which half of its check EvalSeal actually performs.
+_BACKEND_NOTES = {
+    "local": "   attests nothing: binds files together, establishes no time",
+    "rfc3161": " EXPERIMENTAL - message imprint checked, TSA signature NOT verified "
+               "by EvalSeal; needs --tsa URL",
+}
+
+
+def _parse_artifacts(pairs: list[str]) -> dict[str, str]:
+    """Turn `--artifact role=path` into the mapping `run_eval` seals.
+
+    A missing file is not rejected here: `run_eval` seals it as `external` with a note
+    saying it was unreadable, which is the honest record. Refusing the run would push
+    people towards not binding the file at all.
+    """
+    out: dict[str, str] = {}
+    for pair in pairs:
+        role, sep, path = pair.partition("=")
+        role, path = role.strip(), path.strip()
+        if not sep or not role or not path:
+            raise typer.BadParameter(
+                f"--artifact expects ROLE=PATH, got {pair!r} "
+                "(for example: --artifact tool_acl=tools.json)")
+        if role in _RESERVED_ROLES:
+            raise typer.BadParameter(
+                f"--artifact role {role!r} is already sealed by the run itself; "
+                "pick another name so the two cannot be confused")
+        if role in out:
+            raise typer.BadParameter(f"--artifact role {role!r} given twice")
+        out[role] = path
+
+    # Fail closed on a malformed agent artifact, for the same reason an `external`
+    # artifact fails closed: a digest over a broken file produces a receipt that
+    # verifies perfectly and describes an environment nobody can reconstruct.
+    problems = [
+        (role, problem)
+        for role, path in out.items()
+        for problem in validate_agent_artifact(role, path)
+    ]
+    if problems:
+        listed = "\n".join(f"  {role}: {problem}" for role, problem in problems)
+        raise typer.BadParameter(
+            f"{len(problems)} problem(s) in the agent artifact(s) you are sealing:\n"
+            f"{listed}\nThe schema is in docs/agent-eval-receipts.md. EvalSeal checks "
+            "the shape of these files, not whether the agent really made these calls.")
+    return out
 
 
 def _build_target(
@@ -254,8 +443,15 @@ def run(
         False, "--store-judge-prompt",
         help="Seal the judge prompt verbatim, not only its hash. It embeds case text.",
     ),
+    artifact: list[str] = typer.Option(
+        [], "--artifact", metavar="ROLE=PATH",
+        help="Bind another file into the receipt by digest, as `tool_acl=tools.json`. "
+             "Repeatable. For agent evals this is how the tool ACL and the frozen tool "
+             "responses are sealed; see docs/agent-eval-receipts.md.",
+    ),
 ):
     """Run an eval N times, seal the result, emit report.json + report.md."""
+    extra_artifacts = _parse_artifacts(artifact)
     cfg = _load_suite(suite)
     dataset = dataset or (Path(cfg["dataset"]) if "dataset" in cfg else None)
     target_config = target_config or (Path(cfg["target"]) if "target" in cfg else None)
@@ -278,8 +474,12 @@ def run(
     sign_key = sign_key or (Path(cfg["sign_key"]) if "sign_key" in cfg else None)
 
     ds = Dataset.from_jsonl(dataset)
-    if only:
-        wanted = [c.strip() for c in only.split(",") if c.strip()]
+    # A v2 suite's `cases.only` is a list; --only is a comma-separated string. The flag
+    # wins, as it does for every other suite key.
+    wanted_ids = ([c.strip() for c in only.split(",") if c.strip()] if only
+                  else list(cfg.get("only") or []))
+    if wanted_ids:
+        wanted = wanted_ids
         missing = [c for c in wanted if c not in {case.case_id for case in ds.cases}]
         if missing:
             raise typer.BadParameter(f"case id(s) not in {dataset}: {', '.join(missing)}")
@@ -314,7 +514,8 @@ def run(
                 concurrency=concurrency,
                 on_unit_done=lambda: progress.advance(task),
                 suite=SuiteProvenance(
-                    name=suite.stem, path=str(suite), hash=file_hash(suite)
+                    name=suite.stem, path=str(suite), hash=file_hash(suite),
+                    **_suite_section_hashes(suite),
                 ) if suite else None,
                 dataset_path=str(dataset),
                 store_judge_prompt=store_judge_prompt,
@@ -324,6 +525,7 @@ def run(
                     "cassette": str(cassette),
                     "dataset": str(dataset),
                     **({"suite": str(suite)} if suite else {}),
+                    **extra_artifacts,
                 },
             )
     except RuntimeError as e:
@@ -450,6 +652,48 @@ def sign(
     )
 
 
+def _read_receipt(source: str | Path) -> RunRecord:
+    """Load a receipt, or exit with a message that names what the file turned out to be.
+
+    Handing `evalseal report --json` output to a command that wants a receipt is an
+    ordinary mistake - both get called report.json - and an ordinary mistake must not
+    print a stack trace at someone.
+    """
+    try:
+        return load_receipt(source)
+    except ReceiptError as e:
+        console.print(f"[red]Not a receipt:[/red] {rich_escape(str(e))}")
+        raise typer.Exit(code=EXIT_BAD_INPUT) from None
+
+
+def _anchor_state(
+    anchor_file: Path | None, record: RunRecord, ledger: Path | None
+) -> AnchorState:
+    """Verify an anchor for the pre-registration gate, reporting failures as failures.
+
+    An unreadable or failing anchor produces `verified=False` with the reason, rather
+    than an exception: `require_anchor` is a clause of a contract, and a clause that
+    cannot be evaluated has to fail visibly like every other one.
+    """
+    if anchor_file is None:
+        return AnchorState(detail="no anchor was supplied to check (pass --anchor)")
+    try:
+        anchor_obj = json.loads(anchor_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return AnchorState(present=True, detail=f"{anchor_file} could not be read: {e}")
+    checks = verify_anchor(anchor_obj, record, ledger=ledger,
+                           base_dir=anchor_file.parent)
+    ok = anchor_passed(checks)
+    failed = [c.name for c in checks if not c.passed and c.required]
+    return AnchorState(
+        present=True,
+        verified=ok,
+        has_external_proof=bool(anchor_obj.get("external_proofs")),
+        detail=f"anchor verified ({anchor_file})" if ok
+        else f"anchor failed: {', '.join(failed) or 'see anchor-verify'}",
+    )
+
+
 def _resolve_record(token: str, ledger: Path) -> RunRecord:
     """A receipt path or a ledger index, whichever the user typed.
 
@@ -458,7 +702,7 @@ def _resolve_record(token: str, ledger: Path) -> RunRecord:
     """
     path = Path(token)
     if path.exists():
-        return load_receipt(path)
+        return _read_receipt(path)
     try:
         index = int(token)
     except ValueError:
@@ -627,6 +871,21 @@ def gate(
         None, "--policy", exists=True, dir_okay=False,
         help="A policy file (.json/.yml) of thresholds, critical cases and drift rules.",
     ),
+    suite: Path | None = typer.Option(
+        None, "--suite", exists=True, dir_okay=False,
+        help="A version-2 suite file, whose `policy.file` names the policy to apply. "
+             "--policy wins if both are given.",
+    ),
+    prereg: Path | None = typer.Option(
+        None, "--prereg", exists=True, dir_okay=False,
+        help="A pre-registration written by `evalseal preregister` before the run. "
+             "Checks the receipt against the evaluation that was declared: suite, "
+             "dataset, case set, repeat count, grading setup and required artifacts.",
+    ),
+    anchor_file: Path | None = typer.Option(
+        None, "--anchor", exists=True, dir_okay=False,
+        help="An anchor to check, when the pre-registration requires one.",
+    ),
     as_json: bool = typer.Option(
         False, "--json", help="Emit every check as machine-readable JSON."
     ),
@@ -635,12 +894,25 @@ def gate(
 
     Thresholds come from flags, from `--policy evalseal.yml`, or both: the two sets are
     additive, so a flag can tighten a checked-in policy but never silently loosen it.
+
+    `--prereg` adds a different kind of check. A policy asks "is this number good
+    enough"; a pre-registration asks "is this the evaluation you said you would run".
     """
     recs = load_all(ledger)
     if not -len(recs) <= index < len(recs):
         raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
     record = recs[index]
     failures: list[str] = []
+
+    if policy is None and suite is not None:
+        # A `policy` section that nothing reads would be a threshold silently doing
+        # nothing, which is the failure policy.py exists to prevent.
+        named = _load_suite(suite).get("policy")
+        if named is None:
+            raise typer.BadParameter(f"{suite} has no policy section to apply")
+        policy = Path(named)
+        if not policy.exists():
+            raise typer.BadParameter(f"{suite} names a policy that is not there: {policy}")
 
     policy_checks = []
     if policy is not None:
@@ -654,6 +926,24 @@ def gate(
             raise typer.Exit(code=2) from None
         policy_checks = result.checks
         failures += [f"{c.rule}: {c.detail}" for c in result.violations]
+
+    if prereg is not None:
+        try:
+            contract = load_preregistration(prereg)
+        except PreregError as e:
+            # Same rule as a broken policy: a contract that cannot be read is a broken
+            # build, never "no contract".
+            console.print(f"[red]Pre-registration error:[/red] {rich_escape(str(e))}")
+            raise typer.Exit(code=EXIT_BAD_INPUT) from None
+        prereg_checks = check_preregistration(
+            contract, record, anchor=_anchor_state(anchor_file, record, ledger))
+        policy_checks = [*policy_checks, *prereg_checks]
+        failures += [f"{c.rule}: {c.detail}" for c in prereg_checks if not c.passed]
+        if contract.policy is not None:
+            embedded = evaluate(
+                contract.policy, record, ledger=ledger, policy_dir=prereg.parent)
+            policy_checks = [*policy_checks, *embedded.checks]
+            failures += [f"{c.rule}: {c.detail}" for c in embedded.violations]
 
     if verify_ledger:
         ok, msg = verify_chain(ledger)
@@ -933,7 +1223,9 @@ def _looks_like_ledger(path: Path) -> bool:
 def anchor(
     source: Path | None = typer.Argument(
         None, exists=True, dir_okay=False,
-        help="A receipt (report.json) or a ledger, whose head is then the receipt."),
+        help="The sealed receipt to anchor: the report.json `evalseal run` writes, or a "
+             ".jsonl ledger, whose head is then the receipt. Not the output of "
+             "`evalseal report --json`, which summarises a receipt rather than being one."),
     ledger: Path | None = typer.Option(
         None, "--ledger", exists=True, dir_okay=False,
         help="The ledger the receipt was sealed into. Defaults to SOURCE when it is one."),
@@ -946,6 +1238,12 @@ def anchor(
         help="Also obtain an external attestation of this anchor from a backend. "
              "Repeatable. Run `evalseal anchor --list-backends` to see what is available.",
     ),
+    tsa: str | None = typer.Option(
+        None, "--tsa", metavar="URL",
+        help="Timestamp authority for `--with rfc3161`. There is no default: a default "
+             "would make one service part of this tool's trust root, and would make "
+             "`anchor` contact a third party without being asked. Only the subject "
+             "digest is sent."),
     list_backends: bool = typer.Option(
         False, "--list-backends", help="List anchor backends and exit."),
 ):
@@ -958,14 +1256,16 @@ def anchor(
     """
     if list_backends:
         for name in available_backends():
-            console.print(name)
+            console.print(f"{name}{_BACKEND_NOTES.get(name, '')}")
         raise typer.Exit(code=0)
+    if tsa:
+        register_backend(Rfc3161Backend(tsa))
     if source is None:
         raise typer.BadParameter("a receipt or ledger to anchor is required")
     if ledger is None and _looks_like_ledger(source):
         ledger = source
+    record = _read_receipt(source)
     try:
-        record = load_receipt(source)
         result = build_anchor(record, source, ledger, list(artifact),
                               backends=list(with_backend))
     except AnchorError as e:
@@ -1007,7 +1307,7 @@ def anchor_verify(
         raise typer.Exit(code=1) from None
     if ledger is None and _looks_like_ledger(source):
         ledger = source
-    record = load_receipt(source)
+    record = _read_receipt(source)
     checks = verify_anchor(anchor_obj, record, ledger=ledger)
     passed = anchor_passed(checks)
 
@@ -1059,4 +1359,104 @@ def drift(
         out.write_text(text, encoding="utf-8")
         console.print(f"[green]Drift report -> {out}[/green]")
     console.print(Markdown(text))
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def preregister(
+    suite: Path | None = typer.Option(
+        None, "--suite", exists=True, dir_okay=False,
+        help="The suite file this evaluation is declared against."),
+    dataset: Path | None = typer.Option(
+        None, "--dataset", exists=True, dir_okay=False,
+        help="The dataset file. Read from --suite when that names one."),
+    n_repeats: int | None = typer.Option(
+        None, "--n-repeats", min=1,
+        help="How many times each case is declared to run. Defaults to the suite's."),
+    min_repeats_per_case: int | None = typer.Option(
+        None, "--min-repeats-per-case", min=1,
+        help="Floor for a single case's score count. Defaults to --n-repeats."),
+    pin_from: Path | None = typer.Option(
+        None, "--pin-from", exists=True, dir_okay=False,
+        help="A receipt whose evaluator fingerprint is pinned into the contract. A "
+             "fingerprint cannot be computed from files alone: it covers the judge's "
+             "served identity, so it needs one real run."),
+    require_artifact: list[str] = typer.Option(
+        [], "--require-artifact",
+        help="An artifact role the receipt must seal by digest, such as `cassette`. "
+             "Repeatable."),
+    require_ci_claim: bool = typer.Option(
+        False, "--require-ci-claim",
+        help="Require the receipt to carry CI markers. Named `claim` because that is "
+             "all it is: any shell can export GITHUB_ACTIONS=true, so this catches a "
+             "receipt produced on a laptop by accident, not one produced there on "
+             "purpose. Stronger evidence needs a resolvable run URL and a ledger "
+             "signature from a key only CI holds. See docs/pre-registration.md."),
+    require_anchor: bool = typer.Option(
+        False, "--require-anchor", help="Require a verifying anchor at gate time."),
+    require_external_anchor: bool = typer.Option(
+        False, "--require-external-anchor",
+        help="Require that anchor to carry an external proof of time."),
+    policy: Path | None = typer.Option(
+        None, "--policy", exists=True, dir_okay=False,
+        help="A policy file to embed, so thresholds are fixed before the number exists."),
+    baseline: str | None = typer.Option(
+        None, "--baseline", help="A baseline receipt this run will be compared against."),
+    note: str | None = typer.Option(
+        None, "--note", help="Why this evaluation is being run. Free text."),
+    out: Path = typer.Option(
+        Path("prereg.json"), "--out", help="Where to write the pre-registration."),
+):
+    """Declare an evaluation before running it, so the receipt can be checked against it.
+
+    A policy asks whether a number is good enough. A pre-registration asks whether this
+    is the evaluation that was declared: the same suite, the same dataset, the same case
+    ids, the same repeat count, the same grading setup.
+
+    It cannot prove that nobody ran the suite privately first - nothing that runs on the
+    author's machine can. What it does is fix the contract before any number exists, so
+    that dropping the cases that failed, quietly halving the repeat count or loosening a
+    threshold after the fact becomes a visible change rather than a silent one.
+    """
+    cfg = _load_suite(suite)
+    dataset_path = dataset or (Path(cfg["dataset"]) if cfg.get("dataset") else None)
+    if dataset_path is None:
+        raise typer.BadParameter(
+            "no dataset: pass --dataset, or a --suite that names one")
+
+    loaded = Dataset.from_jsonl(dataset_path)
+    case_ids = [c.case_id for c in loaded.cases]
+    declared_repeats = n_repeats or cfg.get("n_repeats", 5)
+
+    pin = None
+    if pin_from is not None:
+        pin = evaluator_fingerprint(_read_receipt(pin_from))
+
+    contract = build_preregistration(
+        suite=suite,
+        dataset=dataset_path,
+        dataset_hash=loaded.hash,
+        n_repeats=declared_repeats,
+        min_repeats_per_case=min_repeats_per_case,
+        case_ids=case_ids,
+        evaluator_fingerprint_pin=pin,
+        required_artifacts=list(require_artifact),
+        require_ci_claim=require_ci_claim,
+        require_anchor=require_anchor,
+        require_external_anchor=require_external_anchor,
+        baseline=baseline,
+        policy=load_policy(policy) if policy else None,
+        note=note,
+    )
+    out.write_text(contract.to_json(), encoding="utf-8")
+
+    console.print(
+        f"[green]Pre-registered[/green] {len(case_ids)} case(s) x {declared_repeats} "
+        f"repeat(s) -> {rich_escape(str(out))}\n"
+        f"case set {rich_escape(contract.dataset.case_set_hash or 'none')[:27]}...\n"
+        + (f"evaluator pinned {rich_escape(pin or '')[:34]}...\n" if pin else
+           "evaluator not pinned: re-run with --pin-from once you have a receipt\n")
+        + "Commit this file before running. It is a declaration, not evidence: it fixes "
+          "what was promised, and cannot prove no private run happened."
+    )
     raise typer.Exit(code=0)

@@ -22,13 +22,16 @@ The workflow file is [pr-receipt-workflow.yml](pr-receipt-workflow.yml). Copy it
 | step | command | fails the job when |
 |---|---|---|
 | replay the suite | `evalseal run --suite … --html receipt.html --fail-on none` | the replay breaks, e.g. the cassette no longer matches the dataset |
-| verify | `evalseal verify --artifacts` | the record's hash does not match its content, or the cassette changed since it was sealed |
-| gate | `evalseal gate --policy … --json` | a policy rule fails (recorded here, acted on last) |
-| drift, if a baseline exists | `evalseal diff baseline report.json --json` and `--html` | never: `diff` reports, it does not gate |
-| anchor | `evalseal anchor report.json --ledger …` | the receipt does not verify against its ledger |
+| verify record and artifacts | `evalseal verify --artifacts` | the record's hash does not match its content, or the cassette changed since it was sealed |
+| gate | `evalseal gate --policy … --prereg … --json` | a policy rule or a pre-registration clause fails (recorded here, acted on last) |
+| diff, if a baseline exists | `evalseal diff baseline report.json --json` and `--html` | never: `diff` reports, it does not gate |
+| judge drift, if a baseline exists | `evalseal drift baseline report.json --json` | never: it reports what moved underneath the score |
+| anchor and re-check it | `evalseal anchor …` then `evalseal anchor-verify …` | the receipt does not verify against its ledger |
 | step summary | a short Python block | never (it runs even when an earlier step failed) |
 | upload | `actions/upload-artifact` | never (it runs even when an earlier step failed) |
 | final | exit with the gate's code | the gate failed |
+
+Every step runs offline. Nothing here needs a secret, a token or an external service.
 
 Recording the gate's exit code instead of failing on it immediately is deliberate: the
 summary and the artifacts are what a reviewer needs *most* when the gate fails, so they
@@ -45,6 +48,37 @@ To change what the suite measures, re-record the cassette locally
 (`EVALSEAL_RECORD=1 evalseal run --suite …`) and commit it with the change. The diff of the
 cassette then shows reviewers exactly which responses changed.
 
+## The pre-registration
+
+A policy asks *is this number good enough*. A pre-registration asks *is this the
+evaluation you said you would run*. The workflow applies one when `PREREG` names a file
+that exists, and says plainly in the summary when it does not:
+
+> No pre-registration was applied, so nothing checked that this is the evaluation that
+> was declared beforehand.
+
+Write one before the run and commit it:
+
+```bash
+evalseal preregister --suite examples/gsm8k/suite.json \
+  --require-artifact cassette --require-artifact dataset --require-artifact suite \
+  --pin-from report.json --out prereg.json
+```
+
+Each clause becomes a named check in the same table as the policy rules:
+
+```
+| `prereg.case_set`              | ok | the declared 40 case(s) ran                 |
+| `prereg.n_repeats`             | ok | ran 5 repeat(s) as declared                 |
+| `prereg.evaluator_fingerprint` | ok | grading setup matches the pin               |
+| `prereg.artifact[cassette]`    | ok | sealed by digest (sha256:afc4901d87e70...)  |
+```
+
+Dropping the cases that failed, halving the repeat count or swapping the judge now fails
+the build by name. It still **cannot prove that nobody ran the suite privately first** -
+nothing that runs on the author's machine can. [docs/pre-registration.md](pre-registration.md)
+is explicit about where that line falls, including what `require_ci_claim` is and is not worth.
+
 ## Why a policy file rather than flags
 
 With flags, `gate` reports what failed but stays silent about what passed, so a green
@@ -56,14 +90,29 @@ ran, passed or failed, and that list goes straight into the step summary. The ex
 
 The summary is ordered so that nothing misleading comes first:
 
-1. **Gate result**, and the policy it was checked against.
+1. **Gate result**, and what it was checked against: the policy, and the
+   pre-registration when one was applied. When none was, it says so.
 2. **Comparability with the baseline**, when a baseline exists, before any score. If the
    grading setup changed, the summary says **NOT COMPARABLE**, names the grading fields
    that changed, and labels the score difference as not a change in the model.
-3. **Every check** the policy ran, with its detail.
-4. **The run**: the EvalSeal version sealed in the receipt, the suite, the target model,
-   mean score, mean flip rate, unstable cases, and the evaluator fingerprint.
-5. **Artifacts**, and what to inspect.
+3. **Every check** the policy and the pre-registration ran, with its detail.
+4. **Judge drift**, when a baseline exists: what moved underneath the score - the
+   grading setup, the judge disagreeing with itself, or the target answering
+   differently - and the least stable cases with their verdict strips.
+5. **The run**: the EvalSeal version sealed in the receipt, the suite, the target model
+   (and the served model when it differs), mean score, mean flip rate, unstable cases,
+   and the evaluator fingerprint.
+6. **Artifact and anchor verification**, in a collapsed block, quoting the commands'
+   own output rather than paraphrasing it. A paraphrase of a check result is one more
+   place for it to drift from what actually ran.
+7. **Artifacts**, and what to inspect.
+
+The anchor line restates its own limit where someone reads the result: a local anchor
+is the runner's clock and establishes nothing about *when*. `anchor-verify` prints
+`created_at` on a line marked *not verified* for the same reason.
+
+What each part of this summary does and does not establish is answered in five short
+paragraphs at the top of [THREAT_MODEL.md](../THREAT_MODEL.md).
 
 A non-comparable baseline does not fail the gate by itself. The baseline in the workflow's
 env is for reporting. To make comparability a requirement, add a drift rule to the policy:
@@ -114,7 +163,8 @@ incomparable.
 ## What the artifacts contain
 
 `evalseal-receipt` holds `receipt.html`, `report.md`, `report.json`, `receipt-summary.json`,
-`gate.json`, `drift.html` and `drift.json` when a baseline exists, `anchor.json`, and the
+`gate.json`, `verify.txt`, `anchor-verify.txt`, `drift.html`, `drift.json`,
+`judge-drift.md` and `judge-drift.json` when a baseline exists, `anchor.json`, and the
 ledger. They contain scores, verdicts, case ids, hashes and provenance. **They do not
 contain prompts or responses**: those stay in the cassette in the repository, and the
 receipt refers to them only by hash. Recording with `--store-judge-prompt` would seal the

@@ -211,6 +211,36 @@ in `served_model`. Any other difference produces a warning.
 anything else counts as FAIL. A plain substring check would read "FAIL — does not PASS" as
 a pass.
 
+**A declared contract is checked clause by clause, and never claims more than that.**
+`evalseal preregister` fixes the suite, dataset, case-id set, repeat count, required
+artifact roles and optionally an embedded policy and a pinned evaluator fingerprint,
+before any number exists. `gate --prereg` reports each clause by name, passing ones
+included, for the same reason `policy.py` does: a gate that speaks only on failure
+cannot be told from one that checked nothing. The claim is bounded and stated in the
+module docstring, the CLI help, the docs and a test - **a pre-registration makes the
+contract checkable, not the author honest.** Nothing running on the author's machine
+can prove a private run never happened.
+
+**The suite file separates the instrument from what is measured.** A flat suite mixes
+them, so its whole-file digest cannot decide comparability: repointing `target` changes
+the hash while the grading is untouched. Version 2 sections the file and seals the
+evaluator and target section digests separately. They are *recorded, not fingerprinted* -
+scheme 2 already covers the scorer config, judge identity, rubric and prompt template
+hashes, so fingerprinting the section would add the path to the scorer alongside the
+scorer itself, and would re-pin every baseline for that. A v2 suite therefore produces
+the same evaluator fingerprint as the flat suite it replaces, which a test asserts by
+running both.
+
+**An external anchor says which half of the check ran.** The `rfc3161` backend builds a
+real DER `TimeStampReq`, submits it to an authority the caller names, and stores the
+token. Verification confirms offline that the token's message imprint is this anchor's
+subject digest and reports the asserted time - and does **not** validate the authority's
+CMS signature, which would need an ASN.1 dependency. So the proof carries
+`verified_by_evalseal: false`, every message hands back the `openssl ts -verify` command
+that finishes the job, and a test fails if the wording ever implies otherwise. There is
+no default authority: one would make a service EvalSeal picked part of this project's
+trust root, and would make `anchor` contact a third party unasked.
+
 **A schema change is named, not mistaken for tampering.** A record's hash covers its whole
 content, so adding a manifest field changes the hash of everything sealed before it.
 `SCHEMA_VERSION` is stored in each record, and `verify` reports an older schema as exactly
@@ -241,6 +271,20 @@ still failing on a broken replay.
 
 ## Known limits
 
+- **A local ledger cannot detect a private rerun.** It records what was appended to it.
+  Deleting it and starting again leaves no trace, because no observer outside the
+  machine saw the earlier attempts. A pre-registration narrows what can be changed in
+  response to a result; it does not prove the result was the first one.
+- **CI provenance is a claim, not proof.** Every field comes from an environment
+  variable, and a laptop can export the same ones. A resolvable run URL and a signing
+  key that only CI holds are what turn it into evidence, and both live outside EvalSeal.
+- **The RFC 3161 backend does not verify the authority's signature.** It checks that the
+  token is about this anchor's digest, which is real but partial. Until CMS validation
+  moves inside EvalSeal the backend stays marked experimental.
+- **EvalSeal does not run or replay agents.** It has no tool loop, planner or sandbox.
+  For agent evals it binds the tool ACL and the frozen tool responses by digest and
+  re-checks them; producing those files is the harness's job, and a harness that
+  misreports its own tool calls seals just as cleanly.
 - **Small-N intervals are wide, and should be.** At N=5 even a perfectly stable case spans
   [0.57, 1.00]. That is the honest width for five observations, not a defect — but it means
   small differences cannot be called at small N. Raise N when you need that power.

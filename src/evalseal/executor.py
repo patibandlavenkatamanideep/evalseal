@@ -16,6 +16,7 @@ from .models import (
     Aggregate,
     ArtifactProvenance,
     CaseResult,
+    CIProvenance,
     CodeProvenance,
     DatasetProvenance,
     EffectiveParams,
@@ -27,7 +28,13 @@ from .models import (
     SuiteProvenance,
     TargetProvenance,
 )
-from .provenance import environment_provenance, file_hash, git_provenance, text_hash
+from .provenance import (
+    ci_provenance,
+    environment_provenance,
+    file_hash,
+    git_provenance,
+    text_hash,
+)
 
 _CANONICAL_HOSTS = {"api.openai.com", "api.anthropic.com",
                     "generativelanguage.googleapis.com"}
@@ -259,7 +266,10 @@ def run_eval(
         suite=suite,
         artifacts=artifacts,
         code=CodeProvenance(commit=git["commit"], dirty=git["dirty"]),
-        environment=EnvironmentProvenance(**environment_provenance()),
+        environment=EnvironmentProvenance(
+            **environment_provenance(),
+            ci=CIProvenance.model_validate(ci) if (ci := ci_provenance()) else None,
+        ),
     )
     agg = Aggregate(
         n_cases=len(results),

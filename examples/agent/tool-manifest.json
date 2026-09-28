@@ -1,0 +1,56 @@
+{
+  "schema": "evalseal.agent-tools/1",
+  "response_mode": "recorded",
+  "runtime": {
+    "framework": "example-agent-runner",
+    "version": "0.3.1",
+    "note": "Not an EvalSeal component. Named so a reader knows what produced the trace."
+  },
+  "allowed": [
+    {
+      "name": "search_docs",
+      "definition_sha256": "sha256:fce12146cd915c22eecabc885dcac88da31027e872ee343fb307601cee51ae6d"
+    },
+    {
+      "name": "get_order",
+      "definition_sha256": "sha256:36327a0b5c0ae9095d2f29bb52ef9015620118ef88e5cc5c2725c0c409c35766"
+    }
+  ],
+  "denied": [
+    "shell.exec",
+    "http.post",
+    "fs.write"
+  ],
+  "tools": [
+    {
+      "name": "search_docs",
+      "description": "Full-text search over the product documentation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "get_order",
+      "description": "Fetch one order by id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    }
+  ]
+}

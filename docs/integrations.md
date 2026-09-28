@@ -122,6 +122,14 @@ export, not from this page.
 
 ### LangSmith / Langfuse traces (proposed wrapper shape)
 
+For agent traces specifically, the field-by-field mapping onto EvalSeal's frozen-response
+artifact - span name to tool, span input and output to their digests, parent id to case id
+- is written out in [docs/agent-eval-receipts.md](agent-eval-receipts.md). What a trace
+store cannot do is prove the trace was not edited afterwards; sealing its digest into a
+receipt is the gap that closes. Keep the trace: a digest without the artifact proves
+nothing later.
+
+
 - **They own:** tracing, spans, latency and token accounting, datasets, annotation
   queues, and the UI where a team actually reads runs.
 - **EvalSeal would own:** turning N traced runs of the same cases into one sealed
@@ -146,10 +154,28 @@ export, not from this page.
   session digest as an artifact. EvalSeal's own cassettes are a narrow version of the
   same idea, so the natural boundary is: their tool replays the world, EvalSeal replays
   the grading and seals the result.
+- **What to seal, concretely.** This part is no longer hypothetical.
+  [docs/agent-eval-receipts.md](agent-eval-receipts.md) defines the two artifacts, and
+  `run --artifact ROLE=PATH` binds either by digest today:
+
+  ```bash
+  evalseal run --suite agent-suite.json \
+    --artifact tool_acl=tools.json \
+    --artifact tool_responses=replay-transcript.json
+  ```
+
+  The tool registry becomes the ACL artifact; the transcript becomes the frozen-response
+  artifact, one entry per tool call keyed by (case, repeat, seq) with input and response
+  digests. Sealing only the ACL is not enough: the ACL says what the agent *could* call,
+  and the responses are the world it was evaluated inside. Two runs with an identical
+  ACL and different recorded responses are not the same experiment, and
+  `verify --artifacts` is what notices.
 - **Trust boundary:** a deterministic replay is not a live run. A receipt over a replay
   proves the analysis is reproducible from the recording, never that the model would
-  behave that way today. EvalSeal already says this about its own cassettes and would
-  say it here.
+  behave that way today. EvalSeal already says this about its own cassettes and says it
+  here. It also does not observe the agent: **EvalSeal has no tool loop and does not
+  replay agents.** It binds the files a harness produced, and a harness that misreports
+  its own tool calls seals just as cleanly as one that does not.
 
 ## Performance and systems benchmarks
 

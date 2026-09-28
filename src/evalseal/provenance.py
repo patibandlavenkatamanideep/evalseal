@@ -1,13 +1,19 @@
 """Facts about what produced a run: the code, the environment, the inputs.
 
-Everything here is a hash or a short identifier. Nothing captured by this module is
-secret: file contents are hashed rather than stored, and no environment variable is
-read, so an API key cannot reach a sealed record through here.
+Everything here is a hash or a short identifier. File contents are hashed rather than
+stored, so a dataset cannot leak through here.
+
+One module reads environment variables: `ci_provenance`, and it reads only the fixed
+allowlist below. That list is spelled out as constants rather than matched by prefix,
+because a rule like "record every GITHUB_* variable" would sweep up
+`GITHUB_TOKEN`. No value read here is secret, and a variable not on the list cannot
+reach a sealed record.
 """
 
 from __future__ import annotations
 
 import hashlib
+import os
 import platform
 import subprocess
 import sys
@@ -86,3 +92,59 @@ def environment_provenance() -> dict[str, str]:
         "platform": f"{platform.system()} {platform.machine()}",
         "implementation": sys.implementation.name,
     }
+
+
+# Non-secret identifiers only, named one by one. Nothing here is a token, and no
+# pattern match is used, so a new secret in the environment cannot be swept in.
+_CI_VARS: dict[str, dict[str, str]] = {
+    "github_actions": {
+        "marker": "GITHUB_ACTIONS", "run_id": "GITHUB_RUN_ID",
+        "repository": "GITHUB_REPOSITORY", "ref": "GITHUB_REF",
+        "commit": "GITHUB_SHA", "event": "GITHUB_EVENT_NAME",
+    },
+    "gitlab_ci": {
+        "marker": "GITLAB_CI", "run_id": "CI_PIPELINE_ID",
+        "repository": "CI_PROJECT_PATH", "ref": "CI_COMMIT_REF_NAME",
+        "commit": "CI_COMMIT_SHA", "event": "CI_PIPELINE_SOURCE",
+        "run_url": "CI_PIPELINE_URL",
+    },
+    "circleci": {
+        "marker": "CIRCLECI", "run_id": "CIRCLE_BUILD_NUM",
+        "repository": "CIRCLE_PROJECT_REPONAME", "ref": "CIRCLE_BRANCH",
+        "commit": "CIRCLE_SHA1", "run_url": "CIRCLE_BUILD_URL",
+    },
+    "buildkite": {
+        "marker": "BUILDKITE", "run_id": "BUILDKITE_BUILD_NUMBER",
+        "repository": "BUILDKITE_PIPELINE_SLUG", "ref": "BUILDKITE_BRANCH",
+        "commit": "BUILDKITE_COMMIT", "run_url": "BUILDKITE_BUILD_URL",
+    },
+}
+
+
+def ci_provenance() -> dict[str, str | bool | None] | None:
+    """What the environment claims about the CI job running this, or None locally.
+
+    **This is a claim, not proof.** Every value is an environment variable, and a
+    local shell can export the same ones. What turns it into evidence is outside this
+    record: a `run_url` a third party can open, and a ledger signed by a key that only
+    the CI job holds. A pre-registration that requires CI is a statement about where
+    the receipt is *supposed* to come from, and it catches the accident - a receipt
+    produced on a laptop and attached to a PR - rather than a determined forger.
+    """
+    for provider, keys in _CI_VARS.items():
+        if os.environ.get(keys["marker"], "").lower() not in {"true", "1", "yes"}:
+            continue
+        out: dict[str, str | bool | None] = {"provider": provider, "claimed": True}
+        for field, var in keys.items():
+            if field != "marker":
+                out[field] = os.environ.get(var) or None
+        if provider == "github_actions":
+            server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
+            repo, run_id = out.get("repository"), out.get("run_id")
+            out["run_url"] = f"{server}/{repo}/actions/runs/{run_id}" if repo and run_id \
+                else None
+        return out
+    # Many systems set only CI=true. Record that plainly rather than guessing a vendor.
+    if os.environ.get("CI", "").lower() in {"true", "1", "yes"}:
+        return {"provider": "unknown", "claimed": True}
+    return None

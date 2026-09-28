@@ -10,6 +10,7 @@ upload) are skipped because they have no local equivalent.
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -167,13 +168,36 @@ def test_a_non_comparable_baseline_is_not_hidden_behind_its_delta(tmp_path):
     result = run_workflow(ws)
 
     s = result["summary"]
-    assert "**NOT COMPARABLE with the baseline.**" in s
+    assert "# NOT COMPARABLE with the baseline" in s
     assert "must not be read as one" in s
     assert "(not comparable)" in s
-    reasons = s.split("grading setup changed (", 1)[1].split(")", 1)[0]
+    reasons = s.split("# NOT COMPARABLE with the baseline (", 1)[1].split(")", 1)[0]
     assert "scorer type" in reasons and "dataset" in reasons
     assert "target model" not in reasons       # not a grading change
     assert s.index("NOT COMPARABLE") < s.index("| check | result |")
+    # Comparability leads: it comes before the gate verdict and before any number.
+    assert s.index("NOT COMPARABLE") < s.index("Gate ")
+    assert s.index("NOT COMPARABLE") < s.index("mean score")
+
+
+def test_comparability_is_the_headline_above_the_gate_result(tmp_path):
+    """Phase F's ordering: a reviewer who reads one line reads comparability."""
+    ws = _workspace(tmp_path)
+    _baseline(ws, "examples/gsm8k/suite.json")
+    result = run_workflow(ws)
+    assert not result["failed"], (result["failed_step"], result["log"])
+
+    s = result["summary"]
+    assert "**Comparable with the baseline:** yes" in s
+    assert s.index("Comparable with the baseline") < s.index("Gate ")
+    assert s.index("Comparable with the baseline") < s.index("mean score")
+
+
+def test_without_a_baseline_the_headline_says_nothing_was_compared(tmp_path):
+    result = run_workflow(_workspace(tmp_path))
+    s = result["summary"]
+    assert "no baseline receipt, so nothing was compared" in s
+    assert s.index("Comparability:") < s.index("Gate ")
 
 
 def test_a_failing_gate_fails_the_job_but_still_writes_the_summary(tmp_path):
@@ -200,3 +224,66 @@ def test_the_workflow_is_read_only_and_pinned():
         if "uses" in step:
             ref = step["uses"].split("@", 1)[1]
             assert len(ref) == 40 and all(c in "0123456789abcdef" for c in ref), step["uses"]
+
+
+def test_the_pre_registration_is_applied_and_named(tmp_path):
+    """A prereg file in the workspace must actually gate, not sit there unread."""
+    result = run_workflow(_workspace(tmp_path))
+    assert not result["failed"], (result["failed_step"], result["log"])
+
+    s = result["summary"]
+    assert "the pre-registration" in s
+    for rule in ("prereg.case_set", "prereg.n_repeats", "prereg.evaluator_fingerprint",
+                 "prereg.artifact[cassette]"):
+        assert f"| `{rule}` | ok |" in s, rule
+    # And the honest caveat is not printed when a prereg *was* applied.
+    assert "nothing checked that this is the evaluation that was declared" not in s
+
+
+def test_without_a_pre_registration_the_summary_says_so(tmp_path):
+    ws = _workspace(tmp_path)
+    (ws / "examples" / "prereg.json").unlink()
+    result = run_workflow(ws)
+    assert not result["failed"], (result["failed_step"], result["log"])
+
+    s = result["summary"]
+    assert "prereg." not in s
+    assert "No pre-registration was applied" in s
+
+
+def test_a_broken_pre_registration_fails_the_job(tmp_path):
+    """A contract the receipt does not honour must fail, not be skipped."""
+    ws = _workspace(tmp_path)
+    prereg = ws / "examples" / "prereg.json"
+    contract = json.loads(prereg.read_text(encoding="utf-8"))
+    contract["runs"]["n_repeats"] = 9            # nobody ran nine repeats
+    prereg.write_text(json.dumps(contract), encoding="utf-8")
+
+    result = run_workflow(ws)
+    assert result["failed"]
+    assert "**Gate FAILED**" in result["summary"]
+    assert "prereg.n_repeats" in result["summary"]
+
+
+def test_artifact_and_anchor_verification_reach_the_summary(tmp_path):
+    result = run_workflow(_workspace(tmp_path))
+    s = result["summary"]
+    assert "Artifact and anchor verification" in s
+    assert "matches the sealed digest" in s          # from verify --artifacts
+    assert "Anchor verified" in s
+    # The anchor's limits are restated where someone reads the result.
+    assert "establishes nothing about when" in s
+    assert (result["ws"] / "verify.txt").exists()
+    assert (result["ws"] / "anchor-verify.txt").exists()
+
+
+def test_judge_drift_is_reported_when_a_baseline_exists(tmp_path):
+    ws = _workspace(tmp_path)
+    _baseline(ws, "examples/gsm8k/suite.json")
+    result = run_workflow(ws)
+    assert not result["failed"], (result["failed_step"], result["log"])
+
+    s = result["summary"]
+    assert "Judge drift:" in s
+    assert (ws / "judge-drift.json").exists()
+    assert (ws / "judge-drift.md").exists()

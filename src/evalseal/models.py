@@ -18,7 +18,11 @@ FailOn = Literal["none", "unstable", "borderline"]
 # hashed the last judge prompt sent, which varied with the target's responses and with
 # scheduling. Under 1.3 it hashes the judge prompt template. A 1.2 judge record and a
 # 1.3 one therefore disagree on this hash for that reason alone.
-SCHEMA_VERSION = "1.4"
+# 1.5 adds what the environment claimed about the CI job, so a pre-registration can
+# require that a receipt came from CI rather than from someone's laptop. It is a claim
+# and is named as one; see CIProvenance. It also records the evaluator and target
+# section digests of a version-2 suite file.
+SCHEMA_VERSION = "1.5"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
 
@@ -66,6 +70,12 @@ class SuiteProvenance(BaseModel):
     name: str | None = None
     path: str | None = None
     hash: str | None = None
+    # Version 2 suites split the file into sections. These digest the two that matter
+    # for reading a difference: the grading setup and the thing being measured. The
+    # whole-file `hash` cannot tell them apart, which is why it is not fingerprinted.
+    # None for a flat-format suite, which has no sections.
+    evaluator_hash: str | None = None
+    target_hash: str | None = None
 
 
 class CodeProvenance(BaseModel):
@@ -73,11 +83,35 @@ class CodeProvenance(BaseModel):
     dirty: bool | None = None              # True means the commit does not describe the run
 
 
+class CIProvenance(BaseModel):
+    """What the environment said about the CI job, sealed as a claim.
+
+    `claimed` is the honest name for the whole object, and `require_ci_claim` is the
+    honest name for the rule that checks it. **This is a claim, never proof.** Every
+    field is an environment variable, and a laptop can export the same ones:
+    `GITHUB_ACTIONS=true evalseal run` produces a receipt that claims CI.
+
+    So it catches a receipt produced locally and attached to a pull request by accident
+    or convenience. It does not stop anyone who sets the variable on purpose. A policy
+    that wants evidence has to lean on `run_url` being resolvable and on the ledger
+    being signed by a key the CI job holds and a developer does not.
+    """
+    claimed: bool = False
+    provider: str | None = None            # github_actions | gitlab_ci | ... | unknown
+    run_id: str | None = None
+    run_url: str | None = None             # what a third party can open and check
+    repository: str | None = None
+    ref: str | None = None
+    commit: str | None = None
+    event: str | None = None
+
+
 class EnvironmentProvenance(BaseModel):
     evalseal_version: str | None = None
     python_version: str | None = None
     platform: str | None = None
     implementation: str | None = None
+    ci: CIProvenance | None = None         # None means: no CI markers in the environment
 
 
 ArtifactKind = Literal["hashed", "embedded", "external"]

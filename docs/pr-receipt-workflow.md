@@ -8,14 +8,17 @@ that receipt on every pull request, with no API key.
 The workflow file is [pr-receipt-workflow.yml](pr-receipt-workflow.yml). Copy it to
 `.github/workflows/evalseal.yml`.
 
-> **Version note: 2.1.0 is not released yet.** The workflow uses `anchor`,
-> `anchor-verify` and `gate --expect-evaluator`, which land in 2.1.0. So `EVALSEAL_SPEC`
-> installs from the commit that adds them
-> (`git+https://github.com/patibandlavenkatamanideep/evalseal@12989ba`), which works today
-> and is immutable. **After 2.1.0 is published, change that one line to the released pin:**
-> `EVALSEAL_SPEC: "evalseal[yaml]==2.1.0"`. Installing from a commit is fine for trying the
+> **Version note: 2.2.0 is not published yet.** 2.1.0 is on PyPI, but this workflow uses
+> `preregister` and `gate --prereg`, which land in 2.2.0. So `EVALSEAL_SPEC` installs from
+> the commit that adds them
+> (`git+https://github.com/patibandlavenkatamanideep/evalseal@b09f922`), which works today
+> and is immutable. **After 2.2.0 is published, change that one line to the released pin:**
+> `EVALSEAL_SPEC: "evalseal[yaml]==2.2.0"`. Installing from a commit is fine for trying the
 > workflow out; a released version is what you want long term, because it is what the
 > receipt records as the tool that sealed it.
+>
+> If you do not use a pre-registration, delete `examples/prereg.json` from `PREREG` and
+> `evalseal[yaml]==2.1.0` is enough.
 
 ## What it does
 

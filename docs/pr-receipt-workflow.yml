@@ -22,14 +22,12 @@ permissions:
   contents: read
 
 env:
-  # Pin the tool that seals the receipt; the version is sealed into the receipt too.
+  # Pin the tool that seals the receipt; the version is sealed into the receipt too, so
+  # an exact pin is what makes a receipt say which build produced it.
   #
-  # 2.1.0 is published. This workflow needs more than that: `preregister` and
-  # `gate --prereg` land in 2.2.0, which is NOT on PyPI yet, so this installs from the
-  # commit that adds them - immutable, and it works today. After 2.2.0 is published,
-  # replace this line with the released pin:
-  #   EVALSEAL_SPEC: "evalseal[yaml]==2.2.0"
-  EVALSEAL_SPEC: "evalseal[yaml] @ git+https://github.com/patibandlavenkatamanideep/evalseal@b09f9222b6d465fd92fc58e7c47574f3653014c1"
+  # 2.2.0 is the first release with `preregister` and `gate --prereg`, which this
+  # workflow uses. Drop the pre-registration and 2.1.0 is enough - see the guide.
+  EVALSEAL_SPEC: "evalseal[yaml]==2.2.0"
   # The suite to replay. Its cassette must be committed, or the run fails loudly.
   SUITE: examples/gsm8k/suite.json
   # Thresholds, critical cases and pins. A policy lists every check it ran, passed or

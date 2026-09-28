@@ -7,8 +7,11 @@ older version still verifies.
 
 ## [Unreleased]
 
-Targeted at **2.2.0**. It adds commands (`preregister`) and flags, and no command is
-removed.
+Nothing yet.
+
+## [2.2.0] - 2026-09-28
+
+A minor release: it adds commands (`preregister`) and flags, and no command is removed.
 
 Everything here answers an objection raised about 2.1.0 rather than an idea about what
 to build next. The objections, and the honest answer to each, are in the sections below.
@@ -797,7 +800,8 @@ are now covered by semantic versioning, and a breaking change to any of them mea
   rates and stability classes; provenance capture for target and judge; record/replay
   cassettes for keyless CI; hash-linked tamper-evident ledger; Markdown and JSON reports.
 
-[Unreleased]: https://github.com/patibandlavenkatamanideep/evalseal/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/patibandlavenkatamanideep/evalseal/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/patibandlavenkatamanideep/evalseal/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/patibandlavenkatamanideep/evalseal/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.1
 [2.0.0]: https://github.com/patibandlavenkatamanideep/evalseal/releases/tag/v2.0.0

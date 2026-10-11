@@ -26,6 +26,7 @@ than binding it and leaving the reader to discover the breakage later.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -146,6 +147,8 @@ def validate_tool_responses(data: object) -> list[str]:
         return [*problems, "`calls` must be a list"]
 
     seen: set[tuple] = set()
+    call_ids: set[str] = set()
+    retries: set[tuple] = set()
     for i, call in enumerate(calls):
         if not isinstance(call, dict):
             problems.append(f"calls[{i}] must be an object")
@@ -158,15 +161,53 @@ def validate_tool_responses(data: object) -> list[str]:
             if not isinstance(call.get(field), int) or isinstance(call.get(field), bool):
                 problems.append(f"{where} has no integer `{field}`")
 
-        key = (call.get("case_id"), call.get("repeat"), call.get("seq"))
-        if all(k is not None for k in key):
+        # `attempt_id` joins the key because two attempts at the same case and repeat
+        # each legitimately start at seq 0. Absent, it is None and the key is what it
+        # was before, so existing files keep validating.
+        attempt = call.get("attempt_id")
+        if attempt is not None and (not isinstance(attempt, str) or not attempt):
+            problems.append(f"{where} has an empty `attempt_id`")
+            attempt = None
+        key = (call.get("case_id"), call.get("repeat"), attempt, call.get("seq"))
+        if all(k is not None for k in (key[0], key[1], key[3])):
             if key in seen:
                 # The key is what makes a concurrent run produce the same file as a
                 # serial one. Two calls sharing it means one of them is unreachable.
                 problems.append(
-                    f"{where} repeats the key (case_id={key[0]!r}, repeat={key[1]}, "
-                    f"seq={key[2]}); keys must be unique")
+                    f"{where} repeats the key (case_id={key[0]!r}, repeat={key[1]}"
+                    + (f", attempt_id={attempt!r}" if attempt else "")
+                    + f", seq={key[3]}); keys must be unique")
             seen.add(key)
+
+        call_id = call.get("tool_call_id")
+        if call_id is not None:
+            if not isinstance(call_id, str) or not call_id:
+                problems.append(f"{where} has an empty `tool_call_id`")
+            elif call_id in call_ids:
+                # The harness's own id for the call. Two calls sharing it means the
+                # trace cannot be matched back to the provider's record of it.
+                problems.append(
+                    f"{where} repeats `tool_call_id` {call_id!r}; it identifies one call")
+            else:
+                call_ids.add(call_id)
+
+        retry = call.get("retry_index")
+        if retry is not None:
+            if not isinstance(retry, int) or isinstance(retry, bool) or retry < 0:
+                problems.append(
+                    f"{where} has `retry_index` {retry!r}; expected a non-negative "
+                    "integer, 0 for the first attempt at a call")
+            else:
+                lineage = (call.get("case_id"), call.get("repeat"), attempt,
+                           call.get("tool"))
+                if retry > 0 and (*lineage, retry - 1) not in retries:
+                    # A retry whose earlier attempt is absent describes a history with
+                    # a hole in it: the thing being retried was never recorded.
+                    problems.append(
+                        f"{where} is retry {retry} of {call.get('tool')!r} but retry "
+                        f"{retry - 1} is not recorded; a retry needs the attempt it "
+                        "retries")
+                retries.add((*lineage, retry))
 
         if not _is_digest(call.get("input_sha256")):
             problems.append(f"{where} has no valid `input_sha256`")
@@ -191,6 +232,62 @@ def validate_tool_responses(data: object) -> list[str]:
                 f"{where} was denied but carries a `response_sha256`; a blocked call "
                 "returned nothing")
     return problems
+
+
+def tool_path_digest(calls: list[dict]) -> str:
+    """Digest the *route* a set of calls took, ignoring what came back.
+
+    Two agent attempts can reach the same final answer by different routes - one that
+    called `get_order` twice, one that guessed - and a score alone cannot tell them
+    apart. Hashing the ordered `(tool, input_sha256, outcome)` triples gives a single
+    value that differs exactly when the route differed.
+
+    Derived, never sealed: EvalSeal computes this from a file it was handed, as a
+    reading aid. It is not evidence about the agent, and a harness that omitted a call
+    produces a clean digest of an incomplete route.
+    """
+    route = [
+        [c.get("tool"), c.get("input_sha256"), c.get("outcome")]
+        for c in sorted(calls, key=lambda c: (c.get("seq") or 0))
+    ]
+    blob = json.dumps(route, sort_keys=True, separators=(",", ":")).encode()
+    return "sha256:" + hashlib.sha256(blob).hexdigest()
+
+
+def group_attempts(data: dict) -> dict[tuple, list[dict]]:
+    """Calls grouped by (case_id, repeat, attempt_id), in sequence order."""
+    groups: dict[tuple, list[dict]] = {}
+    for call in data.get("calls") or []:
+        if not isinstance(call, dict):
+            continue
+        key = (call.get("case_id"), call.get("repeat"), call.get("attempt_id"))
+        groups.setdefault(key, []).append(call)
+    return {k: sorted(v, key=lambda c: (c.get("seq") or 0)) for k, v in groups.items()}
+
+
+def describe_paths(data: dict) -> list[dict[str, object]]:
+    """One row per attempt: its route digest, length, retries and whether it ended ok.
+
+    This is the view that answers "same final state, different path": compare the
+    `path_digest` column across two recordings. Identical digests took the same route;
+    different digests did not, whatever the scores say.
+    """
+    rows = []
+    for (case_id, repeat, attempt), calls in sorted(
+            group_attempts(data).items(), key=lambda kv: tuple(str(x) for x in kv[0])):
+        outcomes = [c.get("outcome") for c in calls]
+        rows.append({
+            "case_id": case_id,
+            "repeat": repeat,
+            "attempt_id": attempt,
+            "n_calls": len(calls),
+            "n_retries": sum(1 for c in calls if (c.get("retry_index") or 0) > 0),
+            "n_denied": outcomes.count("denied"),
+            "n_errors": outcomes.count("error"),
+            "tools": [c.get("tool") for c in calls],
+            "path_digest": tool_path_digest(calls),
+        })
+    return rows
 
 
 def validate_agent_artifact(role: str, path: str | Path) -> list[str]:
@@ -221,6 +318,6 @@ def validate_agent_artifact(role: str, path: str | Path) -> list[str]:
 
 __all__ = [
     "AGENT_ROLES", "OUTCOMES", "RESPONSE_MODES", "TOOL_MANIFEST_SCHEMA",
-    "TOOL_RESPONSES_SCHEMA", "validate_agent_artifact", "validate_tool_manifest",
-    "validate_tool_responses",
+    "TOOL_RESPONSES_SCHEMA", "describe_paths", "group_attempts", "tool_path_digest",
+    "validate_agent_artifact", "validate_tool_manifest", "validate_tool_responses",
 ]

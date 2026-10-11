@@ -411,3 +411,73 @@ def test_power_is_untouched_and_still_answers_its_own_question():
     out = " ".join(result.output.split())
     assert "detect a difference" in out
     assert "--target-margin" not in out      # precision flags belong to `evidence`
+
+
+# --- report --json: additive only ------------------------------------------------------
+
+# The exact per-case key set `evalseal report --json` emitted in 2.2.0. A consumer
+# written against that release must keep working, so this list is a contract: keys may
+# be added beside it, never removed from it or renamed.
+V220_CASE_KEYS = {
+    "case_id", "runs", "verdict_distribution", "verdict_sequence", "flip_count",
+    "flip_rate", "majority_verdict", "stability", "stability_label", "ci95",
+}
+V220_TOP_LEVEL = {"summary", "provenance", "cases"}
+V220_SUMMARY_KEYS = {
+    "mean_score", "flip_rate", "n_cases", "n_stable", "n_unstable", "sealed_hash",
+}
+
+
+def _report_json(receipt, *extra):
+    result = runner.invoke(app, ["report", str(receipt), "--json", *extra])
+    assert result.exit_code == 0, result.output
+    return json.loads(result.stdout)
+
+
+def test_report_json_keeps_every_key_a_2_2_0_consumer_reads(receipt):
+    payload = _report_json(receipt)
+    assert set(payload) >= V220_TOP_LEVEL
+    assert set(payload["summary"]) >= V220_SUMMARY_KEYS
+    for case in payload["cases"]:
+        assert set(case) >= V220_CASE_KEYS, V220_CASE_KEYS - set(case)
+
+
+def test_report_json_adds_uncertainty_without_disturbing_the_rest(receipt):
+    payload = _report_json(receipt)
+    assert set(payload) - V220_TOP_LEVEL == {"uncertainty"}
+    for case in payload["cases"]:
+        assert set(case) - V220_CASE_KEYS == {"evidence"}
+
+
+def test_report_json_uncertainty_block_shape(receipt):
+    u = _report_json(receipt)["uncertainty"]
+    assert set(u) == {
+        "label", "confidence", "target_margin", "n_underpowered",
+        "underpowered_cases", "min_runs_per_case", "worst_margin", "counts",
+        "summary", "caveat"}
+    assert u["caveat"] == CAVEAT
+    assert u["label"] in EVIDENCE_LABELS
+
+
+def test_report_json_per_case_evidence_shape(receipt):
+    case = _report_json(receipt)["cases"][0]["evidence"]
+    assert set(case) == {"label", "margin", "flip_rate_ci", "underpowered", "action"}
+
+
+def test_report_json_evidence_agrees_with_the_evidence_command(receipt, tmp_path):
+    """Two surfaces, one computation. If they drift, one of them is lying."""
+    from evalseal.diffing import load_receipt
+
+    reported = {c["case_id"]: c["evidence"]["label"]
+                for c in _report_json(receipt)["cases"]}
+    direct = {c.case_id: c.label
+              for c in analyze_evidence(load_receipt(receipt)).cases}
+    assert reported == direct
+
+
+def test_unstable_only_filters_cases_but_not_the_suite_verdict(receipt):
+    """Suite uncertainty describes the suite, not whichever cases were displayed."""
+    full = _report_json(receipt)
+    filtered = _report_json(receipt, "--unstable-only")
+    assert len(filtered["cases"]) < len(full["cases"])
+    assert filtered["uncertainty"] == full["uncertainty"]

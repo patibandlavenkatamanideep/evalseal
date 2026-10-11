@@ -38,9 +38,11 @@ from .decompose import render as render_decomposition
 from .diffing import ReceiptError, diff_records, load_receipt, mean_flip_rate
 from .drift import analyze_drift
 from .drift import render as render_drift
+from .evidence import CAVEAT as EVIDENCE_CAVEAT
 from .evidence import (
     DEFAULT_CONFIDENCE,
     DEFAULT_TARGET_MARGIN,
+    CaseEvidence,
     analyze_evidence,
 )
 from .evidence import render as render_evidence
@@ -658,6 +660,23 @@ def sign(
     )
 
 
+def _case_evidence_block(ev: CaseEvidence | None) -> dict[str, object] | None:
+    """The uncertainty view of one case, for `report --json`.
+
+    A subset of what `evalseal evidence` prints: the fields a CI reviewer or dashboard
+    acts on, without the repeat-count arithmetic that belongs to that command.
+    """
+    if ev is None:
+        return None
+    return {
+        "label": ev.label,
+        "margin": ev.margin,
+        "flip_rate_ci": list(ev.flip_rate_ci) if ev.flip_rate_ci else None,
+        "underpowered": ev.underpowered,
+        "action": ev.action,
+    }
+
+
 def _read_receipt(source: str | Path) -> RunRecord:
     """Load a receipt, or exit with a message that names what the file turned out to be.
 
@@ -796,6 +815,11 @@ def report(
             raise typer.Exit(code=0)
 
     if as_json:
+        # Computed once for both the per-case blocks and the suite summary below.
+        # Every key added here is new: a 2.2.0 consumer reading `flip_rate` or
+        # `stability_label` sees exactly what it saw before, and a test asserts that.
+        ev = analyze_evidence(record)
+        by_case = {c.case_id: c for c in ev.cases}
         cases = [
             {
                 "case_id": c.case_id,
@@ -810,6 +834,9 @@ def report(
                 "stability": c.stability,
                 "stability_label": c.stability_label,
                 "ci95": list(c.ci95),
+                # How much the flip rate above is worth reading. `stability_label` says
+                # which way the case goes; this says how precisely the rate is known.
+                "evidence": _case_evidence_block(by_case.get(c.case_id)),
             }
             for c in case_rows(record, unstable_only)
         ]
@@ -822,6 +849,18 @@ def report(
                 "n_stable": record.aggregate.n_stable,
                 "n_unstable": record.aggregate.n_unstable,
                 "sealed_hash": record.hash,
+            },
+            "uncertainty": {
+                "label": ev.label,
+                "confidence": ev.confidence,
+                "target_margin": ev.target_margin,
+                "n_underpowered": len(ev.underpowered),
+                "underpowered_cases": [c.case_id for c in ev.underpowered],
+                "min_runs_per_case": ev.min_runs,
+                "worst_margin": ev.worst_margin,
+                "counts": ev.counts,
+                "summary": ev.summary(),
+                "caveat": EVIDENCE_CAVEAT,
             },
             "provenance": {
                 # Both, so a pin can be copied from here: the evaluator fingerprint for

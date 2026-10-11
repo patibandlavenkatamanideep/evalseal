@@ -66,11 +66,30 @@ class DriftRules(_Strict):
     allow_removed_cases: bool = True
 
 
+class UncertaintyRules(_Strict):
+    """When the evidence is too thin for the gate to make a strong claim.
+
+    Every other rule here asks whether a number cleared a threshold. These ask whether
+    the number is worth thresholding at all: at four repeats a flip rate is a smoke
+    detector, and a gate that passes on one has not checked what its green tick implies.
+
+    The whole section is optional and every field defaults to off, so a policy written
+    before this existed behaves exactly as it did.
+    """
+    min_repeats_per_case: int | None = Field(default=None, ge=1)
+    # Fail when any case's flip-rate interval is too wide to read a magnitude from.
+    require_powered_flip_rate: bool = False
+    max_uncertain_cases: int | None = Field(default=None, ge=0)
+    target_flip_rate_margin: float = Field(default=0.10, gt=0.0, le=0.5)
+    confidence: float = Field(default=0.95, gt=0.5, lt=1.0)
+
+
 class Policy(_Strict):
     version: Literal[1] = 1
     run: RunRules = RunRules()
     cases: CaseRules = CaseRules()
     drift: DriftRules | None = None
+    uncertainty: UncertaintyRules | None = None
 
 
 @dataclass
@@ -242,6 +261,72 @@ def _case_checks(rules: CaseRules, record: RunRecord) -> list[Check]:
     return checks
 
 
+def _uncertainty_checks(rules: UncertaintyRules, record: RunRecord) -> list[Check]:
+    """Refuse a strong claim when the repeats do not support one.
+
+    Each failure names the case and the numbers, because "underpowered" on its own
+    leaves a reader guessing which case and by how much.
+    """
+    from .analyze import MIN_RUNS_FOR_STABILITY
+    from .evidence import CaseEvidence, analyze_evidence
+
+    checks: list[Check] = []
+    evidence = analyze_evidence(
+        record, confidence=rules.confidence,
+        target_margin=rules.target_flip_rate_margin)
+
+    def uncertain(case: CaseEvidence) -> bool:
+        """Too thin to gate on, measured against *this policy's* declared margin.
+
+        Not `CaseEvidence.underpowered`, which is cut on the fixed thresholds the
+        human-facing labels use. A policy that names `target_flip_rate_margin` has to
+        be checked against that number, or the rule would silently gate on something
+        other than what the policy says - which is the failure this whole module is
+        built to avoid.
+        """
+        if case.n_runs < MIN_RUNS_FOR_STABILITY:
+            return True          # below the floor there is no magnitude to read at all
+        return case.margin is None or case.margin > rules.target_flip_rate_margin
+
+    thin = [c for c in evidence.cases if uncertain(c)]
+    if rules.min_repeats_per_case is not None:
+        floor = rules.min_repeats_per_case
+        short = sorted((c.case_id, c.n_runs) for c in evidence.cases
+                       if c.n_runs < floor)
+        detail = f"every case has at least {floor} repeat(s)"
+        if short:
+            listed = "; ".join(f"case {cid} has {n} repeats, policy requires {floor}"
+                               for cid, n in short[:5])
+            detail = listed + (f"; and {len(short) - 5} more" if len(short) > 5 else "")
+        checks.append(Check("uncertainty.min_repeats_per_case", not short, detail))
+
+    if rules.require_powered_flip_rate:
+        weak = sorted(c.case_id for c in thin)
+        if weak:
+            worst = max(thin, key=lambda c: c.margin if c.margin is not None else 0.0)
+            detail = (
+                f"{len(weak)} case(s) carry a flip-rate estimate that is directional "
+                f"only; increase repeats before gating on it. Widest interval: "
+                f"{worst.case_id} at +/-{worst.margin:.3f} against a target of "
+                f"{rules.target_flip_rate_margin:.2f} "
+                f"({', '.join(weak[:5])}{' ...' if len(weak) > 5 else ''})")
+        else:
+            detail = (f"every case's flip rate is pinned within "
+                      f"+/-{rules.target_flip_rate_margin:.2f} at "
+                      f"{rules.confidence:.0%} confidence")
+        checks.append(Check("uncertainty.powered_flip_rate", not weak, detail))
+
+    if rules.max_uncertain_cases is not None:
+        ok = len(thin) <= rules.max_uncertain_cases
+        checks.append(Check(
+            "uncertainty.max_uncertain_cases", ok,
+            f"{len(thin)} case(s) wider than +/-{rules.target_flip_rate_margin:.2f} "
+            f"vs limit {rules.max_uncertain_cases}"
+            + ("" if ok else f": {', '.join(sorted(c.case_id for c in thin)[:5])}")))
+
+    return checks
+
+
 def _drift_checks(rules: DriftRules, record: RunRecord, baseline: RunRecord) -> list[Check]:
     result = diff_records(baseline, record)
     checks: list[Check] = []
@@ -307,6 +392,8 @@ def evaluate(
     """
     checks = _run_checks(policy.run, record, ledger)
     checks += _case_checks(policy.cases, record)
+    if policy.uncertainty is not None:
+        checks += _uncertainty_checks(policy.uncertainty, record)
     if policy.drift is not None:
         baseline = _resolve_baseline(policy.drift.baseline, policy_dir or Path("."))
         checks += _drift_checks(policy.drift, record, baseline)

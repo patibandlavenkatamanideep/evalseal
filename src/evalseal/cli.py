@@ -38,6 +38,12 @@ from .decompose import render as render_decomposition
 from .diffing import ReceiptError, diff_records, load_receipt, mean_flip_rate
 from .drift import analyze_drift
 from .drift import render as render_drift
+from .evidence import (
+    DEFAULT_CONFIDENCE,
+    DEFAULT_TARGET_MARGIN,
+    analyze_evidence,
+)
+from .evidence import render as render_evidence
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
 from .ledger import (
@@ -1459,4 +1465,57 @@ def preregister(
         + "Commit this file before running. It is a declaration, not evidence: it fixes "
           "what was promised, and cannot prove no private run happened."
     )
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def evidence(
+    source: Path = typer.Argument(
+        ..., exists=True, dir_okay=False,
+        help="The sealed receipt to read: the report.json `evalseal run` writes, or a "
+             "ledger whose head is the receipt."),
+    case: str | None = typer.Option(
+        None, "--case", help="Report one case instead of the whole suite."),
+    target_margin: float = typer.Option(
+        DEFAULT_TARGET_MARGIN, "--target-margin", min=0.001, max=0.5,
+        help="How tightly you want a flip rate pinned down. The repeat "
+             "recommendations aim at this."),
+    confidence: float = typer.Option(
+        DEFAULT_CONFIDENCE, "--confidence", min=0.5, max=0.9999,
+        help="Interval confidence. 0.95 matches the intervals in `run` and `report`."),
+    out: Path | None = typer.Option(
+        None, "--out", help="Write the Markdown report here."),
+    as_json: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON for CI or a dashboard."),
+):
+    """How much this run actually tells you, and how many repeats would tell you more.
+
+    `evalseal power` answers a different question - how large an experiment would have
+    to be to *detect a difference* between two runs. This answers how precisely the
+    repeats you already have pin down each case's behaviour.
+
+    At five repeats the only flip rates that exist are 0, 0.2 and 0.4, so a case
+    reported at "20%" had exactly one run disagree rather than a twenty-percent
+    tendency. This command puts an interval around that number and says plainly when
+    the interval is too wide to read a magnitude from.
+
+    Guidance only. It says where to spend repeats; it makes no claim about the model.
+    """
+    record = _read_receipt(source)
+    try:
+        result = analyze_evidence(
+            record, confidence=confidence, target_margin=target_margin, case_id=case)
+    except ValueError as e:
+        console.print(f"[red]{rich_escape(str(e))}[/red]")
+        raise typer.Exit(code=EXIT_BAD_INPUT) from None
+
+    if as_json:
+        console.print_json(json.dumps(result.to_dict()))
+        raise typer.Exit(code=0)
+
+    text = render_evidence(result)
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+        console.print(f"[green]Evidence report -> {rich_escape(str(out))}[/green]")
+    console.print(Markdown(text))
     raise typer.Exit(code=0)

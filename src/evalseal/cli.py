@@ -854,6 +854,9 @@ def report(
                 "label": ev.label,
                 "confidence": ev.confidence,
                 "target_margin": ev.target_margin,
+                # Self-describing: a consumer reading this block should not have to
+                # reach into `summary` to learn what the counts are out of.
+                "n_cases": len(ev.cases),
                 "n_underpowered": len(ev.underpowered),
                 "underpowered_cases": [c.case_id for c in ev.underpowered],
                 "min_runs_per_case": ev.min_runs,

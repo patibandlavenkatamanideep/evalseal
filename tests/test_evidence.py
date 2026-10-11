@@ -452,9 +452,11 @@ def test_report_json_adds_uncertainty_without_disturbing_the_rest(receipt):
 def test_report_json_uncertainty_block_shape(receipt):
     u = _report_json(receipt)["uncertainty"]
     assert set(u) == {
-        "label", "confidence", "target_margin", "n_underpowered",
+        "label", "confidence", "target_margin", "n_cases", "n_underpowered",
         "underpowered_cases", "min_runs_per_case", "worst_margin", "counts",
         "summary", "caveat"}
+    # The block must stand alone: the PR summary reads these without touching `summary`.
+    assert u["n_cases"] == len(_report_json(receipt)["cases"])
     assert u["caveat"] == CAVEAT
     assert u["label"] in EVIDENCE_LABELS
 

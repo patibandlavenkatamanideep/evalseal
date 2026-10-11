@@ -89,22 +89,29 @@ ran, passed or failed, and that list goes straight into the step summary. The ex
 
 The summary is ordered so that nothing misleading comes first:
 
-1. **Gate result**, and what it was checked against: the policy, and the
+1. **Comparability**, as the headline. A score delta between runs that were graded
+   differently is not a change, so a reviewer who reads one line should read this one.
+   If the grading setup moved, the summary says **NOT COMPARABLE**, names the evaluator
+   fields that changed, and labels the delta as not a change in the model.
+2. **Gate result**, and what it was checked against: the policy, and the
    pre-registration when one was applied. When none was, it says so.
-2. **Comparability with the baseline**, when a baseline exists, before any score. If the
-   grading setup changed, the summary says **NOT COMPARABLE**, names the grading fields
-   that changed, and labels the score difference as not a change in the model.
-3. **Every check** the policy and the pre-registration ran, with its detail.
-4. **Judge drift**, when a baseline exists: what moved underneath the score - the
-   grading setup, the judge disagreeing with itself, or the target answering
-   differently - and the least stable cases with their verdict strips.
-5. **The run**: the EvalSeal version sealed in the receipt, the suite, the target model
+3. **Evidence** - how much the repeats support, before any number. A gate that went
+   green on five repeats per case has not checked what its tick implies, so the summary
+   names the underpowered cases and points at `evalseal evidence`. When every case
+   clears the target margin it says the flip rates can be read as rates.
+4. **The paired comparison** against the baseline, when one exists, with `inconclusive`
+   explained as "this experiment could not tell" rather than "the runs are the same".
+5. **Every check** the policy and the pre-registration ran, with its detail.
+6. **The run**: the EvalSeal version sealed in the receipt, the suite, the target model
    (and the served model when it differs), mean score, mean flip rate, unstable cases,
    and the evaluator fingerprint.
-6. **Artifact and anchor verification**, in a collapsed block, quoting the commands'
+7. **Judge drift**, when a baseline exists: what moved underneath the score - the
+   grading setup, the judge disagreeing with itself, or the target answering
+   differently - and the least stable cases with their verdict strips.
+8. **Artifact and anchor verification**, in a collapsed block, quoting the commands'
    own output rather than paraphrasing it. A paraphrase of a check result is one more
    place for it to drift from what actually ran.
-7. **Artifacts**, and what to inspect.
+9. **Artifacts**, and what to inspect.
 
 The anchor line restates its own limit where someone reads the result: a local anchor
 is the runner's clock and establishes nothing about *when*. `anchor-verify` prints

@@ -178,6 +178,33 @@ jobs:
                             "is the evaluation that was declared beforehand. See "
                             "docs/pre-registration.md.", ""]
 
+          # How much the numbers below are worth reading, before the numbers. A gate
+          # that went green on four repeats per case has not checked what its tick
+          # implies, and a reviewer should see that here rather than work it out.
+          unc = (receipt or {}).get("uncertainty")
+          if unc:
+              weak, total = unc["n_underpowered"], unc["n_cases"]
+              if weak == 0:
+                  lines += [
+                      f"**Evidence:** {unc['label'].replace('_', ' ')} - all {total} "
+                      f"case(s) pinned within +/-{unc['target_margin']:.2f} at "
+                      f"{unc['confidence']:.0%}. Flip rates below can be read as rates.",
+                      ""]
+              else:
+                  named = ", ".join(f"`{c}`" for c in unc["underpowered_cases"][:8])
+                  more = (f" and {weak - 8} more" if weak > 8 else "")
+                  lines += [
+                      f"**Evidence: {unc['label'].replace('_', ' ')}.** {weak} of "
+                      f"{total} case(s) are underpowered at {unc['confidence']:.0%} "
+                      f"confidence (fewest repeats on any case: "
+                      f"{unc['min_runs_per_case']}; widest margin "
+                      f"+/-{unc['worst_margin']:.3f}). For those cases a flip rate "
+                      "shows direction, not magnitude - do not quote its size.",
+                      "",
+                      f"Needs more repeats: {named}{more}. "
+                      "`evalseal evidence report.json` says how many.",
+                      ""]
+
           # Comparability before any number: a delta between runs graded differently is
           # not a change, and it must not be the first thing a reviewer reads.
           if drift is not None:

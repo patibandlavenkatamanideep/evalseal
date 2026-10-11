@@ -31,6 +31,11 @@ of a run that did. Everything below is an attempt to say exactly where that line
 - **When anything happened.** See "if the machine lies about time" below.
 - **That the model is good.** A receipt measures reproducibility and provenance. It says
   nothing about whether the task matters or the scoring is sensible.
+- **That a per-case rate means what its decimals suggest.** At five repeats the only
+  flip rates that exist are 0, 0.2 and 0.4, so "20%" is one run disagreeing, not a
+  twenty-percent tendency. `evalseal evidence` puts an interval around it and names when
+  the interval is too wide to read a magnitude from; a policy's `uncertainty` block can
+  make a gate refuse to act on one. See [docs/uncertainty.md](docs/uncertainty.md).
 - **That this was the only time the suite ran.** See "Can EvalSeal stop cherry-picking?"
   below: it cannot, and nothing that runs on the author's machine can.
 
@@ -250,7 +255,10 @@ evalseal run --suite agent-suite.json \
 ```
 
 **Protects against:** a mock, a recorded transcript or an ACL changing under a saved
-score.
+score. With `attempt_id`, `retry_index` and `tool_call_id` recorded, two attempts that
+reached the same final state by different routes are also distinguishable - a failed
+write then a retry is not the same history as a clean write, and `describe_paths`
+reduces each route to one digest that differs exactly when the route did.
 **Does not protect against:** a harness that reports tool calls it did not make, a
 `live` tool mode (which is not reproducible by definition and labels itself so), or a
 recorded response that was wrong when it was recorded. EvalSeal binds the file; it did
@@ -292,6 +300,24 @@ make one impossible.
 Only a fixed allowlist of variables is read, named one at a time rather than by prefix,
 so a secret in the environment cannot reach a sealed record. A test asserts both the
 allowlist and, end to end, that no secret appears in the sealed bytes.
+
+### What happens if a gate passes on too few repeats?
+
+Nothing visible, which is the problem. Every other rule here asks whether a number
+cleared a threshold; none of them asks whether the number was worth thresholding. A gate
+that went green on four repeats per case has not checked what its tick implies, and a
+reviewer reading the tick cannot tell.
+
+An `uncertainty` policy block closes that, failing by name with the case and the
+numbers, and the PR summary states the evidence level between the gate verdict and the
+first number. The block is optional and defaults to off, so this is a capability rather
+than a behaviour change.
+
+**Protects against:** a score difference or a flip rate being acted on when the repeats
+behind it cannot resolve it.
+**Does not protect against:** a well-powered measurement of the wrong thing. A tight
+interval around a bad rubric is precisely measured nonsense, and no amount of repeats
+fixes that.
 
 ### What requires retaining the original private artifacts?
 

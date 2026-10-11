@@ -137,6 +137,36 @@ should not look alike.
 }
 ```
 
+Optional attempt-level fields, for telling a retry from a different route:
+
+| field | what it distinguishes |
+|---|---|
+| `attempt_id` | two trajectories through the same case and repeat |
+| `retry_index` | a retry from a first try of the same call; `0` is the first |
+| `tool_call_id` | the harness's own id, so a call matches the provider's record of it |
+
+All three are optional, so files written before they existed still validate. When
+present they are checked: `tool_call_id` must be unique, a `retry_index` above 0 must
+have the attempt it retries recorded (a retry with no original describes a history with
+a hole in it), and `attempt_id` joins the uniqueness key because two attempts each
+legitimately start at `seq` 0.
+
+`evalseal.agent_artifacts.describe_paths` reduces each attempt to a `path_digest` over
+its ordered `(tool, input_sha256, outcome)` triples. It differs exactly when the route
+differed, which is what makes these distinguishable:
+
+| what changed | what shows it |
+|---|---|
+| same final state, different path | different `path_digest` |
+| failed write then retry | `outcome: error` then `retry_index: 1` |
+| changed tool response | different `response_sha256` |
+| changed tool call input | different `input_sha256` |
+| changed call order | different `path_digest`, same set of tools |
+
+`path_digest` is **derived, never sealed**: EvalSeal computes it from a file it was
+handed, as a reading aid. A worked pair of attempts is in
+[examples/agent-retry-path/](../examples/agent-retry-path/).
+
 Field by field:
 
 - **`case_id` + `repeat` + `seq`** key a call the way EvalSeal's own cassettes key a

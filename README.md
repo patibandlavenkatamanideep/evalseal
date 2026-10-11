@@ -78,6 +78,13 @@ fingerprint decides comparability from the grading side only, so swapping the mo
 under test - the reason to run a benchmark - keeps two runs comparable, and editing the
 rubric does not.
 
+**Why an interval on a flip rate?** Because at five repeats the only flip rates that
+exist are 0, 0.2 and 0.4. A case reported at "20%" had exactly one run disagree; it did
+not exhibit a twenty-percent tendency. `evalseal evidence` puts a Wilson interval around
+that number and says when the interval is too wide to read a magnitude from - on a case
+that genuinely flips one run in five, five repeats give 0.04 to 0.50. A policy can then
+refuse to gate on an estimate that thin.
+
 **Why policy and pre-registration?** A policy fixes what "good enough" means in a file
 someone reviews, so loosening it appears in `git log`. A pre-registration fixes *what
 evaluation was promised* before the number exists, so dropping the cases that failed
@@ -632,6 +639,7 @@ happen. Verify what the page claims with `evalseal verify`.
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
 | `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
 | `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--prereg` also checks it against a pre-registration. `--expect-evaluator` pins the grading setup, `--expect-config` the whole configuration. `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy or contract |
+| `evalseal evidence` | How much this run supports: a Wilson interval around each case's flip rate, an evidence label, and how many repeats would reach a target margin. `--case`, `--target-margin`, `--confidence`, `--json`. See [docs/uncertainty.md](docs/uncertainty.md). | `0` |
 | `evalseal preregister` | Declares an evaluation before it runs: suite, dataset, case-id set, repeat count, required artifacts, optionally an embedded policy and a pinned evaluator fingerprint. See [docs/pre-registration.md](docs/pre-registration.md). | `0` |
 | `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp. `--with rfc3161 --tsa URL` adds a timestamp-authority proof — **experimental: message imprint checked, TSA signature NOT verified by EvalSeal**; see [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
 | `evalseal --version` | The version, the `harness_version` it seals into receipts, and the record schema. | `0` |
@@ -857,6 +865,10 @@ tracked target).
   missing or unverifiable - never passing a file it could not read.
 - **A declared contract, checked clause by clause.** `gate --prereg` reports each clause
   of a pre-registration by name, passing ones included.
+- **An interval on every per-case rate, and a gate that can refuse a thin one.** The
+  Wilson interval of the pass proportion, the flip-rate interval derived from it, and an
+  optional `uncertainty:` policy section that fails by name when the repeats do not
+  support the claim being gated on.
 
 ## What EvalSeal does not guarantee
 
@@ -887,6 +899,9 @@ tracked target).
   dataset and suite, and `verify --artifacts` re-hashes them - but a digest can only be
   matched against a file that still exists. Anyone who may need to prove what a model
   said must retain the cassette themselves.
+- **It does not turn few repeats into many.** `evidence` reports how little five runs
+  pin down; it cannot make them pin down more. The recommended repeat counts are
+  approximate guidance for where to spend them, not a promise about what you will find.
 - **It cannot prove that no hidden run happened.** Someone can run a suite five times and
   seal the fifth. A pre-registration makes the interesting moves - dropping the cases
   that failed, halving the repeat count, swapping the judge - visible rather than silent,

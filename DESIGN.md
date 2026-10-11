@@ -211,6 +211,24 @@ in `served_model`. Any other difference produces a warning.
 anything else counts as FAIL. A plain substring check would read "FAIL — does not PASS" as
 a pass.
 
+**An estimate carries its own precision, in a command of its own.** `evalseal evidence`
+reports the Wilson interval of each case's pass proportion and derives the flip-rate
+interval from it as the image of `min(p, 1-p)`, so the two can never disagree. It is
+deliberately not part of `evalseal power`: that command answers a prospective,
+comparative question (how large must an experiment be to detect a difference), this one
+a retrospective, single-run question (how precisely did these repeats pin this down).
+Merging them would put `--mdd` and `--target-margin` on one command, each meaningless to
+the other, which is the same reason `diff` and `drift` are separate. Label thresholds are
+cut at the half-widths real repeat counts produce, and two repeat recommendations are
+reported - the worst case at p=0.5 and the count conditional on the observed rate -
+because either alone misleads in a predictable direction.
+
+**A gate may refuse to act on an estimate too thin to act on.** The optional
+`uncertainty` policy block fails by name with the case and the numbers. It is checked
+against the margin the policy declares, not against the thresholds the human-facing
+labels use; conflating those was a real bug, because a policy naming
+`target_flip_rate_margin` was silently held to a different number.
+
 **A declared contract is checked clause by clause, and never claims more than that.**
 `evalseal preregister` fixes the suite, dataset, case-id set, repeat count, required
 artifact roles and optionally an embedded policy and a pinned evaluator fingerprint,
@@ -285,6 +303,10 @@ still failing on a broken replay.
   For agent evals it binds the tool ACL and the frozen tool responses by digest and
   re-checks them; producing those files is the harness's job, and a harness that
   misreports its own tool calls seals just as cleanly.
+- **An interval is not a decision.** `evidence` says how precisely a rate is known. It
+  cannot say whether that precision is enough for your decision, and the repeat
+  recommendations are approximate guidance rather than a promise about what more
+  repeats will show.
 - **Small-N intervals are wide, and should be.** At N=5 even a perfectly stable case spans
   [0.57, 1.00]. That is the honest width for five observations, not a defect — but it means
   small differences cannot be called at small N. Raise N when you need that power.

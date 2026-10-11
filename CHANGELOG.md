@@ -7,7 +7,91 @@ older version still verifies.
 
 ## [Unreleased]
 
-Nothing yet.
+Targeted at **2.3.0**: uncertainty. It adds a command (`evidence`) and optional policy
+fields, and removes nothing.
+
+Users liked the per-case verdict strips and the drift labels. The question they asked
+next was not for more eval features - it was *how much should I trust this?*
+
+### Migrating from 2.2.0
+
+**Nothing is required.** Old receipts verify, old policies apply, old suite files load,
+existing pins are unchanged, and no schema version moved. Every addition is additive:
+the 2.2.0 `report --json` key set is pinned by a test as a contract, and a policy with
+no `uncertainty` block takes exactly the path it took before.
+
+### Added
+
+- **`evalseal evidence`**, answering how much a run supports. At five repeats the only
+  flip rates that exist are 0, 0.2 and 0.4, so a case reported at "20%" had exactly one
+  run disagree rather than a twenty-percent tendency. This reports the Wilson interval
+  of each case's pass proportion, derives the flip-rate interval from it as the image of
+  `min(p, 1-p)` so the two can never disagree, labels each case
+  `insufficient_runs` / `directional_signal` / `moderate_evidence` / `stronger_evidence`
+  / `not_binary`, and recommends repeats for a target margin. `--case`,
+  `--target-margin`, `--confidence`, `--json`, `--out`.
+
+  Deliberately **not** part of `evalseal power`, which answers a prospective,
+  comparative question (how large must an experiment be to detect a difference) rather
+  than a retrospective, single-run one. Merging them would put `--mdd` and
+  `--target-margin` on one command, each meaningless to the other - the reason `diff`
+  and `drift` are separate. Each command's help names the other, and a test fails if the
+  precision flags migrate onto `power`.
+
+  Two repeat recommendations are reported, because either alone misleads: the worst case
+  at p=0.5 that holds whatever the true rate is (93 repeats for a 0.10 margin), and the
+  count conditional on the observed rate (16 when unanimous).
+- **`uncertainty` block in `report --json`**, plus a per-case `evidence` block, both
+  additive.
+- **`uncertainty` section in a policy**, so a gate can refuse to act on an estimate too
+  thin to act on: `min_repeats_per_case`, `require_powered_flip_rate`,
+  `max_uncertain_cases`, `target_flip_rate_margin`, `confidence`. Each rule fails by
+  name with the case and the numbers - *"case b01 has 5 repeats, policy requires 11"*,
+  *"20 case(s) carry a flip-rate estimate that is directional only; increase repeats
+  before gating on it"*.
+- **Evidence in the PR summary**, between the gate verdict and the first number, naming
+  the cases that need more repeats. A gate that went green on five repeats per case has
+  not checked what its tick implies, and a reviewer reading the tick could not tell.
+- **Attempt-level agent artifacts**: `attempt_id`, `tool_call_id` and `retry_index`, all
+  optional and all checked when present, so a failed write then a retry is
+  distinguishable from a clean route to the same final state.
+  `agent_artifacts.describe_paths` reduces each attempt to a `path_digest` over its
+  ordered `(tool, input, outcome)` triples - derived, never sealed.
+- **Three offline examples**, each with the numbers its README quotes pinned by tests:
+  `examples/evidence/` (the same two cases at 5 and 31 repeats), 
+  `examples/not-comparable-drift/` (a 0.600 to 1.000 jump caused entirely by the
+  grader), `examples/agent-retry-path/`.
+- **[docs/uncertainty.md](docs/uncertainty.md)**, answering eight questions directly:
+  how many repeats are enough, what a flip rate estimates, when instability is only
+  directional, when CI should refuse a strong claim, what a receipt can and cannot
+  prove, what a third party can verify, and what stays dependent on your harness.
+
+### Fixed
+
+- **`require_powered_flip_rate` gated on the wrong number.** It compared against
+  `CaseEvidence.underpowered`, which is cut on the fixed thresholds the human-facing
+  labels use, while the policy field is called `target_flip_rate_margin` - so a policy
+  declaring a loose margin was silently held to a stricter, different one. That is the
+  exact "checks something other than what it says" failure `policy.py` exists to
+  prevent. It now compares against the declared margin, with the stability floor as a
+  separate hard condition, and a regression test pins a case that sits between the two
+  numbers.
+- **An inconsistent receipt raised `math domain error`** from inside the Wilson formula.
+  More passes than runs is now named as an inconsistent receipt.
+- **The documented PR summary order had drifted from the code**, still leading with the
+  gate result after comparability became the headline. Rewritten against the emission
+  order rather than renumbered.
+
+### Changed
+
+- **ROADMAP renumbered.** v2.3 was going to be promptfoo/Braintrust integrations; it is
+  now this milestone. External verification - RFC 3161 CMS signature validation - is
+  **v2.4, deliberately on its own**, because a recorded real TSA response has a signing
+  certificate that expires, so a chain-validating test starts failing on a date nobody
+  chose. Coupling that risk to a UX release lets one hold the other hostage. The RFC 3161
+  boundary stays loud meanwhile: *message imprint checked, TSA signature NOT verified by
+  EvalSeal*.
+
 
 ## [2.2.0] - 2026-09-28
 

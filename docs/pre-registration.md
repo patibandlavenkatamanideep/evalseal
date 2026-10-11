@@ -119,6 +119,17 @@ Only a fixed allowlist of variables is read - named one by one in `provenance.py
 never by prefix - so `GITHUB_TOKEN` cannot be swept into a record by a rule like
 "record every GITHUB_\* variable".
 
+## Repeat counts, and what they support
+
+A pre-registration fixes the repeat count *before* the number exists, which stops it
+being lowered afterwards. It does not say whether the count was ever high enough to
+support the claim being made.
+
+That is a separate question with a separate answer: an `uncertainty` block in the policy
+can require a floor per case and refuse a flip-rate estimate too wide to act on. The two
+compose - a contract declares five repeats, and the policy says five is not enough to
+gate a 0.10 margin on. See [uncertainty.md](uncertainty.md).
+
 ## Honest summary
 
 A pre-registration moves the claim from

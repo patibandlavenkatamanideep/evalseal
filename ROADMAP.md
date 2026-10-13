@@ -141,7 +141,63 @@ signature check moves inside EvalSeal the verifier says "this token is about thi
 and the authority asserts this time, and I did not check its signature" - which is an
 honest sentence, not a finished one.
 
-### v2.3 - integrations with promptfoo and Braintrust
+### v2.3 - uncertainty, and knowing what a number supports
+
+Users liked the per-case verdict strips and the drift labels. The follow-up question
+they asked was not for more eval features: it was *how much should I trust this?*
+
+- [x] `evalseal evidence`: the Wilson interval of each case's pass proportion, the
+      flip-rate interval derived from it, an evidence label, and how many repeats would
+      reach a target margin - reported as both a worst case and a figure conditional on
+      the observed rate, because either alone misleads.
+- [x] `report --json` carries an `uncertainty` block and a per-case `evidence` block,
+      additively: the 2.2.0 key set is pinned by a test as a contract.
+- [x] An optional `uncertainty` policy block, so a gate can refuse to act on an
+      estimate too thin to act on, failing by name with the case and the numbers.
+- [x] The PR summary states the evidence level between the gate verdict and the first
+      number, and names the cases that need more repeats.
+- [x] Attempt-level agent artifacts - `attempt_id`, `tool_call_id`, `retry_index` - so
+      a retry is distinguishable from a different route to the same final state.
+- [x] Offline examples: `examples/evidence/`, `examples/not-comparable-drift/`,
+      `examples/agent-retry-path/`, each with its README numbers pinned by tests.
+- [ ] RFC 3161 CMS signature validation. **Deliberately deferred to its own release**:
+      it carries a risk unrelated to anything above, because a recorded real TSA
+      response has a signing certificate that expires, so a chain-validating test
+      starts failing on a date nobody chose. Coupling that to a UX release lets one
+      risk hold the other hostage. The boundary stays loud meanwhile.
+
+Accepted when: a reviewer reading a receipt can tell whether its numbers are worth
+acting on, and a gate can be configured to refuse when they are not. **Met**, apart from
+the deferred item, which was never part of this milestone's question.
+
+### v2.4 - external verification
+
+The one open box from v2.2, now with a milestone of its own rather than riding along
+with unrelated work.
+
+- [ ] **[#13]** Validate the TSA's CMS signature inside EvalSeal: the signature over the
+      re-encoded `signedAttrs`, the `messageDigest` attribute against `eContent`, the
+      critical `id-kp-timeStamping` EKU, and the signing certificate against a
+      caller-supplied root. **Out of scope:** revocation (OCSP/CRL), general path
+      building, system trust-store discovery - the boundary statement survives without
+      them and they are unbounded work.
+- [ ] **[#14]** A locally generated test TSA, so failure modes are deterministically testable
+      offline, plus one recorded real response so we know we parse what the world
+      emits. The recorded fixture must verify **as of a pinned instant**, with a test
+      asserting the pin exists, or its certificate's expiry becomes a time bomb.
+- [ ] **[#13]** Dependency decision: hand-rolled CMS navigation with `cryptography` doing all
+      crypto and X.509 (no new dependency) is preferred; `asn1crypto` behind an
+      `evalseal[rfc3161]` extra is the fallback. `pyasn1-modules` is rejected - two
+      packages, a churn-prone API, no ergonomic gain.
+- [ ] **[#15]** Rekor and OpenTimestamps: a decision table, not an implementation. A Rekor entry
+      is **public and irrevocable**, which leaks eval cadence and existence even though
+      a high-entropy digest leaks nothing about content. It must never be a default.
+- [ ] **[#16]** A third-party verification walkthrough that shows the failing cases too.
+
+Accepted when: `anchor-verify` can say "signature verified against the certificate you
+supplied" and mean it, with revocation named as the remaining gap.
+
+### v2.5 - integrations with promptfoo and Braintrust
 
 Seal results produced by the eval tools teams already use, instead of asking them to
 rerun everything through EvalSeal.
@@ -159,11 +215,11 @@ documented export formats, verified against real exports, not guessed.
 Accepted when: a team using one of those tools gets a sealed, diffable receipt without
 changing how they run evals.
 
-### v2.4 - provider-backed examples
+### v2.6 - provider-backed examples
 
 Every provider the code supports should have a recorded run behind it.
 
-- [ ] A recorded Anthropic cassette. The native adapter is covered by tests against the
+- [ ] **[#17]** A recorded Anthropic cassette. The native adapter is covered by tests against the
       documented wire format but has no live recording yet; the README says so.
       [examples/anthropic/RECORDING.md](examples/anthropic/RECORDING.md) is the procedure.
 - [ ] A recorded OpenAI cassette through the OpenAI-compatible adapter's default endpoint.

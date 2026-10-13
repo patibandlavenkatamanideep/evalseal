@@ -370,3 +370,172 @@ def test_policy_result_serializes_checks_and_violations():
     assert payload["passed"] is False
     assert len(payload["checks"]) == 2 and len(payload["violations"]) == 1
     assert payload["violations"][0]["rule"] == "run.min_score"
+
+
+# --- uncertainty: refusing a strong claim the repeats do not support -------------------
+
+def _flaky(n_repeats: int = 5):
+    """A suite with one case that disagrees with itself and one that does not."""
+    from conftest import make_dataset, scripted
+
+    from evalseal.adapters.scorer import RegexScorer
+    from evalseal.adapters.target import LocalCallableTarget
+    from evalseal.executor import run_eval
+
+    target = LocalCallableTarget(scripted({"a": ["yes", "no"], "b": ["yes"]}))
+    return run_eval(make_dataset("a", "b"), target, RegexScorer(r"^yes$"),
+                    n_repeats=n_repeats)
+
+
+def _checks(policy_dict, record):
+    from evalseal.policy import Policy, evaluate
+
+    return {c.rule: c for c in evaluate(Policy.model_validate(policy_dict), record).checks}
+
+
+def test_a_policy_without_an_uncertainty_block_behaves_exactly_as_before():
+    """The compatibility promise: existing policies must not change meaning."""
+    from evalseal.policy import Policy
+
+    policy = Policy.model_validate({"version": 1, "run": {"min_score": 0.1}})
+    assert policy.uncertainty is None
+    checks = _checks({"version": 1, "run": {"min_score": 0.1}}, _flaky())
+    assert not any(r.startswith("uncertainty.") for r in checks)
+
+
+def test_min_repeats_per_case_names_the_case_and_both_numbers():
+    checks = _checks(
+        {"version": 1, "uncertainty": {"min_repeats_per_case": 11}}, _flaky(5))
+    check = checks["uncertainty.min_repeats_per_case"]
+    assert not check.passed
+    assert "has 5 repeats, policy requires 11" in check.detail
+    assert "c0" in check.detail
+
+
+def test_min_repeats_per_case_passes_when_the_floor_is_met():
+    checks = _checks(
+        {"version": 1, "uncertainty": {"min_repeats_per_case": 5}}, _flaky(5))
+    check = checks["uncertainty.min_repeats_per_case"]
+    assert check.passed
+    assert "at least 5 repeat(s)" in check.detail
+
+
+def test_require_powered_flip_rate_refuses_a_directional_estimate():
+    checks = _checks(
+        {"version": 1, "uncertainty": {"require_powered_flip_rate": True}}, _flaky(5))
+    check = checks["uncertainty.powered_flip_rate"]
+    assert not check.passed
+    assert "directional" in check.detail
+    assert "increase repeats before gating" in check.detail
+    assert "Widest interval" in check.detail
+
+
+def test_require_powered_flip_rate_passes_on_a_loose_target():
+    checks = _checks(
+        {"version": 1,
+         "uncertainty": {"require_powered_flip_rate": True,
+                         "target_flip_rate_margin": 0.5}}, _flaky(31))
+    assert checks["uncertainty.powered_flip_rate"].passed
+
+
+def test_max_uncertain_cases_counts_and_names_them():
+    checks = _checks(
+        {"version": 1, "uncertainty": {"max_uncertain_cases": 0}}, _flaky(5))
+    check = checks["uncertainty.max_uncertain_cases"]
+    assert not check.passed
+    assert "vs limit 0" in check.detail
+
+
+def test_max_uncertain_cases_tolerates_the_allowance():
+    checks = _checks(
+        {"version": 1, "uncertainty": {"max_uncertain_cases": 5}}, _flaky(5))
+    assert checks["uncertainty.max_uncertain_cases"].passed
+
+
+def test_confidence_and_margin_are_honoured():
+    """A wider target margin is easier to clear than a narrow one."""
+    narrow = _checks(
+        {"version": 1, "uncertainty": {"require_powered_flip_rate": True,
+                                       "target_flip_rate_margin": 0.02}}, _flaky(31))
+    wide = _checks(
+        {"version": 1, "uncertainty": {"require_powered_flip_rate": True,
+                                       "target_flip_rate_margin": 0.50}}, _flaky(31))
+    assert not narrow["uncertainty.powered_flip_rate"].passed
+    assert wide["uncertainty.powered_flip_rate"].passed
+
+
+def test_a_typo_in_the_uncertainty_block_is_refused(tmp_path):
+    """Same rule as the rest of the file: a threshold that does nothing is worse than
+    no threshold, because the build going green is read as evidence."""
+    import json as _json
+
+    from evalseal.policy import PolicyError, load_policy
+
+    path = tmp_path / "p.json"
+    path.write_text(_json.dumps(
+        {"version": 1, "uncertainty": {"min_repeat_per_case": 5}}), encoding="utf-8")
+    with pytest.raises(PolicyError):
+        load_policy(path)
+
+
+def test_an_out_of_range_confidence_is_refused(tmp_path):
+    import json as _json
+
+    from evalseal.policy import PolicyError, load_policy
+
+    path = tmp_path / "p.json"
+    path.write_text(_json.dumps(
+        {"version": 1, "uncertainty": {"confidence": 1.5}}), encoding="utf-8")
+    with pytest.raises(PolicyError):
+        load_policy(path)
+
+
+def test_gate_exits_three_when_the_evidence_is_too_thin(tmp_path):
+    import json as _json
+
+    from evalseal.cli import EXIT_UNSTABLE
+    from evalseal.ledger import seal_and_append
+
+    ledger = tmp_path / "l.jsonl"
+    seal_and_append(_flaky(5), ledger, relink=True)
+    policy = tmp_path / "p.json"
+    policy.write_text(_json.dumps(
+        {"version": 1, "uncertainty": {"min_repeats_per_case": 11}}), encoding="utf-8")
+
+    result = runner.invoke(app, ["gate", "--ledger", str(ledger),
+                                 "--policy", str(policy)])
+    assert result.exit_code == EXIT_UNSTABLE
+    assert "uncertainty.min_repeats_per_case" in result.output
+
+
+def test_the_rule_gates_on_the_declared_margin_not_the_display_label():
+    """Regression: the rule once gated on `evidence`'s fixed label thresholds while
+    the policy field was called `target_flip_rate_margin`, so a policy declaring a
+    loose margin was silently held to a stricter, different number."""
+    from evalseal.evidence import analyze_evidence
+
+    record = _flaky(31)
+    case = next(c for c in analyze_evidence(record).cases if c.flip_count)
+    assert case.margin is not None
+    # This case sits between the two numbers: wide enough to be labelled directional,
+    # narrow enough to satisfy a policy that asked for a loose margin.
+    assert case.margin > 0.15            # DIRECTIONAL_ABOVE, the display threshold
+    assert case.underpowered             # so the *label* says underpowered
+
+    loose = _checks({"version": 1,
+                     "uncertainty": {"require_powered_flip_rate": True,
+                                     "target_flip_rate_margin": 0.50}}, record)
+    assert loose["uncertainty.powered_flip_rate"].passed, "policy margin must win"
+
+    strict = _checks({"version": 1,
+                      "uncertainty": {"require_powered_flip_rate": True,
+                                      "target_flip_rate_margin": 0.05}}, record)
+    assert not strict["uncertainty.powered_flip_rate"].passed
+
+
+def test_a_case_below_the_stability_floor_is_uncertain_at_any_margin():
+    """Four repeats have no readable magnitude, however loose the declared margin."""
+    checks = _checks({"version": 1,
+                      "uncertainty": {"require_powered_flip_rate": True,
+                                      "target_flip_rate_margin": 0.5}}, _flaky(3))
+    assert not checks["uncertainty.powered_flip_rate"].passed

@@ -1,0 +1,66 @@
+{
+  "schema": "evalseal.agent-tool-responses/1",
+  "response_mode": "recorded",
+  "recorded_at": "2026-10-11T00:00:00+00:00",
+  "manifest_sha256": "sha256:a6727fe30f3d4070cb1a7f68f93d7958765c9f4fcb02af30a9e7b1c0217e072f",
+  "calls": [
+    {
+      "case_id": "a01",
+      "repeat": 0,
+      "attempt_id": "attempt-a",
+      "seq": 0,
+      "tool": "get_order",
+      "input_sha256": "sha256:0dd3a2b2afaa5ee2f9c3d72769d7935bc51b2a8986f94cb93097cc93dd915303",
+      "outcome": "ok",
+      "response_sha256": "sha256:bc57a529bc3431913e68ae3340fa2e6fb64d2f1841bc007fcf2fed0e1a70269f",
+      "tool_call_id": "call_1"
+    },
+    {
+      "case_id": "a01",
+      "repeat": 0,
+      "attempt_id": "attempt-a",
+      "seq": 1,
+      "tool": "write_note",
+      "input_sha256": "sha256:96472db10d0a66f30c8368370cb255a1ae651d90f5f10ed7dff21e3f4285bbfa",
+      "outcome": "error",
+      "response_sha256": null,
+      "retry_index": 0,
+      "tool_call_id": "call_2"
+    },
+    {
+      "case_id": "a01",
+      "repeat": 0,
+      "attempt_id": "attempt-a",
+      "seq": 2,
+      "tool": "write_note",
+      "input_sha256": "sha256:96472db10d0a66f30c8368370cb255a1ae651d90f5f10ed7dff21e3f4285bbfa",
+      "outcome": "ok",
+      "response_sha256": "sha256:4062edaf750fb8074e7e83e0c9028c94e32468a8b6f1614774328ef045150f93",
+      "retry_index": 1,
+      "tool_call_id": "call_3"
+    },
+    {
+      "case_id": "a01",
+      "repeat": 0,
+      "attempt_id": "attempt-b",
+      "seq": 0,
+      "tool": "get_order",
+      "input_sha256": "sha256:0dd3a2b2afaa5ee2f9c3d72769d7935bc51b2a8986f94cb93097cc93dd915303",
+      "outcome": "ok",
+      "response_sha256": "sha256:bc57a529bc3431913e68ae3340fa2e6fb64d2f1841bc007fcf2fed0e1a70269f",
+      "tool_call_id": "call_4"
+    },
+    {
+      "case_id": "a01",
+      "repeat": 0,
+      "attempt_id": "attempt-b",
+      "seq": 1,
+      "tool": "write_note",
+      "input_sha256": "sha256:96472db10d0a66f30c8368370cb255a1ae651d90f5f10ed7dff21e3f4285bbfa",
+      "outcome": "ok",
+      "response_sha256": "sha256:4062edaf750fb8074e7e83e0c9028c94e32468a8b6f1614774328ef045150f93",
+      "retry_index": 0,
+      "tool_call_id": "call_5"
+    }
+  ]
+}

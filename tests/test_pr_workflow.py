@@ -287,3 +287,57 @@ def test_judge_drift_is_reported_when_a_baseline_exists(tmp_path):
     assert "Judge drift:" in s
     assert (ws / "judge-drift.json").exists()
     assert (ws / "judge-drift.md").exists()
+
+
+def test_evidence_reaches_the_summary_and_names_the_thin_cases(tmp_path):
+    """A gate that went green on five repeats has not checked what its tick implies,
+    so the reviewer sees that before the numbers."""
+    ws = _workspace(tmp_path)
+    result = run_workflow(ws, SUITE="examples/borderline_judge/suite.json", PREREG="")
+
+    s = result["summary"]
+    assert "**Evidence: directional signal.**" in s
+    assert "underpowered at 95% confidence" in s
+    assert "direction, not magnitude" in s
+    assert "do not quote its size" in s
+    assert "Needs more repeats:" in s
+    assert "evalseal evidence report.json" in s
+    # Evidence sits after the gate verdict and before the per-case numbers.
+    assert s.index("Evidence:") > s.index("Gate ")
+    assert s.index("Evidence:") < s.index("| check | result |")
+
+
+def test_a_well_powered_suite_says_the_rates_can_be_read(tmp_path):
+    """The gsm8k replay is unanimous on every case, but only at five repeats, so a
+    0.10 target still cannot be met - the honest answer, not a green tick."""
+    result = run_workflow(_workspace(tmp_path), PREREG="")
+    s = result["summary"]
+    assert "**Evidence" in s
+    assert "evalseal evidence report.json" in s
+
+
+def test_the_summary_survives_a_receipt_without_an_uncertainty_block(tmp_path):
+    """Forward compatibility in the other direction: the block is read with .get, so a
+    summary generated against an older receipt-summary.json must not crash."""
+    import json as _json
+
+    ws = _workspace(tmp_path)
+    result = run_workflow(ws, PREREG="")
+    assert not result["failed"], (result["failed_step"], result["log"])
+
+    summary_file = ws / "receipt-summary.json"
+    payload = _json.loads(summary_file.read_text(encoding="utf-8"))
+    del payload["uncertainty"]                       # as a 2.2.0 receipt would be
+    summary_file.write_text(_json.dumps(payload), encoding="utf-8")
+
+    step = next(s for s in yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+                ["jobs"]["receipt"]["steps"] if s.get("name") == "Write the step summary")
+    out = ws / "summary2.md"
+    out.write_text("", encoding="utf-8")
+    env = {**_env_with_evalseal(), "GITHUB_STEP_SUMMARY": str(out),
+           "POLICY": "examples/evalseal.yml", "PREREG": "", "SUITE": "s",
+           "ANCHOR_CODE": "0", "GITHUB_OUTPUT": str(ws / ".out")}
+    proc = subprocess.run([sys.executable, "-c", step["run"]], cwd=ws, env=env,
+                          capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stderr
+    assert "Evidence" not in out.read_text(encoding="utf-8")

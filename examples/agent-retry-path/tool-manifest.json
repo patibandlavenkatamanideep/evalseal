@@ -1,0 +1,58 @@
+{
+  "schema": "evalseal.agent-tools/1",
+  "response_mode": "recorded",
+  "runtime": {
+    "framework": "example-agent-runner",
+    "version": "0.3.1",
+    "note": "Not an EvalSeal component."
+  },
+  "allowed": [
+    {
+      "name": "get_order",
+      "definition_sha256": "sha256:36327a0b5c0ae9095d2f29bb52ef9015620118ef88e5cc5c2725c0c409c35766"
+    },
+    {
+      "name": "write_note",
+      "definition_sha256": "sha256:8361b98e0d5351fc80b8b57f84ac9c4e6127a2d142a5a5c165369e81914a1443"
+    }
+  ],
+  "denied": [
+    "shell.exec"
+  ],
+  "tools": [
+    {
+      "name": "get_order",
+      "description": "Fetch one order by id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "write_note",
+      "description": "Attach a note to an order.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "text"
+        ]
+      }
+    }
+  ]
+}

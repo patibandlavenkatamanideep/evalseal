@@ -1,0 +1,226 @@
+{
+  "manifest": {
+    "schema_version": "1.5",
+    "target": {
+      "provider": "local",
+      "requested_model": "local",
+      "served_model": "local",
+      "system_fingerprint": null,
+      "base_url": "local://",
+      "effective_params": {
+        "temperature": null,
+        "seed": null,
+        "top_p": null,
+        "max_tokens": null
+      },
+      "params_source": "explicit"
+    },
+    "scorer": {
+      "type": "regex",
+      "config_hash": "sha256:02811900cce273417ffcc3395baf8d79c365b31ca105558c5e278d2841cab127",
+      "judge": null,
+      "rubric_hash": null,
+      "judge_prompt_hash": null,
+      "judge_prompt": null
+    },
+    "dataset": {
+      "hash": "sha256:test",
+      "n_cases": 5,
+      "path": null,
+      "case_ids": [
+        "c0",
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ]
+    },
+    "run_config": {
+      "n_repeats": 5,
+      "concurrency": 1,
+      "harness_version": "evalseal/2.2.0",
+      "started_at": "2026-10-11T04:09:50.803939+00:00"
+    },
+    "suite": null,
+    "code": {
+      "commit": "a8c46db2f00fe782f8f00a7d8e42cd8837eba05f",
+      "dirty": true
+    },
+    "environment": {
+      "evalseal_version": "2.2.0",
+      "python_version": "3.13.2",
+      "platform": "Darwin arm64",
+      "implementation": "cpython",
+      "ci": null
+    },
+    "artifacts": []
+  },
+  "results": [
+    {
+      "case_id": "c0",
+      "scores": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "ci95": [
+        0.5655175352168251,
+        1.0
+      ],
+      "flip_rate": 0.0,
+      "stability": "STABLE",
+      "stability_label": "stable_pass",
+      "majority_verdict": 1,
+      "seconds": 0.00003850104985758662,
+      "verdicts": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "pass_count": 5,
+      "fail_count": 0,
+      "other_count": 0,
+      "flip_count": 0
+    },
+    {
+      "case_id": "c1",
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "ci95": [
+        0.0,
+        0.43448246478317476
+      ],
+      "flip_rate": 0.0,
+      "stability": "STABLE",
+      "stability_label": "stable_fail",
+      "majority_verdict": 0,
+      "seconds": 6.7490036599338055e-6,
+      "verdicts": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "pass_count": 0,
+      "fail_count": 5,
+      "other_count": 0,
+      "flip_count": 0
+    },
+    {
+      "case_id": "c2",
+      "scores": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "ci95": [
+        0.5655175352168251,
+        1.0
+      ],
+      "flip_rate": 0.0,
+      "stability": "STABLE",
+      "stability_label": "stable_pass",
+      "majority_verdict": 1,
+      "seconds": 7.375085260719061e-6,
+      "verdicts": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "pass_count": 5,
+      "fail_count": 0,
+      "other_count": 0,
+      "flip_count": 0
+    },
+    {
+      "case_id": "c3",
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "ci95": [
+        0.0,
+        0.43448246478317476
+      ],
+      "flip_rate": 0.0,
+      "stability": "STABLE",
+      "stability_label": "stable_fail",
+      "majority_verdict": 0,
+      "seconds": 6.416987162083387e-6,
+      "verdicts": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "pass_count": 0,
+      "fail_count": 5,
+      "other_count": 0,
+      "flip_count": 0
+    },
+    {
+      "case_id": "c4",
+      "scores": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "ci95": [
+        0.5655175352168251,
+        1.0
+      ],
+      "flip_rate": 0.0,
+      "stability": "STABLE",
+      "stability_label": "stable_pass",
+      "majority_verdict": 1,
+      "seconds": 6.583984941244125e-6,
+      "verdicts": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "pass_count": 5,
+      "fail_count": 0,
+      "other_count": 0,
+      "flip_count": 0
+    }
+  ],
+  "aggregate": {
+    "n_cases": 5,
+    "mean_score": 0.6,
+    "n_stable": 5,
+    "n_borderline": 0,
+    "n_unstable": 0,
+    "warnings": []
+  },
+  "prev_hash": "GENESIS",
+  "hash": "",
+  "created_at": "2026-10-11T04:09:50.804320+00:00"
+}

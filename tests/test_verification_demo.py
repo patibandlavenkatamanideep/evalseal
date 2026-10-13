@@ -280,3 +280,40 @@ def test_the_readme_needs_no_key_or_network():
     text = _flat(_readme())
     assert "No API key" in text
     assert "No network" in text
+
+
+def test_every_digested_file_is_protected_from_line_ending_translation():
+    """`.gitattributes` must mark these `-text`, or Windows breaks every sealed digest.
+
+    This failed on Windows and nowhere else: a checkout rewrote LF to CRLF, the bytes
+    changed, and `verify --artifacts` correctly reported the cassette as `changed`. The
+    rule of thumb the file states - if a digest of it is stored anywhere, it belongs in
+    the list - is what this test enforces for the paths that already exist.
+    """
+    digested = [
+        *(p for p in subprocess.run(
+            ["git", "ls-files", "examples/verification-demo/"], cwd=REPO,
+            capture_output=True, text=True, check=True).stdout.split()
+          if not p.endswith(".md")),
+        "tests/cassettes/gsm8k.json",
+        "examples/gsm8k/suite.json",
+        "examples/prereg.json",
+    ]
+    attrs = subprocess.run(["git", "check-attr", "text", "--", *digested], cwd=REPO,
+                           capture_output=True, text=True, check=True).stdout
+    unprotected = [line.rsplit(":", 2)[0] for line in attrs.splitlines()
+                   if not line.endswith(": unset")]
+    assert unprotected == [], f"would be CRLF-translated on Windows: {unprotected}"
+
+
+def test_the_bundle_digests_survive_a_crlf_round_trip(bundle):
+    """The failure itself, reproduced: CRLF-ify the bundle and the artifact check must
+    report `changed`. If this ever stops failing, the digest is not covering the bytes."""
+    demo = bundle / "examples" / "verification-demo"
+    for path in demo.rglob("*"):
+        if path.is_file() and path.suffix in (".json", ".jsonl"):
+            path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+
+    result = _run(bundle, "verify", "--ledger", _path(LEDGER), "--artifacts")
+    assert result.returncode == 1
+    assert "changed" in _flat(result.stdout)

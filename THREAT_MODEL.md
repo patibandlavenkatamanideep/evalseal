@@ -71,27 +71,40 @@ be read as including the timestamp.
 **It does not protect against:** backdating, or the key holder re-anchoring a rebuilt
 ledger. Both need an external attestation.
 
-**External anchoring, as it stands: EXPERIMENTAL.** The boundary, in the words the tool
-itself prints: **message imprint checked, TSA signature NOT verified by EvalSeal.**
+**External anchoring, as it stands.** The boundary is one of three sentences the tool
+prints, depending on what it was given:
 
-`evalseal anchor --with rfc3161 --tsa URL` submits the subject digest to an authority you
-name and stores the token. `anchor-verify` re-reads it offline and establishes exactly
-two things: that the token's message imprint is this anchor's subject digest, and what
-time the authority asserts. It does **not** validate the authority's CMS signature
-against its certificate chain.
+| you supplied | it reports |
+|---|---|
+| `--tsa-ca issuer.pem` | *signature verified against the certificate you supplied; revocation not checked* |
+| nothing | *message imprint checked, TSA signature NOT verified by EvalSeal* |
+| a token that fails a check | *verification FAILED*, naming the checks |
 
-So a stored token is **not verified external timestamping**. It is evidence that an
-authority was asked about this digest and answered, which anyone can finish checking:
+`evalseal anchor --with rfc3161 --tsa URL` submits the subject digest to an authority
+you name and stores the token. `anchor-verify --tsa-ca issuer.pem` re-reads it offline
+and checks: the signature over the re-tagged `signedAttrs`, the `messageDigest`
+attribute against `eContent`, that `eContentType` is `id-ct-TSTInfo`, that the signing
+certificate carries a **critical** `id-kp-timeStamping` EKU, that `genTime` falls inside
+that certificate's validity, and that the certificate was issued by a root **you**
+supplied.
+
+What it still does not do, stated rather than omitted:
+
+- **Revocation.** No OCSP, no CRL. A certificate revoked after signing verifies here.
+- **Path building.** One hop only: supply the issuing certificate directly.
+- **Choose a root for you.** The root is never read from the anchor. A root the author
+  chose would defeat the point of an external attestation, and a test greps the source
+  to keep it that way.
+
+Without `--tsa-ca` nothing about the signature is established, and the signature check
+is reported as *not run* rather than as passed. `openssl ts -verify` remains a fine
+independent second opinion:
 
 ```bash
-openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <tsa-ca.pem>
+openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <ca.pem>
 ```
 
-Every proof carries `verified_by_evalseal: false` and a `boundary` field saying the same
-thing, `anchor --list-backends` marks the backend EXPERIMENTAL, and a test fails if any
-message starts implying a signature was verified. Until CMS validation lives inside
-EvalSeal, this must not be described as external timestamping. There is no default
-authority, by design: [docs/external-anchoring.md](docs/external-anchoring.md).
+There is no default authority, by design.
 
 ### Artifact digests
 
@@ -132,9 +145,12 @@ that passed.
 **4. What would external anchoring add?** An independent timestamp, or inclusion in a
 transparency log, letting a third party confirm the receipt existed by a given time -
 which is what stops backdating and stops a key holder silently replacing a signed state.
-The `rfc3161` backend stores a real token today, and it is **EXPERIMENTAL: message
-imprint checked, TSA signature NOT verified by EvalSeal.** Do not read a stored token as
-verified external timestamping until that changes. See
+The `rfc3161` backend stores a real token and `anchor-verify --tsa-ca issuer.pem`
+checks its signature, the signing certificate's timeStamping EKU, and that `genTime`
+falls inside that certificate's validity. **Revocation is never checked, and the root is
+one you supply** - EvalSeal does no path building and reads no root from the anchor,
+since a root the author chose would defeat the point. Without `--tsa-ca` only the
+imprint is checked, and the output says so. See
 [docs/external-anchoring.md](docs/external-anchoring.md).
 
 **5. Why is the suite hash not in the evaluator fingerprint?** Because a flat suite file

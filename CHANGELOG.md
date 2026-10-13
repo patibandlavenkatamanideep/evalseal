@@ -7,7 +7,67 @@ older version still verifies.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **RFC 3161 signature validation.** `evalseal anchor-verify --tsa-ca issuer.pem` now
+  checks a timestamp token's signature over the re-tagged `signedAttrs`, the
+  `messageDigest` attribute against `eContent`, that `eContentType` is
+  `id-ct-TSTInfo`, that the signing certificate carries a **critical**
+  `id-kp-timeStamping` EKU, that `genTime` falls inside that certificate's validity,
+  and that the certificate was issued by a root **you** supplied.
+
+  No new dependency: the CMS navigation is hand-rolled on the TLV walker already in
+  `rfc3161.py`, and `cryptography` does every cryptographic operation and all
+  certificate parsing. `asn1crypto` was the fallback and `pyasn1-modules` was rejected;
+  neither was needed.
+
+  **Three states, three sentences**, each tested to differ. With a root:
+  *signature verified against the certificate you supplied; revocation not checked*.
+  Without one: *message imprint checked, TSA signature NOT verified by EvalSeal* - the
+  claim this backend always made, so a caller who supplies no root gets no silent
+  upgrade, and the signature check is reported as **not run** rather than as passed. On
+  failure: *verification FAILED*, naming the checks.
+
+  Revocation is never checked, and is named in the verified sentence rather than
+  omitted, because a verifier silent about what it skipped is read as having skipped
+  nothing. There is no path building and no default authority, and **the trust root is
+  never read from the proof** - a root the author chose would defeat the point of an
+  external attestation, and a test greps the source to keep it that way.
+- **`tests/tsa_fixture.py`**, a timestamp authority built in-process with a knob for
+  each thing that can be wrong. A recorded response from a real authority shows the
+  parser handles what the world emits; it cannot show what happens when a signature is
+  tampered with or a certificate lacks the timeStamping EKU, because a real authority
+  cannot be asked to misbehave. Twelve failure modes are now asserted, each failing
+  exactly one **named** check - a matrix where every failure said "invalid" would teach
+  nothing.
+
+### Fixed
+
+- **An import cycle that shipped broken in 2.2.0.** `from evalseal.rfc3161 import
+  Rfc3161Backend` raised `cannot import name 'Rfc3161Backend' from partially
+  initialized module`, and so did `import evalseal` followed by the same line, because
+  `evalseal/__init__` does not import `anchor`. The cycle is rfc3161 → anchor (for
+  `AnchorError`) → rfc3161, closed by a registration at `anchor.py`'s module scope, and
+  it resolved only when `anchor` happened to be imported first - which every test and
+  the CLI did, which is why it was never seen. Built-in backends now register on first
+  use of the registry; four import orders are asserted in subprocesses, because a cycle
+  only bites on a cold import.
+- **`parse_timestamp_response` navigates the structure** instead of finding TSTInfo by
+  shape. A signature covers the actual `eContent` octets, not something that merely
+  looks like a TSTInfo - and the old hand-made test double, which satisfied the
+  heuristic, turned out not to be navigable CMS at all.
+- **A stored proof no longer says "NOT verified by EvalSeal" permanently.** That was
+  accurate when nothing could verify it and misleading once something could. The
+  `boundary` field now describes the token at rest and points at how to check it.
+
+### Changed
+
+- **Validity is checked against the token's own `genTime`, never the clock now**, with a
+  test pinning that. A recorded fixture's certificate expires, and a verifier using
+  `now` would start failing on a date nobody chose.
+- `anchor --list-backends` describes what verification checks with and without a root,
+  rather than carrying a flat `EXPERIMENTAL` marker that is no longer the whole story.
+
 
 ## [2.2.0] - 2026-09-28
 

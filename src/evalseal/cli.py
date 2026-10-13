@@ -302,8 +302,9 @@ _RESERVED_ROLES = {"cassette", "dataset", "suite"}
 # backend without being told which half of its check EvalSeal actually performs.
 _BACKEND_NOTES = {
     "local": "   attests nothing: binds files together, establishes no time",
-    "rfc3161": " EXPERIMENTAL - message imprint checked, TSA signature NOT verified "
-               "by EvalSeal; needs --tsa URL",
+    "rfc3161": " needs --tsa URL to submit. Verification checks the signature when "
+               "you supply a root with --tsa-ca, and the imprint alone without one. "
+               "Revocation is never checked",
 }
 
 

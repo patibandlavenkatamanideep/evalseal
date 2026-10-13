@@ -152,13 +152,19 @@ Every adapter's `verify` must say in `established` what the proof shows *and who
 rests on*. Only the digest is sent to any service, never the anchor, the receipt, or
 anything they hash.
 
-### RFC 3161 timestamp authority — **EXPERIMENTAL**
+### RFC 3161 timestamp authority — **implemented**
 
-> **message imprint checked, TSA signature NOT verified by EvalSeal**
+> The boundary is now one of three sentences, depending on what the verifier was given:
 >
-> This is the whole boundary, and it is what the tool prints on every proof it stores and
-> every check it runs. A stored token is **not verified external timestamping**. Until
-> CMS signature validation lives inside EvalSeal, do not describe it as such.
+> | supplied | reported |
+> |---|---|
+> | `--tsa-ca issuer.pem` | *signature verified against the certificate you supplied; revocation not checked* |
+> | nothing | *message imprint checked, TSA signature NOT verified by EvalSeal* |
+> | a failing token | *verification FAILED*, naming the checks that failed |
+>
+> Revocation is **never** checked, and that is named in the verified sentence rather
+> than left out, because a verifier silent about what it skipped is read as having
+> skipped nothing.
 
 This one exists now, as the `rfc3161` backend:
 
@@ -181,23 +187,35 @@ and checks two things: that the token's `messageImprint` is *this anchor's subje
 digest*, so the token is about this receipt and not another one, and what time the
 authority asserts in `genTime`.
 
-**What it does not do: verify the authority's signature.** That means validating a CMS
-`SignedData` against a certificate chain, which neither EvalSeal's parser nor
-`cryptography`'s public API does, and adding an ASN.1 dependency to do it has not been
-done. So every message this backend produces leads with the boundary, carries
-`verified_by_evalseal: false` and a `boundary` field repeating it, and hands back the
-command that does the other half:
+**What verification checks, with a root.** The signature over the re-tagged
+`signedAttrs` (RFC 5652 requires `0xA0 → 0x31`, and getting it wrong is the classic way
+a CMS verifier fails on every real token), the `messageDigest` attribute against
+`eContent`, that `eContentType` is `id-ct-TSTInfo`, that the signing certificate carries
+a **critical** `id-kp-timeStamping` EKU, that `genTime` falls inside that certificate's
+validity, and that the certificate was issued by the root you supplied.
+
+**No new dependency.** The CMS navigation is hand-rolled on the TLV walker already in
+`rfc3161.py`; `cryptography` — already a dependency, maintained, audited — does every
+cryptographic operation and all certificate parsing. OIDs are compared as encoded bytes,
+which is exact and needs no OID decoder.
+
+**What it still does not do:** revocation (no OCSP, no CRL — a certificate revoked after
+signing verifies here), path building (one hop: supply the issuer directly), or choosing
+a root for you. The root is never read from the proof, since a root the author chose
+would defeat the point of an external attestation. `openssl` remains a fine independent
+second opinion:
 
 ```bash
 openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <tsa-ca.pem>
 ```
 
-That leaves a stored token worth something short of proof: evidence that an authority
-was asked about this digest and answered, checkable by anyone who runs that command.
-Treat it as experimental until the signature check is in EvalSeal itself.
+So with a root supplied, a stored token establishes that **this authority signed for
+this digest at this time** — resting on the authority's honesty and on the root being
+the right one, not on EvalSeal. Without a root it establishes only that a token about
+this digest exists.
 
 - **Establishes:** the digest existed no later than the stated time, on the authority's
-  word - *once you have verified the token's signature yourself*.
+  word, once the signature is checked against a root you trust.
 - **Trust rests on:** the authority and its certificate chain. Anchoring with two
   unrelated authorities reduces reliance on either.
 - **Privacy:** the authority sees a 32-byte digest and a request time, nothing else. A

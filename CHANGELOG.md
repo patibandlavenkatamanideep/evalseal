@@ -56,6 +56,23 @@ older version still verifies.
   some time under some key, so a burst of anchors or a long gap says something whether
   or not the digests ever resolve. And it is irrevocable, by design.
 
+- **`examples/verification-demo/`**, the walkthrough for someone handed a receipt with
+  no access to the author's machine. Four passing steps - chain, artifacts, signature,
+  anchor - each stating what it establishes and **who must be trusted** for it, then
+  five tampering demos: an edited score, an edited artifact, a deleted artifact, an
+  edited receipt, and the wrong trust root. A demo where everything is green cannot
+  tell a working check from one that always passes, so half the page is failures, and
+  a test runs every command including the failures.
+
+  The page closes with what no amount of verifying establishes - that the eval ran, that
+  the provider served the model it named, that the inputs were honest, when it happened,
+  or that it was the only run.
+
+  The bundle's timestamp authority is a throwaway fixture that attests nothing, labelled
+  as such in a warning block, because a reader following a demo is exactly who might
+  mistake it for a real timestamp. A test asserts that label stays, and that no private
+  key was ever committed.
+
 ### Fixed
 
 - **An import cycle that shipped broken in 2.2.0.** `from evalseal.rfc3161 import

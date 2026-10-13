@@ -11,6 +11,7 @@ import base64
 import hashlib
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 import pytest
@@ -577,3 +578,56 @@ def test_the_trust_root_is_never_read_from_the_proof():
     assert 'proof.get("ca' not in source
     assert "proof['ca" not in source
     assert "self.ca_pem" in source
+
+
+# --- the anchoring posture, enforced rather than only documented ------------------------
+
+def test_no_public_log_backend_is_registered():
+    """A transparency log entry is public and irrevocable. If one is ever implemented,
+    choosing it must be an explicit act - not a default, not a fallback, and not
+    something `--with external` quietly resolves to. This test fails the day a backend
+    named for a public log appears in the registry, so that decision cannot be made by
+    accident."""
+    from evalseal.anchor import available_backends
+
+    assert available_backends() == ["local", "rfc3161"]
+    for public in ("rekor", "sigstore", "opentimestamps", "ots", "external"):
+        assert public not in available_backends()
+
+
+def test_the_default_backend_publishes_nothing():
+    """`anchor` with no `--with` uses the local backend, which contacts nobody."""
+    from evalseal.anchor import get_backend
+
+    local = get_backend("local")
+    ok, detail = local.check(DIGEST, {})
+    assert ok
+    assert "no external party attested this" in detail
+
+
+def test_the_privacy_section_makes_the_cadence_argument():
+    """The leak that matters for a public log is cadence and existence, not content.
+    If this section is ever trimmed to the digest-guessing warning alone, it has lost
+    the part a user actually needs."""
+    doc = (Path(__file__).resolve().parent.parent
+           / "docs" / "external-anchoring.md").read_text(encoding="utf-8")
+    lowered = " ".join(doc.lower().split())
+
+    assert "leaks cadence and existence, not content" in lowered
+    assert "irrevocable" in lowered
+    assert "never selected for you" in lowered
+    assert "rfc 3161 is the default" in lowered
+    # And the comparison a reader decides from.
+    assert "choosing between them" in lowered
+    assert "everyone, permanently" in lowered
+
+
+def test_the_privacy_section_no_longer_claims_the_cassette_is_unsealed():
+    """It said "a receipt does not currently seal the cassette's hash", which has been
+    false since schema 1.4."""
+    doc = (Path(__file__).resolve().parent.parent
+           / "docs" / "external-anchoring.md").read_text(encoding="utf-8")
+    lowered = " ".join(doc.lower().split())
+    assert "does not currently seal the cassette" not in lowered
+    assert "responses are not in the receipt yet" not in lowered
+    assert "the cassette is bound into the record by digest" in lowered

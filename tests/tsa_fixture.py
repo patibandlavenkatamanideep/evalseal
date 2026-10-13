@@ -39,7 +39,7 @@ OID_SHA256_RSA = "1.2.840.113549.1.1.11"
 
 # A fixed instant, so a token's genTime and its certificate's validity are both
 # decided by the test rather than by when the test happens to run.
-GEN_TIME = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
+GEN_TIME = datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC)
 
 
 def _set_of(*parts: bytes) -> bytes:
@@ -147,6 +147,7 @@ def build_token(
     digest: str,
     *,
     gen_time: datetime | None = None,
+    serial: int = 42,
     econtent_type: str = ID_CT_TST_INFO,
     wrong_message_digest: bool = False,
     corrupt_signature: bool = False,
@@ -160,7 +161,8 @@ def build_token(
     Every default produces a well-formed, verifiable token; each keyword turns exactly
     one thing wrong, so a failing test names a single cause.
     """
-    info = tst_info if tst_info is not None else build_tst_info(digest, gen_time=gen_time)
+    info = (tst_info if tst_info is not None
+            else build_tst_info(digest, gen_time=gen_time, serial=serial))
 
     digest_for_attr = hashlib.sha256(
         b"not the content" if wrong_message_digest else info).digest()

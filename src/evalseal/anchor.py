@@ -110,14 +110,43 @@ class LocalBackend:
 
 
 _BACKENDS: dict[str, AnchorBackend] = {"local": LocalBackend()}
+_BUILTINS_LOADED = False
+
+
+def _load_builtin_backends() -> None:
+    """Register the adapters that ship with EvalSeal, on first use rather than on import.
+
+    `rfc3161` imports `AnchorError` from this module, so importing it from here at
+    module scope made the cycle resolvable only when `anchor` happened to be imported
+    first. `from evalseal.rfc3161 import Rfc3161Backend` in a fresh interpreter raised
+    `cannot import name 'Rfc3161Backend' from partially initialized module` - and
+    `evalseal/__init__` does not import `anchor`, so even importing the package first
+    did not save it.
+
+    Deferring to first use breaks the cycle in the direction that caused it: nothing
+    here runs until someone asks the registry a question, by which point both modules
+    are fully initialised.
+    """
+    global _BUILTINS_LOADED
+    if _BUILTINS_LOADED:
+        return
+    # Set before importing: a backend whose import fails must not be retried on every
+    # call, and must not stop the local backend working.
+    _BUILTINS_LOADED = True
+    from .rfc3161 import Rfc3161Backend
+
+    # setdefault, so a caller who registered a configured instance first keeps it.
+    _BACKENDS.setdefault(Rfc3161Backend.name, Rfc3161Backend())
 
 
 def register_backend(backend: AnchorBackend) -> None:
     """Add a backend. Adapters for real services register themselves here."""
+    _load_builtin_backends()
     _BACKENDS[backend.name] = backend
 
 
 def get_backend(name: str) -> AnchorBackend:
+    _load_builtin_backends()
     if name not in _BACKENDS:
         raise AnchorError(
             f"unknown anchor backend {name!r}; available: {', '.join(sorted(_BACKENDS))}")
@@ -125,6 +154,7 @@ def get_backend(name: str) -> AnchorBackend:
 
 
 def available_backends() -> list[str]:
+    _load_builtin_backends()
     return sorted(_BACKENDS)
 
 
@@ -490,10 +520,3 @@ def anchor_passed(checks: list[AnchorCheck]) -> bool:
     """Every required check passed. Optional checks that could not run do not count."""
     return all(c.passed for c in checks if c.required)
 
-
-# Imported last: rfc3161 imports AnchorError from this module, so the name has to
-# exist before the import runs. Registering here rather than in __init__ keeps
-# `available_backends()` honest for anyone importing this module directly.
-from .rfc3161 import Rfc3161Backend  # noqa: E402
-
-register_backend(Rfc3161Backend())

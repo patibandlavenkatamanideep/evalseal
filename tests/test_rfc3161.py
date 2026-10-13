@@ -337,3 +337,58 @@ def test_a_tampered_anchor_breaks_the_proof_binding(tmp_path, monkeypatch):
     ok, detail = get_backend("rfc3161").check(anchor["subject_digest"], proof)
     assert not ok
     assert "not this anchor's subject digest" in detail
+
+
+# --- the import cycle, which shipped broken in 2.2.0 ------------------------------------
+
+@pytest.mark.parametrize("snippet", [
+    # The order that failed: rfc3161 before anchor, in a fresh interpreter.
+    "from evalseal.rfc3161 import Rfc3161Backend",
+    # And this failed too, because evalseal/__init__ does not import anchor.
+    "import evalseal; from evalseal.rfc3161 import Rfc3161Backend",
+    "import evalseal.rfc3161; from evalseal.anchor import available_backends",
+    "from evalseal.anchor import available_backends; available_backends()",
+])
+def test_every_import_order_works(snippet):
+    """Registering the backend at anchor.py's module scope made the cycle resolvable
+    only when `anchor` happened to be imported first, so
+    `from evalseal.rfc3161 import Rfc3161Backend` raised a partially-initialized-module
+    ImportError. A subprocess, because the cycle only bites on a cold import."""
+    import subprocess
+    import sys
+
+    proc = subprocess.run([sys.executable, "-c", snippet], capture_output=True,
+                          text=True, timeout=120)
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_the_registry_is_complete_however_it_is_reached():
+    import subprocess
+    import sys
+
+    proc = subprocess.run(
+        [sys.executable, "-c",
+         "from evalseal.anchor import available_backends; print(available_backends())"],
+        capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stderr
+    assert "rfc3161" in proc.stdout and "local" in proc.stdout
+
+
+def test_a_caller_registered_instance_is_not_clobbered_by_the_lazy_load():
+    """`--tsa URL` registers a configured backend; first use of the registry must not
+    replace it with an unconfigured one."""
+    from evalseal import anchor as anchor_module
+
+    saved, saved_flag = dict(anchor_module._BACKENDS), anchor_module._BUILTINS_LOADED
+    try:
+        anchor_module._BACKENDS.clear()
+        anchor_module._BACKENDS["local"] = saved["local"]
+        anchor_module._BUILTINS_LOADED = False
+        configured = Rfc3161Backend("https://tsa.example/tsr")
+        anchor_module.register_backend(configured)
+        assert anchor_module.get_backend("rfc3161") is configured
+        assert anchor_module.get_backend("rfc3161").url == "https://tsa.example/tsr"
+    finally:
+        anchor_module._BACKENDS.clear()
+        anchor_module._BACKENDS.update(saved)
+        anchor_module._BUILTINS_LOADED = saved_flag

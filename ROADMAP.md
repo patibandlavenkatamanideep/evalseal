@@ -175,24 +175,24 @@ the deferred item, which was never part of this milestone's question.
 The one open box from v2.2, now with a milestone of its own rather than riding along
 with unrelated work.
 
-- [ ] Validate the TSA's CMS signature inside EvalSeal: the signature over the
+- [ ] **[#13]** Validate the TSA's CMS signature inside EvalSeal: the signature over the
       re-encoded `signedAttrs`, the `messageDigest` attribute against `eContent`, the
       critical `id-kp-timeStamping` EKU, and the signing certificate against a
       caller-supplied root. **Out of scope:** revocation (OCSP/CRL), general path
       building, system trust-store discovery - the boundary statement survives without
       them and they are unbounded work.
-- [ ] A locally generated test TSA, so failure modes are deterministically testable
+- [ ] **[#14]** A locally generated test TSA, so failure modes are deterministically testable
       offline, plus one recorded real response so we know we parse what the world
       emits. The recorded fixture must verify **as of a pinned instant**, with a test
       asserting the pin exists, or its certificate's expiry becomes a time bomb.
-- [ ] Dependency decision: hand-rolled CMS navigation with `cryptography` doing all
+- [ ] **[#13]** Dependency decision: hand-rolled CMS navigation with `cryptography` doing all
       crypto and X.509 (no new dependency) is preferred; `asn1crypto` behind an
       `evalseal[rfc3161]` extra is the fallback. `pyasn1-modules` is rejected - two
       packages, a churn-prone API, no ergonomic gain.
-- [ ] Rekor and OpenTimestamps: a decision table, not an implementation. A Rekor entry
+- [ ] **[#15]** Rekor and OpenTimestamps: a decision table, not an implementation. A Rekor entry
       is **public and irrevocable**, which leaks eval cadence and existence even though
       a high-entropy digest leaks nothing about content. It must never be a default.
-- [ ] A third-party verification walkthrough that shows the failing cases too.
+- [ ] **[#16]** A third-party verification walkthrough that shows the failing cases too.
 
 Accepted when: `anchor-verify` can say "signature verified against the certificate you
 supplied" and mean it, with revocation named as the remaining gap.
@@ -219,7 +219,7 @@ changing how they run evals.
 
 Every provider the code supports should have a recorded run behind it.
 
-- [ ] A recorded Anthropic cassette. The native adapter is covered by tests against the
+- [ ] **[#17]** A recorded Anthropic cassette. The native adapter is covered by tests against the
       documented wire format but has no live recording yet; the README says so.
       [examples/anthropic/RECORDING.md](examples/anthropic/RECORDING.md) is the procedure.
 - [ ] A recorded OpenAI cassette through the OpenAI-compatible adapter's default endpoint.

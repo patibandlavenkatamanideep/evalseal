@@ -66,11 +66,34 @@ def _path(name: str) -> str:
 # --- the bundle is complete, and carries no private key -------------------------------
 
 def test_the_bundle_has_everything_the_readme_lists():
+    """Checked against *git*, not the filesystem.
+
+    `.gitignore` carries `report.json`, to stop generated receipts being committed from
+    the worktree root. It silently swallowed this example's receipt too, so every test
+    reading it passed locally and failed on every platform in CI, where the checkout is
+    fresh. A filesystem check cannot see that; `git ls-files` can.
+    """
     expected = {"report.json", "ledger.jsonl", "ledger.jsonl.sig.jsonl", "signing.pub",
-                "anchor.json", "cassette.json", "README.md"}
-    present = {p.name for p in DEMO.iterdir() if p.is_file()}
-    assert expected <= present, expected - present
-    assert (DEMO / "fixture-tsa" / "ca.pem").is_file()
+                "anchor.json", "cassette.json", "README.md", "fixture-tsa/ca.pem"}
+    tracked = set(subprocess.run(
+        ["git", "ls-files", "examples/verification-demo/"], cwd=REPO,
+        capture_output=True, text=True, check=True).stdout.split())
+    names = {p.removeprefix("examples/verification-demo/") for p in tracked}
+    assert expected <= names, expected - names
+
+
+def test_nothing_in_the_bundle_is_gitignored():
+    """Catches a *newly added* bundle file that an ignore rule would swallow.
+
+    Weaker than the test above and deliberately kept: `git check-ignore` does not
+    report a file that is already tracked, so this cannot re-detect the bug that
+    prompted it. What it does catch is the next person dropping `report.md` or
+    `receipt.html` into this directory and not noticing it never landed.
+    """
+    files = [str(p.relative_to(REPO)) for p in DEMO.rglob("*") if p.is_file()]
+    ignored = subprocess.run(["git", "check-ignore", *files], cwd=REPO,
+                             capture_output=True, text=True).stdout.split()
+    assert ignored == [], f"ignored and so never committed: {ignored}"
 
 
 def test_no_private_key_was_committed():

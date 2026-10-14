@@ -24,7 +24,7 @@ from datetime import UTC, datetime, timedelta
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from evalseal.rfc3161 import _der, _integer, _oid, _sequence
@@ -35,7 +35,21 @@ ID_CT_TST_INFO = "1.2.840.113549.1.9.16.1.4"
 ATTR_CONTENT_TYPE = "1.2.840.113549.1.9.3"
 ATTR_MESSAGE_DIGEST = "1.2.840.113549.1.9.4"
 OID_SHA256 = "2.16.840.1.101.3.4.2.1"
+OID_SHA512 = "2.16.840.1.101.3.4.2.3"
 OID_SHA256_RSA = "1.2.840.113549.1.1.11"
+OID_SHA512_RSA = "1.2.840.113549.1.1.13"
+OID_ECDSA_SHA256 = "1.2.840.10045.4.3.2"
+OID_ECDSA_SHA512 = "1.2.840.10045.4.3.4"
+
+# A real authority is not necessarily SHA-256 with RSA: freetsa.org signs with ECDSA
+# and SHA-512, and an implementation that assumed otherwise failed on it. The fixture
+# can now produce each combination so the assumption cannot creep back for a different
+# algorithm than the one a recorded token happens to use.
+_DIGEST_OIDS = {"sha256": OID_SHA256, "sha512": OID_SHA512}
+_SIGNATURE_OIDS = {
+    ("rsa", "sha256"): OID_SHA256_RSA, ("rsa", "sha512"): OID_SHA512_RSA,
+    ("ecdsa", "sha256"): OID_ECDSA_SHA256, ("ecdsa", "sha512"): OID_ECDSA_SHA512,
+}
 
 # A fixed instant, so a token's genTime and its certificate's validity are both
 # decided by the test rather than by when the test happens to run.
@@ -84,21 +98,24 @@ class TestTsa:
         return self.tsa_certificate.public_bytes(serialization.Encoding.PEM)
 
 
-def _key() -> rsa.RSAPrivateKey:
-    # 2048 is the smallest size `cryptography` will not complain about and keeps the
-    # test suite fast; this key protects nothing.
+def _key(kind: str = "rsa"):
+    """A throwaway key. 2048-bit RSA is the smallest `cryptography` accepts; neither
+    this nor the EC key protects anything."""
+    if kind == "ecdsa":
+        return ec.generate_private_key(ec.SECP384R1())
     return rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
 def build_tsa(
     *,
+    key_kind: str = "rsa",
     timestamping_eku: bool = True,
     eku_critical: bool = True,
     not_before: datetime | None = None,
     not_after: datetime | None = None,
 ) -> TestTsa:
     """A CA plus a TSA certificate, with the knobs the negative tests need."""
-    ca_key, tsa_key = _key(), _key()
+    ca_key, tsa_key = _key(), _key(key_kind)
     ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "EvalSeal Test CA")])
     tsa_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "EvalSeal Test TSA")])
 
@@ -148,6 +165,8 @@ def build_token(
     *,
     gen_time: datetime | None = None,
     serial: int = 42,
+    digest_algorithm: str = "sha256",
+    signature_kind: str = "rsa",
     econtent_type: str = ID_CT_TST_INFO,
     wrong_message_digest: bool = False,
     corrupt_signature: bool = False,
@@ -164,8 +183,8 @@ def build_token(
     info = (tst_info if tst_info is not None
             else build_tst_info(digest, gen_time=gen_time, serial=serial))
 
-    digest_for_attr = hashlib.sha256(
-        b"not the content" if wrong_message_digest else info).digest()
+    content = b"not the content" if wrong_message_digest else info
+    digest_for_attr = hashlib.new(digest_algorithm, content).digest()
     signed_attrs_content = (
         _attribute(ATTR_CONTENT_TYPE, _oid(econtent_type))
         + _attribute(ATTR_MESSAGE_DIGEST, _der(0x04, digest_for_attr))
@@ -174,8 +193,12 @@ def build_token(
     # [0] IMPLICIT tag (0xA0) the structure carries. Getting this wrong is the classic
     # way a CMS verifier fails on every real token.
     to_sign = _set_of(signed_attrs_content)
-    signature = (sign_with or tsa.tsa_key).sign(
-        to_sign, padding.PKCS1v15(), hashes.SHA256())
+    key = sign_with or tsa.tsa_key
+    hasher = {"sha256": hashes.SHA256, "sha512": hashes.SHA512}[digest_algorithm]()
+    if signature_kind == "ecdsa":
+        signature = key.sign(to_sign, ec.ECDSA(hasher))
+    else:
+        signature = key.sign(to_sign, padding.PKCS1v15(), hasher)
     if corrupt_signature:
         signature = bytes([signature[0] ^ 0xFF]) + signature[1:]
 
@@ -184,9 +207,9 @@ def build_token(
         _sequence(                                    # IssuerAndSerialNumber
             tsa.tsa_certificate.issuer.public_bytes(),
             _integer(tsa.tsa_certificate.serial_number)),
-        _algorithm(OID_SHA256),
+        _algorithm(_DIGEST_OIDS[digest_algorithm]),
         _implicit_set(0, signed_attrs_content),
-        _algorithm(OID_SHA256_RSA),
+        _algorithm(_SIGNATURE_OIDS[(signature_kind, digest_algorithm)]),
         _der(0x04, signature),
     )
 
@@ -197,7 +220,7 @@ def build_token(
 
     signed_data = _sequence(
         _integer(3),
-        _set_of(_algorithm(OID_SHA256)),
+        _set_of(_algorithm(_DIGEST_OIDS[digest_algorithm])),
         _sequence(_oid(econtent_type), _explicit(0, _der(0x04, info))),
         certificates,
         _set_of(signer_info),

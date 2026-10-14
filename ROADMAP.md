@@ -111,17 +111,26 @@ Give a third party a timestamp and custody claim that does not rest on the signe
 - [x] An adapter interface over the local anchor object, filling its `external_proofs`.
       `AnchorBackend` is a two-method protocol; the local backend attests nothing and
       says so; a real adapter is additive.
-- [x] RFC 3161 timestamp authority adapter, **experimental**. It builds a real DER
-      `TimeStampReq`, submits it to an authority the caller names with `--tsa` (there is
-      no default), and stores the token.
+- [x] RFC 3161 timestamp authority adapter. It builds a real DER `TimeStampReq`,
+      submits it to an authority the caller names with `--tsa` (there is no default),
+      and stores the token.
 - [x] `anchor-verify` checks the external proof offline: it confirms the token's message
       imprint is this anchor's subject digest and reports the asserted time.
-- [ ] **Validate the RFC 3161 signature inside EvalSeal.** This is the one gap that keeps
-      the adapter experimental. Verification today does not check the authority's CMS
-      signature against its certificate chain, so proofs carry
-      `verified_by_evalseal: false` and hand back the `openssl ts -verify` command that
-      finishes the job. Closing it needs an ASN.1 dependency (`asn1crypto` or
-      `pyasn1-modules`), which is the trade-off to weigh.
+- [x] **Validate the RFC 3161 signature inside EvalSeal** (**#13**).
+      `anchor-verify --tsa-ca issuer.pem` checks the signature over the re-tagged
+      `signedAttrs`, the `messageDigest` attribute against `eContent`, a critical
+      `id-kp-timeStamping` EKU, `genTime` inside the certificate's validity, and the
+      certificate against a root the verifier supplies. **No ASN.1 dependency was
+      needed** - this entry previously assumed one. The CMS navigation is hand-rolled on
+      the TLV walker already in `rfc3161.py` and `cryptography` does all crypto and
+      X.509. Revocation and path building stay out of scope and are named in the output.
+- [x] **A local test TSA** (**#14**), so failure modes are deterministically testable
+      offline: twelve, each failing exactly one named check.
+- [x] **One recorded real TSA response** (**#14**), from `freetsa.org` on 2026-10-14.
+      It earned its place immediately: the implementation assumed SHA-256 with RSA, and
+      freetsa signs with ECDSA and SHA-512, so the token failed on both the
+      `messageDigest` attribute and the signature algorithm. Both are read from the
+      token now, and the synthetic fixture covers all four combinations.
 - [ ] Sigstore / Rekor transparency log adapter (**#15**). The decision table is
       written: a Rekor entry is **public and irrevocable**, and it leaks eval cadence
       and existence even though a high-entropy digest reveals nothing about content. So

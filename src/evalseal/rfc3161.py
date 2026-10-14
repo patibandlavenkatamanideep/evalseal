@@ -38,6 +38,7 @@ import base64
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TypeVar
 
 import httpx
 
@@ -229,10 +230,50 @@ _ID_SIGNED_DATA = "1.2.840.113549.1.7.2"
 _ID_CT_TST_INFO = "1.2.840.113549.1.9.16.1.4"
 _ATTR_CONTENT_TYPE = "1.2.840.113549.1.9.3"
 _ATTR_MESSAGE_DIGEST = "1.2.840.113549.1.9.4"
-_OID_SHA256_RSA = "1.2.840.113549.1.1.11"
-_OID_ECDSA_SHA256 = "1.2.840.10045.4.3.2"
+# Authorities are not all SHA-256. freetsa.org signs with ECDSA-P384/SHA-512, and an
+# implementation that assumed SHA-256 - as this one did until a real token was
+# recorded - fails on it twice: the messageDigest attribute is the wrong length, and
+# the signature algorithm is unrecognised. The algorithms are read from the token.
+_T = TypeVar("_T")
+
+_DIGESTS: dict[str, str] = {
+    "2.16.840.1.101.3.4.2.1": "sha256",
+    "2.16.840.1.101.3.4.2.2": "sha384",
+    "2.16.840.1.101.3.4.2.3": "sha512",
+}
+_SIGNATURES: dict[str, tuple[str, str]] = {
+    # RSA PKCS#1 v1.5
+    "1.2.840.113549.1.1.11": ("rsa", "sha256"),
+    "1.2.840.113549.1.1.12": ("rsa", "sha384"),
+    "1.2.840.113549.1.1.13": ("rsa", "sha512"),
+    # ECDSA
+    "1.2.840.10045.4.3.2": ("ecdsa", "sha256"),
+    "1.2.840.10045.4.3.3": ("ecdsa", "sha384"),
+    "1.2.840.10045.4.3.4": ("ecdsa", "sha512"),
+}
 
 _EKU_TIMESTAMPING = "1.3.6.1.5.5.7.3.8"
+
+
+def _algorithm_name(algorithm: bytes, table: dict[str, _T]) -> _T | None:
+    """Look an AlgorithmIdentifier up in `table` by its OID.
+
+    Compares the OID TLV on its own rather than the whole AlgorithmIdentifier, because
+    the parameters field is an explicit NULL for RSA and absent for ECDSA, and a
+    byte-equality test on the wrapper would miss one of them.
+    """
+    for tag, begin, end in _tlvs(algorithm):
+        if tag != 0x30:
+            continue
+        for inner_tag, inner_begin, inner_end in _tlvs(algorithm, begin, end):
+            if inner_tag != 0x06:
+                continue
+            oid = algorithm[inner_begin - 2:inner_end] if inner_begin >= 2 else b""
+            for dotted, value in table.items():
+                if _oid(dotted) == oid:
+                    return value
+            return None
+    return None
 
 
 class TokenFormatError(ValueError):
@@ -469,29 +510,40 @@ def _tst_info_fields(econtent: bytes) -> dict[str, str] | None:
     }
 
 
+_HASHES = {"sha256": "SHA256", "sha384": "SHA384", "sha512": "SHA512"}
+
+
+def _hash(name: str):
+    from cryptography.hazmat.primitives import hashes
+
+    return getattr(hashes, _HASHES[name])()
+
+
 def _verify_signature(signer: SignerInfo, certificate) -> tuple[bool, str]:
     """Check the signature over the re-tagged signedAttrs. All crypto via cryptography."""
     from cryptography.exceptions import InvalidSignature
-    from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import ec, padding
+
+    algorithm = _algorithm_name(signer.signature_algorithm, _SIGNATURES)
+    if algorithm is None:
+        return (False, "unsupported signature algorithm; EvalSeal checks RSA PKCS#1 "
+                       "v1.5 and ECDSA, each with SHA-256, SHA-384 or SHA-512")
+    kind, digest = algorithm
 
     public_key = certificate.public_key()
     payload = signer.signed_data
     try:
-        if signer.signature_algorithm == _der(0x30, _oid(_OID_SHA256_RSA) + _der(0x05, b"")):
+        if kind == "rsa":
             public_key.verify(signer.signature, payload, padding.PKCS1v15(),
-                              hashes.SHA256())
-        elif signer.signature_algorithm == _der(0x30, _oid(_OID_ECDSA_SHA256)):
-            public_key.verify(signer.signature, payload, ec.ECDSA(hashes.SHA256()))
+                              _hash(digest))
         else:
-            return (False, "unsupported signature algorithm; EvalSeal checks "
-                           "sha256WithRSAEncryption and ecdsa-with-SHA256")
+            public_key.verify(signer.signature, payload, ec.ECDSA(_hash(digest)))
     except InvalidSignature:
         return (False, "the signature does not verify against the signing certificate")
     except Exception as e:                                    # unusable key, bad DER
         return (False, f"the signature could not be checked: {type(e).__name__}: {e}")
-    return (True, "the signature over signedAttrs verifies against the signing "
-                  "certificate")
+    return (True, f"the signature over signedAttrs verifies against the signing "
+                  f"certificate ({kind.upper()} with {digest.upper()})")
 
 
 def verify_token(
@@ -555,13 +607,17 @@ def verify_token(
         return TokenVerification(checks, FAILED)
     signer = token.signers[0]
     attr = signer.attribute(_ATTR_MESSAGE_DIGEST)
-    expected = _hashlib.sha256(token.econtent).digest()
+    # The SignerInfo names its own digest algorithm, and it is not always SHA-256:
+    # freetsa.org uses SHA-512. Defaulting to SHA-256 made every such token fail.
+    digest_name = _algorithm_name(signer.digest_algorithm, _DIGESTS) or "sha256"
+    expected = _hashlib.new(digest_name, token.econtent).digest()
     attr_ok = attr == expected
     checks.append(TokenCheck(
         "message_digest_attribute", attr_ok,
-        "the signed messageDigest attribute is the digest of eContent" if attr_ok
+        f"the signed messageDigest attribute is the {digest_name.upper()} digest of "
+        "eContent" if attr_ok
         else "the signed messageDigest attribute does not match eContent, so the "
-             "signature does not cover this timestamp"))
+             f"signature does not cover this timestamp (checked as {digest_name})"))
 
     if ca_pem is None:
         # No root, so nothing about the signature can be established. Reported as not

@@ -631,3 +631,56 @@ def test_the_privacy_section_no_longer_claims_the_cassette_is_unsealed():
     assert "does not currently seal the cassette" not in lowered
     assert "responses are not in the receipt yet" not in lowered
     assert "the cassette is bound into the record by digest" in lowered
+
+
+# --- algorithms a real authority actually uses -----------------------------------------
+
+@pytest.mark.parametrize("signature_kind", ["rsa", "ecdsa"])
+@pytest.mark.parametrize("digest_algorithm", ["sha256", "sha512"])
+def test_every_supported_algorithm_combination_verifies(signature_kind,
+                                                        digest_algorithm):
+    """SHA-256 with RSA was the only combination this verifier handled, which is not
+    what the world uses: freetsa.org signs with ECDSA and SHA-512, and a recorded
+    token from it failed twice - a wrong-length messageDigest and an unrecognised
+    signature algorithm. Both are now read from the token."""
+    from evalseal.rfc3161 import VERIFIED, verify_token
+
+    tsa = build_tsa(key_kind=signature_kind)
+    token = build_token(tsa, DIGEST, digest_algorithm=digest_algorithm,
+                        signature_kind=signature_kind)
+    result = verify_token(token, DIGEST, ca_pem=tsa.ca_pem)
+    failing = [c.name for c in result.checks if c.ran and not c.passed]
+    assert result.state == VERIFIED, failing
+
+
+def test_the_reported_algorithm_is_the_one_that_was_used():
+    """The detail must name what actually verified, not a hardcoded guess."""
+    from evalseal.rfc3161 import verify_token
+
+    tsa = build_tsa(key_kind="ecdsa")
+    result = verify_token(
+        build_token(tsa, DIGEST, digest_algorithm="sha512", signature_kind="ecdsa"),
+        DIGEST, ca_pem=tsa.ca_pem)
+    signature = next(c for c in result.checks if c.name == "signature")
+    assert "ECDSA with SHA512" in signature.detail
+    digest = next(c for c in result.checks if c.name == "message_digest_attribute")
+    assert "SHA512 digest of eContent" in digest.detail
+
+
+def test_an_unknown_signature_algorithm_is_named_rather_than_assumed():
+    from evalseal.rfc3161 import _SIGNATURES, _algorithm_name, _der, _oid
+
+    # An AlgorithmIdentifier for something not in the table.
+    unknown = _der(0x30, _oid("1.2.3.4.5.6.7"))
+    assert _algorithm_name(unknown, _SIGNATURES) is None
+
+
+def test_the_algorithm_lookup_tolerates_a_missing_parameters_field():
+    """RSA carries an explicit NULL and ECDSA omits parameters entirely, so comparing
+    whole AlgorithmIdentifiers byte for byte would miss one of them."""
+    from evalseal.rfc3161 import _SIGNATURES, _algorithm_name, _der, _oid
+
+    with_null = _der(0x30, _oid("1.2.840.113549.1.1.11") + _der(0x05, b""))
+    without = _der(0x30, _oid("1.2.840.10045.4.3.4"))
+    assert _algorithm_name(with_null, _SIGNATURES) == ("rsa", "sha256")
+    assert _algorithm_name(without, _SIGNATURES) == ("ecdsa", "sha512")

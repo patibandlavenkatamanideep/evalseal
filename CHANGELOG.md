@@ -73,7 +73,19 @@ older version still verifies.
   mistake it for a real timestamp. A test asserts that label stays, and that no private
   key was ever committed.
 
-- **A procedure and a waiting test for a recorded real TSA response.**
+- **A recorded real TSA response**, from `freetsa.org`, and the fix it immediately
+  forced. The verifier assumed SHA-256 with RSA; freetsa signs with **ECDSA and
+  SHA-512**, so the first real token failed twice - a 64-byte `messageDigest` attribute
+  where 32 were expected, and an unrecognised signature algorithm. The digest and
+  signature algorithms are now read from the SignerInfo, RSA and ECDSA are supported
+  with SHA-256, SHA-384 and SHA-512, and the algorithm lookup compares the OID alone
+  because RSA carries an explicit NULL parameter and ECDSA omits the field. The
+  synthetic fixture can now produce every combination, so the assumption cannot creep
+  back for an algorithm the recorded token does not happen to use.
+
+  This is the whole argument for recording a real response rather than trusting a
+  self-made one, demonstrated on the first attempt.
+- **The procedure and the waiting test that made it a one-command step.**
   [tests/fixtures/tsa/RECORDING.md](tests/fixtures/tsa/RECORDING.md) is the one network
   call that would close the last box, and `tests/test_real_tsa_fixture.py` consumes the
   fixture already - skipping while it is absent, passing the moment it lands, which was

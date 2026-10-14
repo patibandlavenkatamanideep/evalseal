@@ -126,12 +126,11 @@ Give a third party a timestamp and custody claim that does not rest on the signe
       X.509. Revocation and path building stay out of scope and are named in the output.
 - [x] **A local test TSA** (**#14**), so failure modes are deterministically testable
       offline: twelve, each failing exactly one named check.
-- [ ] **One recorded real TSA response** (**#14**), so we know the parser handles what
-      the world emits and not only what we emit. Needs one deliberate live call;
-      everything around it is ready. The procedure is
-      [tests/fixtures/tsa/RECORDING.md](tests/fixtures/tsa/RECORDING.md), and
-      `tests/test_real_tsa_fixture.py` already consumes the fixture and skips while it
-      is absent, so recording it is the only remaining step.
+- [x] **One recorded real TSA response** (**#14**), from `freetsa.org` on 2026-10-14.
+      It earned its place immediately: the implementation assumed SHA-256 with RSA, and
+      freetsa signs with ECDSA and SHA-512, so the token failed on both the
+      `messageDigest` attribute and the signature algorithm. Both are read from the
+      token now, and the synthetic fixture covers all four combinations.
 - [ ] Sigstore / Rekor transparency log adapter (**#15**). The decision table is
       written: a Rekor entry is **public and irrevocable**, and it leaks eval cadence
       and existence even though a high-entropy digest reveals nothing about content. So

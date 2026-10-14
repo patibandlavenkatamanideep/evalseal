@@ -111,20 +111,32 @@ Give a third party a timestamp and custody claim that does not rest on the signe
 - [x] An adapter interface over the local anchor object, filling its `external_proofs`.
       `AnchorBackend` is a two-method protocol; the local backend attests nothing and
       says so; a real adapter is additive.
-- [x] RFC 3161 timestamp authority adapter, **experimental**. It builds a real DER
-      `TimeStampReq`, submits it to an authority the caller names with `--tsa` (there is
-      no default), and stores the token.
+- [x] RFC 3161 timestamp authority adapter. It builds a real DER `TimeStampReq`,
+      submits it to an authority the caller names with `--tsa` (there is no default),
+      and stores the token.
 - [x] `anchor-verify` checks the external proof offline: it confirms the token's message
       imprint is this anchor's subject digest and reports the asserted time.
-- [ ] **Validate the RFC 3161 signature inside EvalSeal.** This is the one gap that keeps
-      the adapter experimental. Verification today does not check the authority's CMS
-      signature against its certificate chain, so proofs carry
-      `verified_by_evalseal: false` and hand back the `openssl ts -verify` command that
-      finishes the job. Closing it needs an ASN.1 dependency (`asn1crypto` or
-      `pyasn1-modules`), which is the trade-off to weigh.
-- [ ] Sigstore / Rekor transparency log adapter. Note that a Rekor entry is **public**;
-      that is a different privacy posture from a private authority, and the choice should
-      be the user's.
+- [x] **Validate the RFC 3161 signature inside EvalSeal** (**#13**).
+      `anchor-verify --tsa-ca issuer.pem` checks the signature over the re-tagged
+      `signedAttrs`, the `messageDigest` attribute against `eContent`, a critical
+      `id-kp-timeStamping` EKU, `genTime` inside the certificate's validity, and the
+      certificate against a root the verifier supplies. **No ASN.1 dependency was
+      needed** - this entry previously assumed one. The CMS navigation is hand-rolled on
+      the TLV walker already in `rfc3161.py` and `cryptography` does all crypto and
+      X.509. Revocation and path building stay out of scope and are named in the output.
+- [x] **A local test TSA** (**#14**), so failure modes are deterministically testable
+      offline: twelve, each failing exactly one named check.
+- [x] **One recorded real TSA response** (**#14**), from `freetsa.org` on 2026-10-14.
+      It earned its place immediately: the implementation assumed SHA-256 with RSA, and
+      freetsa signs with ECDSA and SHA-512, so the token failed on both the
+      `messageDigest` attribute and the signature algorithm. Both are read from the
+      token now, and the synthetic fixture covers all four combinations.
+- [ ] Sigstore / Rekor transparency log adapter (**#15**). The decision table is
+      written: a Rekor entry is **public and irrevocable**, and it leaks eval cadence
+      and existence even though a high-entropy digest reveals nothing about content. So
+      RFC 3161 stays the default and this must never be selected on a user's behalf - a
+      test fails the day a public-log backend appears in the registry. See
+      [docs/external-anchoring.md](docs/external-anchoring.md#choosing-between-them).
 - [ ] OpenTimestamps-style adapter.
 - [x] `anchor-verify` reports `created_at` as an unverified local clock rather than
       leaving it unmentioned beside the checks that did pass.
@@ -135,11 +147,12 @@ server or a verifier of its own: the trust root has to be someone other than the
 being audited.
 
 Accepted when: a receipt anchored by one person verifies for another with no access to
-the first person's machine, and the verifier output says exactly what was proven. **Half
-met.** The local half is done and the RFC 3161 half stores a real token, but until the
-signature check moves inside EvalSeal the verifier says "this token is about this digest
-and the authority asserts this time, and I did not check its signature" - which is an
-honest sentence, not a finished one.
+the first person's machine, and the verifier output says exactly what was proven.
+**Met.** `examples/verification-demo/` is the walkthrough for a third party, and it
+shows the failing cases as well as the passing ones - a demo where everything is green
+cannot tell a working check from one that always passes. What remains is a recorded
+response from a real authority (**#14**), so we know the parser handles what the world
+emits and not only what we emit.
 
 ### v2.3 - integrations with promptfoo and Braintrust
 

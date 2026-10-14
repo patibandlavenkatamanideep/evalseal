@@ -143,7 +143,12 @@ does not prove independent time.** `created_at` is the anchoring machine's own c
 that passed.
 
 **4. What would external anchoring add?** An independent timestamp, or inclusion in a
-transparency log, letting a third party confirm the receipt existed by a given time -
+transparency log, letting a third party confirm the receipt existed by a given time. A
+public log is **not** the obvious upgrade it looks like: it leaks cadence and existence
+even though it reveals nothing about content, and it is irrevocable, so RFC 3161 with an
+authority that publishes nothing is the default and Rekor would be an explicit opt-in.
+The comparison is in
+[docs/external-anchoring.md](docs/external-anchoring.md#choosing-between-them) -
 which is what stops backdating and stops a key holder silently replacing a signed state.
 The `rfc3161` backend stores a real token and `anchor-verify --tsa-ca issuer.pem`
 checks its signature, the signing certificate's timeStamping EKU, and that `genTime`

@@ -41,8 +41,80 @@ older version still verifies.
   exactly one **named** check - a matrix where every failure said "invalid" would teach
   nothing.
 
+- **A decision table for Rekor and OpenTimestamps**, in
+  [docs/external-anchoring.md](docs/external-anchoring.md#choosing-between-them) -
+  design only, no implementation. It compares what each establishes, whose word it rests
+  on, who sees the digest, time granularity, revocability and offline verifiability, and
+  states the posture: **RFC 3161 is the default because it publishes nothing**, and a
+  public log must never be selected on a user's behalf. A test fails the day a backend
+  named for a public log appears in the registry, so that choice cannot be made by
+  accident.
+- **A privacy section that makes the argument that matters.** The usual warning is that
+  a digest of low-entropy content can be guessed, which is beside the point for a
+  `subject_digest`. The real cost of a public log is that it **leaks cadence and
+  existence, not content**: it records permanently that some commitment was made at
+  some time under some key, so a burst of anchors or a long gap says something whether
+  or not the digests ever resolve. And it is irrevocable, by design.
+
+- **`examples/verification-demo/`**, the walkthrough for someone handed a receipt with
+  no access to the author's machine. Four passing steps - chain, artifacts, signature,
+  anchor - each stating what it establishes and **who must be trusted** for it, then
+  five tampering demos: an edited score, an edited artifact, a deleted artifact, an
+  edited receipt, and the wrong trust root. A demo where everything is green cannot
+  tell a working check from one that always passes, so half the page is failures, and
+  a test runs every command including the failures.
+
+  The page closes with what no amount of verifying establishes - that the eval ran, that
+  the provider served the model it named, that the inputs were honest, when it happened,
+  or that it was the only run.
+
+  The bundle's timestamp authority is a throwaway fixture that attests nothing, labelled
+  as such in a warning block, because a reader following a demo is exactly who might
+  mistake it for a real timestamp. A test asserts that label stays, and that no private
+  key was ever committed.
+
+- **A recorded real TSA response**, from `freetsa.org`, and the fix it immediately
+  forced. The verifier assumed SHA-256 with RSA; freetsa signs with **ECDSA and
+  SHA-512**, so the first real token failed twice - a 64-byte `messageDigest` attribute
+  where 32 were expected, and an unrecognised signature algorithm. The digest and
+  signature algorithms are now read from the SignerInfo, RSA and ECDSA are supported
+  with SHA-256, SHA-384 and SHA-512, and the algorithm lookup compares the OID alone
+  because RSA carries an explicit NULL parameter and ECDSA omits the field. The
+  synthetic fixture can now produce every combination, so the assumption cannot creep
+  back for an algorithm the recorded token does not happen to use.
+
+  This is the whole argument for recording a real response rather than trusting a
+  self-made one, demonstrated on the first attempt.
+- **The procedure and the waiting test that made it a one-command step.**
+  [tests/fixtures/tsa/RECORDING.md](tests/fixtures/tsa/RECORDING.md) is the one network
+  call that would close the last box, and `tests/test_real_tsa_fixture.py` consumes the
+  fixture already - skipping while it is absent, passing the moment it lands, which was
+  verified by planting a stand-in and watching all ten tests run. The procedure leads
+  with the trap: the fixture's certificate **will** expire, so verification is checked
+  as of the token's own `genTime` and never the clock now, and the consuming test
+  asserts that locally rather than trusting the prose.
+
 ### Fixed
 
+- **A roadmap box that claimed its own work was impossible without a new dependency.**
+  The v2.2 milestone said validating the RFC 3161 signature "needs an ASN.1 dependency
+  (`asn1crypto` or `pyasn1-modules`)". It did not; the CMS navigation is hand-rolled and
+  `cryptography` does the rest. The box is ticked and the assumption corrected, so the
+  next person does not re-derive a trade-off that was never required.
+- **A `.gitattributes`, because a CRLF checkout breaks every sealed digest.** A receipt
+  seals SHA-256 digests over its artifacts and `verify --artifacts` re-hashes the bytes
+  on disk, so a Windows checkout that rewrites LF to CRLF changes those bytes and the
+  check correctly reports the artifact as `changed`. That is how
+  `examples/verification-demo/` failed on Windows and nowhere else. Every path whose
+  digest is stored anywhere is now marked `-text`, with the rule of thumb written beside
+  it, and two tests enforce it: one asserts the attribute, the other reproduces the
+  CRLF failure so it cannot silently stop failing.
+- **An example receipt that `.gitignore` was swallowing.** `report.json` is ignored to
+  stop generated receipts being committed from the worktree root, and it swallowed the
+  demo's receipt too - so every test reading it passed locally and failed on every
+  platform in CI. An explicit negation for `examples/**/report.json`, and the
+  completeness test now reads `git ls-files` rather than the filesystem, which is what
+  would have caught it first.
 - **An import cycle that shipped broken in 2.2.0.** `from evalseal.rfc3161 import
   Rfc3161Backend` raised `cannot import name 'Rfc3161Backend' from partially
   initialized module`, and so did `import evalseal` followed by the same line, because
@@ -56,6 +128,9 @@ older version still verifies.
   shape. A signature covers the actual `eContent` octets, not something that merely
   looks like a TSTInfo - and the old hand-made test double, which satisfied the
   heuristic, turned out not to be navigable CMS at all.
+- **The privacy section claimed the cassette's digest was not sealed.** It has been
+  since schema 1.4, and `verify --artifacts` re-hashes it. The same stale claim was
+  fixed in the README for 2.2.0; this copy survived.
 - **A stored proof no longer says "NOT verified by EvalSeal" permanently.** That was
   accurate when nothing could verify it and misleading once something could. The
   `boundary` field now describes the token at rest and points at how to check it.

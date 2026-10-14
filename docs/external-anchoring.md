@@ -221,6 +221,27 @@ this digest exists.
 - **Privacy:** the authority sees a 32-byte digest and a request time, nothing else. A
   test asserts the request body is under 128 bytes, so a receipt cannot leak through it.
 
+### Choosing between them
+
+The three designs differ on more than convenience, so the trade-offs are worth seeing
+side by side before reaching for one:
+
+| | RFC 3161 | Rekor | OpenTimestamps |
+|---|---|---|---|
+| **status in EvalSeal** | implemented | not implemented | not implemented |
+| **establishes** | this authority signed for this digest at this time | this entry was integrated into a public append-only log at this time | this digest existed before this Bitcoin block |
+| **trust rests on** | the authority, and the root you chose | the log operator's key, and the log being monitored for split views | Bitcoin block headers, from a source you trust |
+| **single party?** | yes - mitigate by anchoring with two unrelated authorities | yes, the log operator | no |
+| **who sees the digest** | the authority only | **everyone, permanently** | calendar servers; the chain sees only a Merkle root |
+| **time granularity** | seconds | seconds | hours (block time) |
+| **proof ready** | immediately | immediately | pending until the block confirms, typically hours |
+| **revocable** | n/a - nothing was published | **no** | no, but nothing identifying was published |
+| **verifies offline** | yes, with the issuer certificate | yes, with the signed checkpoint | yes, with block headers |
+
+**The default is RFC 3161**, because it is the only one of the three that publishes
+nothing. Rekor should be an opt-in a user makes knowingly, for the reason in the next
+section — and EvalSeal should never select it on someone's behalf.
+
 ### Sigstore / Rekor transparency log — not implemented
 
 The digest, a signature over it and the public key are submitted as a log entry. Rekor
@@ -271,16 +292,54 @@ be, and a receipt that can only be verified by asking its author is not a receip
 - **Later disclosure is matched against sealed hashes.** In a dispute, the dataset file
   can be produced and hashed against `sealed.dataset_hash`, the rubric against
   `sealed.rubric_hash`, and so on. A match shows the artifact is the one that was sealed.
-- **Responses are not in the receipt yet.** The model's responses live in the cassette,
-  and a receipt does not currently seal the cassette's hash. Until it does, bind the
-  cassette to an anchor explicitly: `evalseal anchor report.json --artifact
-  tests/cassettes/run.json`. Sealing a cassette digest into the record is on the
-  [roadmap](../ROADMAP.md).
+- **Responses live in the cassette, whose digest the receipt seals.** Since schema 1.4
+  the cassette is bound into the record by digest and `evalseal verify --artifacts`
+  re-hashes it, so a swapped response is a failed check rather than a silent difference.
+  The responses themselves are not in the receipt, and committing a cassette publishes
+  the prompts and replies in it: fine for public benchmark data, not fine for a private
+  dataset.
 - **Semantic disputes need the artifacts themselves.** A hash proves identity, not
   content: it can show that a disclosed response is the one that was recorded, but only if
   someone kept it. Anyone who may need to prove what a model said must retain the raw
   artifacts - the cassette, the dataset, the rubric - securely and outside EvalSeal.
   EvalSeal keeps what makes them checkable, not the things themselves.
+
+### What a public transparency log reveals
+
+The usual warning about digests is that a digest of low-entropy content can be confirmed
+by guessing. True, and beside the point here: a `subject_digest` is a SHA-256 over an
+anchor's whole content, so it is not guessable and reveals nothing about the eval.
+
+The argument that actually matters is different. **A public log leaks cadence and
+existence, not content.**
+
+Publishing a digest to Rekor records, permanently and for anyone, that *some* commitment
+was made at *this* time under *this* key. Nobody learns what was evaluated. They learn
+that you were evaluating something, how often, and when you stopped. For a team running
+evals before a launch, that pattern is competitive information in its own right - a
+sudden burst of anchors, or a long gap, says something whether or not the digests ever
+resolve.
+
+Two consequences worth stating plainly:
+
+- **It is irrevocable.** A transparency log is append-only by design; that is the
+  property that makes it useful. There is no un-publishing, no correction, and no
+  expiry. A digest published by mistake stays published.
+- **The key is an identity.** Entries are signed, so a log is also a record of which key
+  was active when. Rotating keys to avoid that correlation undermines the signature's
+  value as continuity of custody.
+
+So the posture:
+
+- **RFC 3161 is the default.** The authority sees one 32-byte digest and a request
+  time, and publishes nothing. A test asserts the request body stays under 128 bytes, so
+  a receipt cannot leak through it.
+- **Rekor is opt-in, and never selected for you.** When it is implemented, choosing it
+  must be an explicit act by someone who has read this section - not a default, not a
+  fallback, and not something `--with external` resolves to.
+- **Anchor the `subject_digest`, never a hash of a short value.** The guessing attack
+  that does not apply to an anchor digest applies immediately to a digest of a single
+  answer.
 
 ## Building the rest of it
 

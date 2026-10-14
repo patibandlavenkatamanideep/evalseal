@@ -1,0 +1,27 @@
+# Git must not translate line endings in files whose *bytes* are load-bearing.
+#
+# A receipt seals SHA-256 digests over its artifacts, and `evalseal verify --artifacts`
+# re-hashes the bytes on disk. A checkout that rewrites LF to CRLF changes those bytes,
+# so every sealed digest fails - on Windows only, and with a message that correctly
+# says the artifact changed, because from the tool's point of view it did.
+#
+# That is how examples/verification-demo/ failed on Windows and nowhere else: the chain
+# verified, and the cassette reported `changed`. Marking these paths `-text` tells Git
+# to copy them through byte for byte on every platform.
+#
+# Rule of thumb for anything added here: if a digest of the file is stored anywhere,
+# the file belongs in this list.
+
+examples/**/*.json   -text
+examples/**/*.jsonl  -text
+examples/**/*.pem    -text
+examples/**/*.pub    -text
+
+# Committed cassettes, whose digests are sealed into receipts and pinned in
+# examples/prereg.json.
+tests/cassettes/**   -text
+tests/fixtures/**    -text
+
+# PEM and key material anywhere: a CRLF-translated PEM is a different file.
+*.pem                -text
+*.pub                -text

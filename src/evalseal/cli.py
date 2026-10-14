@@ -302,8 +302,9 @@ _RESERVED_ROLES = {"cassette", "dataset", "suite"}
 # backend without being told which half of its check EvalSeal actually performs.
 _BACKEND_NOTES = {
     "local": "   attests nothing: binds files together, establishes no time",
-    "rfc3161": " EXPERIMENTAL - message imprint checked, TSA signature NOT verified "
-               "by EvalSeal; needs --tsa URL",
+    "rfc3161": " needs --tsa URL to submit. Verification checks the signature when "
+               "you supply a root with --tsa-ca, and the imprint alone without one. "
+               "Revocation is never checked",
 }
 
 
@@ -1293,6 +1294,12 @@ def anchor_verify(
         None, "--ledger", exists=True, dir_okay=False,
         help="Ledger to check against. Defaults to SOURCE when it is one, else the path "
              "recorded in the anchor."),
+    tsa_ca: Path | None = typer.Option(
+        None, "--tsa-ca", exists=True, dir_okay=False,
+        help="PEM trust root for an RFC 3161 proof. Supplied by you, the verifier - "
+             "never read from the anchor, since a root the author chose would defeat "
+             "the point. Without it the proof's imprint is checked and its signature "
+             "is not."),
     as_json: bool = typer.Option(False, "--json", help="Emit every check as JSON."),
 ):
     """Re-check every claim an anchor makes. Exit 1 if any required check fails.
@@ -1307,6 +1314,10 @@ def anchor_verify(
         raise typer.Exit(code=1) from None
     if ledger is None and _looks_like_ledger(source):
         ledger = source
+    if tsa_ca is not None:
+        # Configured for this verification only, so the signature check becomes
+        # possible without the anchor having any say in which root is trusted.
+        register_backend(Rfc3161Backend(ca_pem=tsa_ca.read_bytes()))
     record = _read_receipt(source)
     checks = verify_anchor(anchor_obj, record, ledger=ledger)
     passed = anchor_passed(checks)

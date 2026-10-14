@@ -122,9 +122,12 @@ Give a third party a timestamp and custody claim that does not rest on the signe
       `verified_by_evalseal: false` and hand back the `openssl ts -verify` command that
       finishes the job. Closing it needs an ASN.1 dependency (`asn1crypto` or
       `pyasn1-modules`), which is the trade-off to weigh.
-- [ ] Sigstore / Rekor transparency log adapter. Note that a Rekor entry is **public**;
-      that is a different privacy posture from a private authority, and the choice should
-      be the user's.
+- [ ] Sigstore / Rekor transparency log adapter (**#15**). The decision table is
+      written: a Rekor entry is **public and irrevocable**, and it leaks eval cadence
+      and existence even though a high-entropy digest reveals nothing about content. So
+      RFC 3161 stays the default and this must never be selected on a user's behalf - a
+      test fails the day a public-log backend appears in the registry. See
+      [docs/external-anchoring.md](docs/external-anchoring.md#choosing-between-them).
 - [ ] OpenTimestamps-style adapter.
 - [x] `anchor-verify` reports `created_at` as an unverified local clock rather than
       leaving it unmentioned beside the checks that did pass.

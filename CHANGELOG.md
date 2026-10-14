@@ -41,6 +41,21 @@ older version still verifies.
   exactly one **named** check - a matrix where every failure said "invalid" would teach
   nothing.
 
+- **A decision table for Rekor and OpenTimestamps**, in
+  [docs/external-anchoring.md](docs/external-anchoring.md#choosing-between-them) -
+  design only, no implementation. It compares what each establishes, whose word it rests
+  on, who sees the digest, time granularity, revocability and offline verifiability, and
+  states the posture: **RFC 3161 is the default because it publishes nothing**, and a
+  public log must never be selected on a user's behalf. A test fails the day a backend
+  named for a public log appears in the registry, so that choice cannot be made by
+  accident.
+- **A privacy section that makes the argument that matters.** The usual warning is that
+  a digest of low-entropy content can be guessed, which is beside the point for a
+  `subject_digest`. The real cost of a public log is that it **leaks cadence and
+  existence, not content**: it records permanently that some commitment was made at
+  some time under some key, so a burst of anchors or a long gap says something whether
+  or not the digests ever resolve. And it is irrevocable, by design.
+
 ### Fixed
 
 - **An import cycle that shipped broken in 2.2.0.** `from evalseal.rfc3161 import
@@ -56,6 +71,9 @@ older version still verifies.
   shape. A signature covers the actual `eContent` octets, not something that merely
   looks like a TSTInfo - and the old hand-made test double, which satisfied the
   heuristic, turned out not to be navigable CMS at all.
+- **The privacy section claimed the cassette's digest was not sealed.** It has been
+  since schema 1.4, and `verify --artifacts` re-hashes it. The same stale claim was
+  fixed in the README for 2.2.0; this copy survived.
 - **A stored proof no longer says "NOT verified by EvalSeal" permanently.** That was
   accurate when nothing could verify it and misleading once something could. The
   `boundary` field now describes the token at rest and points at how to check it.

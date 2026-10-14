@@ -56,8 +56,39 @@ older version still verifies.
   some time under some key, so a burst of anchors or a long gap says something whether
   or not the digests ever resolve. And it is irrevocable, by design.
 
+- **`examples/verification-demo/`**, the walkthrough for someone handed a receipt with
+  no access to the author's machine. Four passing steps - chain, artifacts, signature,
+  anchor - each stating what it establishes and **who must be trusted** for it, then
+  five tampering demos: an edited score, an edited artifact, a deleted artifact, an
+  edited receipt, and the wrong trust root. A demo where everything is green cannot
+  tell a working check from one that always passes, so half the page is failures, and
+  a test runs every command including the failures.
+
+  The page closes with what no amount of verifying establishes - that the eval ran, that
+  the provider served the model it named, that the inputs were honest, when it happened,
+  or that it was the only run.
+
+  The bundle's timestamp authority is a throwaway fixture that attests nothing, labelled
+  as such in a warning block, because a reader following a demo is exactly who might
+  mistake it for a real timestamp. A test asserts that label stays, and that no private
+  key was ever committed.
+
 ### Fixed
 
+- **A `.gitattributes`, because a CRLF checkout breaks every sealed digest.** A receipt
+  seals SHA-256 digests over its artifacts and `verify --artifacts` re-hashes the bytes
+  on disk, so a Windows checkout that rewrites LF to CRLF changes those bytes and the
+  check correctly reports the artifact as `changed`. That is how
+  `examples/verification-demo/` failed on Windows and nowhere else. Every path whose
+  digest is stored anywhere is now marked `-text`, with the rule of thumb written beside
+  it, and two tests enforce it: one asserts the attribute, the other reproduces the
+  CRLF failure so it cannot silently stop failing.
+- **An example receipt that `.gitignore` was swallowing.** `report.json` is ignored to
+  stop generated receipts being committed from the worktree root, and it swallowed the
+  demo's receipt too - so every test reading it passed locally and failed on every
+  platform in CI. An explicit negation for `examples/**/report.json`, and the
+  completeness test now reads `git ls-files` rather than the filesystem, which is what
+  would have caught it first.
 - **An import cycle that shipped broken in 2.2.0.** `from evalseal.rfc3161 import
   Rfc3161Backend` raised `cannot import name 'Rfc3161Backend' from partially
   initialized module`, and so did `import evalseal` followed by the same line, because

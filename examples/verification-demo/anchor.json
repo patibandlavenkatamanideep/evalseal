@@ -1,0 +1,74 @@
+{
+  "anchor_version": 2,
+  "artifact_hashes": {
+    "ledger": {
+      "path": "examples/verification-demo/ledger.jsonl",
+      "sha256": "sha256:859aca1e14dc43f2e720b728f4ce598d2fd077d2080d9db93181d686c91778b7"
+    },
+    "receipt": {
+      "path": "examples/verification-demo/report.json",
+      "sha256": "sha256:13bac5ffcef720ac76d634867987eab0a92d5baff1ac46d0c447e30c819c2dbd"
+    },
+    "signatures": {
+      "path": "examples/verification-demo/ledger.jsonl.sig.jsonl",
+      "sha256": "sha256:38836d4d08c7792ccf113c762520586253cc2d719df02fb537fabf2e719cadd4"
+    }
+  },
+  "created_at": "2026-10-13T20:11:20.540640+00:00",
+  "evalseal_version": "2.2.0",
+  "external_proofs": [
+    {
+      "attested_time": "2026-09-23T12:00:00+00:00",
+      "authority": "https://fixture-tsa.invalid/tsr",
+      "backend": "rfc3161",
+      "boundary": "To check the signature, verify with a trust root you supply: `evalseal anchor-verify --tsa-ca <issuer.pem>`, or `openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <ca.pem>`. Without a root, only the message imprint is checked.",
+      "digest_algorithm": "sha256",
+      "established": "https://fixture-tsa.invalid/tsr asserts this digest existed no later than 2026-09-23T12:00:00+00:00, on that authority's word. Submission checked the imprint and nothing else. To check the signature, verify with a trust root you supply: `evalseal anchor-verify --tsa-ca <issuer.pem>`, or `openssl ts -verify -digest <subject-digest-hex> -in token.tsr -CAfile <ca.pem>`. Without a root, only the message imprint is checked.",
+      "id": "42",
+      "proof": "MIIFOzADAgEAMIIFMgYJKoZIhvcNAQcCoIIFIzCCBR8CAQMxDzANBglghkgBZQMEAgEFADBjBgsqhkiG9w0BCRABBKBUBFIwUAIBAQYEKgMEATAxMA0GCWCGSAFlAwQCAQUABCA+AGmnM/7rM5KfXx/diEyA/rLY+E4g3AaTD1bfzxiwFgIBKhgPMjAyNjA5MjMxMjAwMDBaoIIC8TCCAu0wggHVoAMCAQICFHMbXNFiNJrPfw4tv24E46OhGNqXMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAMMEEV2YWxTZWFsIFRlc3QgQ0EwHhcNMjYwODI0MTIwMDAwWhcNMjYxMDIzMTIwMDAwWjAcMRowGAYDVQQDDBFFdmFsU2VhbCBUZXN0IFRTQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMdpLT89UsAwQTNoE6k6mDqJbxr3Ej6eAQRZhxyU1YeHKjhMTFlKhxxHJZ9G2674KCvvSX8uXMPVkOdbWzdaTBy74ISaJ0/aghtQgrOEf0mZy+kmuGR8r03SRXw6kIBil5jrrHitAvkQWpq4NxBFzHcBWRMi1V1RSZPWgWGBq3g1h42HINyYiIDxngBYRVD6IGpM9Kw5/1hMICX4GXBr26MnhbKKNUj7z0ngbWF3jmBRteYqLVQzr02tiUDv8D98PDgv516tVC+2Pq8SxCEYyeSqxJfmd8ymoG8uAnmGjYkq4QrES6sws30I2S4kpukAwLCcm4wa9lLpKE01Zwxl6VcCAwEAAaMoMCYwDAYDVR0TAQH/BAIwADAWBgNVHSUBAf8EDDAKBggrBgEFBQcDCDANBgkqhkiG9w0BAQsFAAOCAQEAR1fGxtp9LrOKTmjRfCjHse+RyCuOeNkSaSGdPGqDLQ11Bx0Y7kXe2lRrRoU3pab6LmpR+ZD7C2pj6X+ClMD8npQkGolzCX5w5wOL4Cu2Oprr3RUHJWZ9eR/WJuyFc0yNv4QfDxFYF/BLxx1mEDyFt6R/v31TBSUdQYCSr8W+AA0kCC1A9o3cFp6OE/xJhdHGZkiKtG14AfRAjRxo/8T1j6UvZU3LB6ZNNBEYh4IiNgfbxmfzQb4lXh7jbVz0x/tejfFW8JLdu8ymtKLoOpqqGZJiwdRIPdDYnPvyU1OjNVz3dFDDdeHbzxDX0Z0GGcY9NGapkKU32sWpW7AzyZMOQzGCAa0wggGpAgEBMDMwGzEZMBcGA1UEAwwQRXZhbFNlYWwgVGVzdCBDQQIUcxtc0WI0ms9/Di2/bgTjo6EY2pcwDQYJYIZIAWUDBAIBBQCgTTAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwLwYJKoZIhvcNAQkEMSIEIBzbJPtC71YuracrVZpjHwKg7/aNcw66e6fCsD1xSIymMA0GCSqGSIb3DQEBCwUABIIBAGIh2y4Vi0A4506HPAVAE9xW2J9uXZNNRyxT7WY0c4HXzR6fFEdOGZEdj9leRg2PTMXiMEZv3ibNzWc8tpZef6yb5YXejZwT4wk7Hx0JFcCCM0pUhZTkjXbnVcKMGtHYM/7P5Gumx8Aqxkz+FYNlAqsVTp2UATLoAzH5vA/mEN/ihPxLiDKGSOL7s9qd37X+MEiMXlllJBueGrRydjRaiNKhTFugb6A8TR1Vkt+HRedKGUMM8zyf5d3AK3yucTWAF7exBtp/0O17/qKpE7o2gSp1kLPADU+KH8fTMpqFof5l/13wCSOjPnfBOQB6Vnp9XtQVTr20A81s4VreLTLdVQc=",
+      "subject_digest": "sha256:3e0069a733feeb33929f5f1fdd884c80feb2d8f84e20dc06930f56dfcf18b016",
+      "submitted_at": "2026-10-13T20:11:20.540638+00:00",
+      "verified_by_evalseal": false
+    }
+  ],
+  "kind": "evalseal.local-anchor",
+  "ledger": {
+    "head_hash": "sha256:4c25b07a5b48528096f351c168eaa278c93ad25ad803b02d32a5a3b716384b75",
+    "length": 1,
+    "path": "examples/verification-demo/ledger.jsonl",
+    "receipt_index": 0
+  },
+  "notes": "Local anchor. It binds a receipt to its ledger head and signature state by hash. created_at is the anchoring machine's own clock and is not an independent timestamp; external_proof is null because no third party has attested this anchor. It does not prove the evaluation ran as described.",
+  "public_key_fingerprint": "sha256:d3fe27b907aca4f1246d71d37359e3840146f35a103785f968fc4135a742b536",
+  "receipt_evalseal_version": "2.2.0",
+  "receipt_hash": "sha256:4c25b07a5b48528096f351c168eaa278c93ad25ad803b02d32a5a3b716384b75",
+  "receipt_schema_version": "1.5",
+  "sealed": {
+    "case_set_hash": "sha256:209516e8c5223221a8457eb46fa39da111cf3895b9482c3aa5c74ec5043b0e4f",
+    "config_fingerprint": "evalseal-fp/2:sha256:2bae40ff30997039b8c768a7d6a100f0487a098abce696e4ee9cc6e59921723a",
+    "dataset_hash": "sha256:test",
+    "evaluator_fingerprint": "evalseal-fp/2:sha256:b9c518d7bda0554c7ec080e18fcd8464279d7bb696ae54838290876b56052d58",
+    "judge_model": null,
+    "judge_prompt_hash": null,
+    "n_cases": 2,
+    "rubric_hash": null,
+    "target_model": "local"
+  },
+  "sealed_artifacts": [
+    {
+      "kind": "hashed",
+      "path": "examples/verification-demo/cassette.json",
+      "role": "cassette",
+      "sha256": "sha256:977973b7803a14e960cf2aa3491f94818cf51ee74f84e50156df7c61a2efb1a9"
+    }
+  ],
+  "signature": {
+    "algorithm": "ed25519",
+    "public_key": "m4zLwbPU8U7pFvx2JnfX6hoHRIUPOb60Mwl1T1YEuMA=",
+    "record_index": 0,
+    "signature": "vNUT34CIMVzHdxbPGqG29DF6Fx/UC7oOxE9X/nkf71cCsZEnL1I/7T6DkmYvlHOs+oJq5Kur355PVr7Pp33QAg==",
+    "signed_hash": "sha256:4c25b07a5b48528096f351c168eaa278c93ad25ad803b02d32a5a3b716384b75"
+  },
+  "signature_present": true,
+  "subject_digest": "sha256:3e0069a733feeb33929f5f1fdd884c80feb2d8f84e20dc06930f56dfcf18b016"
+}

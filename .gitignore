@@ -225,6 +225,12 @@ __marimo__/
 report.json
 report.md
 report.html
+
+# ...but an example's receipt is committed on purpose, not generated into the worktree.
+# Without this, examples/verification-demo/report.json silently never lands and every
+# test that reads it fails only in CI, where the worktree is a fresh checkout.
+!examples/**/report.json
+!examples/**/report.md
 receipt.html
 drift.html
 evalseal-report.*

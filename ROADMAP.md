@@ -138,11 +138,12 @@ server or a verifier of its own: the trust root has to be someone other than the
 being audited.
 
 Accepted when: a receipt anchored by one person verifies for another with no access to
-the first person's machine, and the verifier output says exactly what was proven. **Half
-met.** The local half is done and the RFC 3161 half stores a real token, but until the
-signature check moves inside EvalSeal the verifier says "this token is about this digest
-and the authority asserts this time, and I did not check its signature" - which is an
-honest sentence, not a finished one.
+the first person's machine, and the verifier output says exactly what was proven.
+**Met.** `examples/verification-demo/` is the walkthrough for a third party, and it
+shows the failing cases as well as the passing ones - a demo where everything is green
+cannot tell a working check from one that always passes. What remains is a recorded
+response from a real authority (**#14**), so we know the parser handles what the world
+emits and not only what we emit.
 
 ### v2.3 - integrations with promptfoo and Braintrust
 

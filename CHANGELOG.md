@@ -73,8 +73,22 @@ older version still verifies.
   mistake it for a real timestamp. A test asserts that label stays, and that no private
   key was ever committed.
 
+- **A procedure and a waiting test for a recorded real TSA response.**
+  [tests/fixtures/tsa/RECORDING.md](tests/fixtures/tsa/RECORDING.md) is the one network
+  call that would close the last box, and `tests/test_real_tsa_fixture.py` consumes the
+  fixture already - skipping while it is absent, passing the moment it lands, which was
+  verified by planting a stand-in and watching all ten tests run. The procedure leads
+  with the trap: the fixture's certificate **will** expire, so verification is checked
+  as of the token's own `genTime` and never the clock now, and the consuming test
+  asserts that locally rather than trusting the prose.
+
 ### Fixed
 
+- **A roadmap box that claimed its own work was impossible without a new dependency.**
+  The v2.2 milestone said validating the RFC 3161 signature "needs an ASN.1 dependency
+  (`asn1crypto` or `pyasn1-modules`)". It did not; the CMS navigation is hand-rolled and
+  `cryptography` does the rest. The box is ticked and the assumption corrected, so the
+  next person does not re-derive a trade-off that was never required.
 - **A `.gitattributes`, because a CRLF checkout breaks every sealed digest.** A receipt
   seals SHA-256 digests over its artifacts and `verify --artifacts` re-hashes the bytes
   on disk, so a Windows checkout that rewrites LF to CRLF changes those bytes and the

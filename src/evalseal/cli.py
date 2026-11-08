@@ -88,6 +88,7 @@ from .signing import (
     signatures_path,
     verify_signatures,
 )
+from .verification import verify_receipt_signature
 
 # Distinct from 1 (uncaught error) and 2 (usage error) so CI can tell
 # "the eval is unstable" apart from "the tool broke".
@@ -887,6 +888,12 @@ def gate(
         None, "--anchor", exists=True, dir_okay=False,
         help="An anchor to check, when the pre-registration requires one.",
     ),
+    trusted_key: list[str] = typer.Option(
+        [], "--trusted-key", metavar="KEY",
+        help="Public key(s) to trust for `require_signature`, overriding the "
+             "contract's own list. Supplied by the verifier, because a key the "
+             "producer chose establishes nothing. Repeatable.",
+    ),
     as_json: bool = typer.Option(
         False, "--json", help="Emit every check as machine-readable JSON."
     ),
@@ -937,7 +944,14 @@ def gate(
             console.print(f"[red]Pre-registration error:[/red] {rich_escape(str(e))}")
             raise typer.Exit(code=EXIT_BAD_INPUT) from None
         prereg_checks = check_preregistration(
-            contract, record, anchor=_anchor_state(anchor_file, record, ledger))
+            contract, record,
+            anchor=_anchor_state(anchor_file, record, ledger),
+            # Verified against the record the gate actually selected, so a signature
+            # over an earlier prefix cannot satisfy the requirement.
+            signature=verify_receipt_signature(
+                ledger, index,
+                trusted_keys=(list(trusted_key) or contract.trusted_public_keys or None)),
+        )
         policy_checks = [*policy_checks, *prereg_checks]
         failures += [f"{c.rule}: {c.detail}" for c in prereg_checks if not c.passed]
         if contract.policy is not None:
@@ -1403,6 +1417,15 @@ def preregister(
              "receipt produced on a laptop by accident, not one produced there on "
              "purpose. Stronger evidence needs a resolvable run URL and a ledger "
              "signature from a key only CI holds. See docs/pre-registration.md."),
+    require_signature: bool = typer.Option(
+        False, "--require-signature",
+        help="Require the selected receipt to carry a valid signature that covers it. "
+             "A signature over an earlier prefix of the ledger does not count."),
+    trusted_key: list[str] = typer.Option(
+        [], "--trusted-key", metavar="KEY",
+        help="A public key the *verifier* trusts, as base64, PEM or a path. "
+             "Repeatable, which is how key rotation works. Without any, a signature "
+             "shows that someone signed, not that your signer did."),
     require_anchor: bool = typer.Option(
         False, "--require-anchor", help="Require a verifying anchor at gate time."),
     require_external_anchor: bool = typer.Option(
@@ -1453,6 +1476,8 @@ def preregister(
         evaluator_fingerprint_pin=pin,
         required_artifacts=list(require_artifact),
         require_ci_claim=require_ci_claim,
+        require_signature=require_signature,
+        trusted_public_keys=list(trusted_key),
         require_anchor=require_anchor,
         require_external_anchor=require_external_anchor,
         baseline=baseline,

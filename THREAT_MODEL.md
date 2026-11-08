@@ -53,6 +53,16 @@ produces a valid chain. That is what signing is for.
 record through the chain, so one signature covers the ledger up to that point.
 
 **Protects against:** anyone without the private key altering the ledger undetectably.
+
+**Two things a signature does not say, which a gate has to ask separately.** It signs
+the *head*, so signing and then appending leaves the new receipt uncovered while the
+sidecar still holds a valid signature - `evalseal verify --signed` correctly reports
+"records 0-0 of 2 are signed" and exits 0. And it is verified with the key stored
+beside it, so without a trust anchor it shows that *someone* signed. A pre-registration
+with `require_signature` checks presence, validity, coverage of the selected receipt,
+and - when `trusted_public_keys` or `--trusted-key` is supplied - identity, reporting
+each separately. See [docs/pre-registration.md](docs/pre-registration.md).
+
 **Does not protect against:** the key holder. They can rebuild the ledger and re-sign it.
 A verifier who only ever sees the new signature cannot tell. It also says nothing about
 *when* the signature was made - `signed_at` is the signer's own clock.

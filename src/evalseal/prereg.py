@@ -51,6 +51,7 @@ from .ledger import (
 from .models import RunRecord
 from .policy import Check, Policy
 from .provenance import file_hash, git_provenance
+from .verification import SignatureVerification
 
 PREREG_VERSION: Literal[1] = 1
 
@@ -100,6 +101,10 @@ class Preregistration(_Strict):
 
     require_ci_claim: bool = False
     require_signature: bool = False
+    #: Keys the *verifier* is willing to trust, as base64, PEM or a path. Empty means
+    #: identity is not checked: a valid signature then shows that someone signed, not
+    #: that your signer did. Several keys are allowed, which is how rotation works.
+    trusted_public_keys: list[str] = Field(default_factory=list)
     require_anchor: bool = False
     require_external_anchor: bool = False
 
@@ -149,6 +154,7 @@ def build_preregistration(
     required_artifacts: list[str] | None = None,
     require_ci_claim: bool = False,
     require_signature: bool = False,
+    trusted_public_keys: list[str] | None = None,
     require_anchor: bool = False,
     require_external_anchor: bool = False,
     baseline: str | None = None,
@@ -186,6 +192,7 @@ def build_preregistration(
         required_artifacts=sorted(required_artifacts or []),
         require_ci_claim=require_ci_claim,
         require_signature=require_signature,
+        trusted_public_keys=sorted(trusted_public_keys or []),
         require_anchor=require_anchor,
         require_external_anchor=require_external_anchor,
         baseline=baseline,
@@ -226,6 +233,7 @@ def check_preregistration(
     record: RunRecord,
     *,
     anchor: AnchorState | None = None,
+    signature: SignatureVerification | None = None,
 ) -> list[Check]:
     """Check one receipt against the contract, one named check per clause.
 
@@ -297,8 +305,33 @@ def check_preregistration(
             "the receipt carries no CI markers, so it was not produced by a CI runner "
             "EvalSeal recognises"))
 
+    checks.extend(_signature_checks(prereg, signature))
     checks.extend(_anchor_checks(prereg, anchor))
     return checks
+
+
+def _signature_checks(
+    prereg: Preregistration, signature: SignatureVerification | None
+) -> list[Check]:
+    """Whether the selected receipt carries a signature the contract asked for.
+
+    Separate from the anchor requirement, because they are separate claims: a
+    signature says who sealed this, an anchor says what it was bound to. Requiring one
+    must not require or imply the other.
+
+    A `None` state means the caller could not look at the ledger. That fails rather
+    than skips - invariant: an unperformed required check cannot become a pass.
+    """
+    if not prereg.require_signature:
+        return []
+    if signature is None:
+        return [Check(
+            "prereg.require_signature", False,
+            "not checked: the gate had no ledger to verify a signature against, so "
+            "the requirement could not be evaluated. A requirement that cannot run "
+            "is a failure, not a skip")]
+    return [Check(
+        "prereg.require_signature", signature.satisfies_requirement, signature.detail)]
 
 
 def _repeat_checks(runs: RunContract, record: RunRecord) -> list[Check]:

@@ -240,3 +240,6 @@ junit.xml
 
 # Signing keys — never commit a private key
 *.key
+
+# macOS finder metadata, which iCloud sprinkles through this tree.
+.DS_Store

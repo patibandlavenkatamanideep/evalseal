@@ -7,6 +7,42 @@ older version still verifies.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`require_signature` was declared and never read.** A pre-registration could set it,
+  `examples/prereg.json` shipped it, and `gate --prereg` passed an **unsigned** receipt
+  silently - no signature clause appeared in the output at all. It was reachable only
+  by hand-editing JSON, which is how a setting ends up declared and unread. This is the
+  failure `policy.py` opens by naming: a threshold that quietly does nothing is worse
+  than no threshold, because the build going green is read as evidence.
+
+  Wiring it to `verify_signatures()` and reading the boolean would have replaced one
+  false green with a subtler one, so `verification.py` now returns a typed outcome and
+  the clause reports four claims separately:
+
+  - **presence** - a sidecar with at least one entry
+  - **validity** - the signature verifies **and** the record still matches the hash
+    that was signed. Comparing the signature against the record's stored `hash` field
+    only compares two copies of the same number: edit a score, leave the field, and the
+    signature would still "cover" it. The content is re-hashed.
+  - **coverage** - a valid signature over *this* receipt. `sign` signs the ledger head,
+    so signing and then appending leaves the new receipt uncovered while
+    `verify --signed` still correctly reports "records 0-0 of 2 are signed" and exits 0.
+    A gate reading that boolean would pass a receipt nobody signed.
+  - **identity** - the signer is one the **verifier** trusts, via `--trusted-key`
+    (repeatable, for rotation) or `trusted_public_keys`. The flag wins, because trust
+    should not be decided by the file being verified. With none declared the clause says
+    *"identity not checked"* rather than implying a trusted signer.
+
+  Unsupported algorithms, malformed signatures, a missing sidecar, an unreadable ledger
+  and a rewritten ledger each fail closed with their own message. A requirement the gate
+  could not evaluate fails rather than skips.
+
+### Added
+
+- **`evalseal preregister --require-signature` and `--trusted-key`**, and
+  `gate --trusted-key`. The requirement had no CLI surface at all.
+
 ### Added
 
 - **RFC 3161 signature validation.** `evalseal anchor-verify --tsa-ca issuer.pem` now

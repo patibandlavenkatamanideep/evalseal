@@ -50,6 +50,7 @@ That file pins, by digest, before the run:
 | required artifact roles | publishing a score with no cassette behind it (**fail-closed**: a role sealed as `external` fails unless allow-listed) |
 | an embedded policy | loosening the threshold after a failure |
 | `require_ci_claim` | producing the receipt on the laptop of the person being measured (a *claim*, see below) |
+| `require_signature` + `trusted_public_keys` | publishing a receipt nobody signed, or one signed by a key you never agreed to trust |
 
 Then, at gate time:
 
@@ -88,6 +89,52 @@ those were fixed by digest beforehand. The remaining move - re-rolling the same
 declared evaluation until sampling noise favours them - is exactly what
 `evalseal power` is for: a suite powered for the effect it claims to detect does not
 swing on a re-roll, and per-case flip rates make an unstable suite visible.
+
+## The signature clause, and the three claims inside it
+
+`require_signature` asks a question with more than one part, and the clause reports
+which parts it established:
+
+| claim | question | how it fails |
+|---|---|---|
+| **presence** | is there a signature at all? | *"no signature: …sig.jsonl is absent or empty"* |
+| **validity** | does it verify, and does the record still match the hash that was signed? | *"does not verify"* / *"does not match its own sealed hash"* |
+| **coverage** | does it cover **this** receipt? | *"the signature does not cover record 1: signed records are [0]"* |
+| **identity** | is the signer one you trust? | *"not one of the trusted keys you supplied"* |
+
+Coverage is the one most easily missed. `evalseal sign` signs the ledger **head**, so
+signing and then appending leaves the new receipt unsigned while the sidecar still
+holds a perfectly valid signature:
+
+```console
+$ evalseal verify --ledger l.jsonl --signed
+1 signature(s) valid; records 0-0 of 2 are signed.      # exit 0
+
+$ evalseal gate --ledger l.jsonl --prereg prereg.json
+FAIL prereg.require_signature: the signature does not cover record 1: signed records
+are [0]. A signature over an earlier prefix of the ledger says nothing about a receipt
+appended afterwards
+```
+
+Both are correct. `verify --signed` reports that the signatures it has are valid; the
+gate reports that none of them covers the receipt being gated.
+
+Identity is the other. A signature is verified with the key stored beside it, so
+without a trust anchor it establishes that *someone* signed:
+
+```bash
+evalseal gate --ledger l.jsonl --prereg prereg.json --trusted-key ci-signer.pub
+```
+
+Declare the keys with `--trusted-key` (repeatable, which is how rotation works) or
+`trusted_public_keys` in the contract. The flag wins, because the verifier's trust
+should not be decided by the file they are verifying. With none declared the clause
+passes on presence, validity and coverage and says plainly *"identity not checked"* -
+it does not imply a trusted signer.
+
+**What a signature still does not establish:** that the eval ran, that the inputs were
+honest, when any of it happened, or that no other run was discarded. It binds bytes to
+a key.
 
 ## The CI clause, in particular
 

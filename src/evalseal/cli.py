@@ -89,6 +89,7 @@ from .signing import (
     signatures_path,
     verify_signatures,
 )
+from .validation import InvalidInput
 from .verification import (
     DEFAULT_APPROVED_BACKENDS,
     ExternalEvidence,
@@ -602,7 +603,13 @@ def verify(
     index: int = typer.Option(-1, help="Which record's artifacts to check; -1 = latest."),
 ):
     """Check the ledger chain integrity, and signatures or artifacts when asked."""
-    ok, msg = verify_chain(ledger)
+    try:
+        ok, msg = verify_chain(ledger)
+    except InvalidInput as e:
+        # A malformed ledger is an input error with a documented exit code, not a
+        # traceback. `verify` used to let pydantic's ValidationError reach the user.
+        console.print(f"[red]Cannot read the ledger:[/red] {rich_escape(str(e))}")
+        raise typer.Exit(code=EXIT_BAD_INPUT) from None
     console.print(f"[{'green' if ok else 'red'}]{msg}[/{'green' if ok else 'red'}]")
     if not ok:
         raise typer.Exit(code=1)
@@ -978,7 +985,9 @@ def gate(
     # pre-registration that pinned that digest.
     verified = load_verified(ledger)
     if not verified.records:
-        raise typer.BadParameter(verified.detail)
+        console.print(f"[red]Cannot read the ledger:[/red] "
+                      f"{rich_escape(verified.detail)}")
+        raise typer.Exit(code=EXIT_BAD_INPUT)
     recs = verified.records
     if not -len(recs) <= index < len(recs):
         raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
@@ -1006,6 +1015,24 @@ def gate(
         integrity_checks.append(Check(
             "ledger.unsealed_fields", True,
             f"every field present was sealed under schema {selected.sealed_under}"))
+    if selected.problems:
+        # Separate from `record_verified` because they are different claims: a
+        # fabricated summary is sealed along with everything else, so the hash matches
+        # and the numbers are still impossible. On the baseline `mean_score = 42.0`
+        # cleared `--min-score 0.9` and `n_cases = 999` on a two-case run cleared
+        # `--min-score 0.95`.
+        integrity_checks.append(Check(
+            "ledger.data_invariants", False,
+            f"record {index} fails {len(selected.problems)} data invariant(s): "
+            + "; ".join(selected.problems[:3])
+            + ("" if len(selected.problems) <= 3
+               else f" (and {len(selected.problems) - 3} more)")))
+        failures.append(
+            f"ledger.data_invariants: {len(selected.problems)} invariant(s) do not hold")
+    else:
+        integrity_checks.append(Check(
+            "ledger.data_invariants", True,
+            "scores are finite and in range, and the summary matches the cases"))
 
     if policy is None and suite is not None:
         # A `policy` section that nothing reads would be a threshold silently doing

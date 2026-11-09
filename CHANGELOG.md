@@ -9,6 +9,48 @@ older version still verifies.
 
 ### Fixed
 
+- **A number that could not be a measurement was read as one.** The receipt models
+  carried no constraints - no bounds, no finiteness, and no check that a summary agreed
+  with the cases it summarises - so invalid data did not fail a gate, it *passed* one:
+
+  - `aggregate.mean_score = 42.0` cleared `--min-score 0.9`. Nothing asked whether a
+    mean score of 42 is a mean score.
+  - `aggregate.n_cases = 999` on a two-case run with `mean_score = 1.0` cleared
+    `--min-score 0.95`, and the chain verified: sealing attests that nobody changed a
+    number afterwards, not that it was ever true.
+  - a non-finite score was serialised as `null`, so the sealed receipt could never be
+    loaded again - the measurement lost and every later command failing on a file that
+    verified as nothing.
+  - duplicate case ids and an empty case set were both accepted.
+
+  JSON contributed two more. A duplicate member is resolved silently in favour of the
+  last one, so a policy committed as `{"run": {"min_score": 0.9, "min_score": 0.0}}`
+  was reviewed as `0.9` and enforced as `0.0` - no tampering and no broken hash
+  required, because nothing hashes a policy file. And Python's `json` accepts `NaN`,
+  `Infinity` and `-Infinity`, which are not JSON, and against which every comparison is
+  false, so such a value clears any threshold it is tested against.
+
+  New `evalseal.validation`:
+
+  - `strict_json_loads()` refuses duplicate members and non-finite literals. Used by
+    the policy loader, the pre-registration loader and `load_all`.
+  - `validate_record()` returns a named `Problem` per invariant that does not hold:
+    score, mean, flip-rate and interval bounds and finiteness, intervals the right way
+    round, case means matching their scores, verdict counts matching the verdicts,
+    a non-empty case set, distinct case ids, `n_cases` matching the cases,
+    stability counts adding up, and the summary mean matching the case means.
+  - `require_valid()` is called by `seal_and_append` *before* the lock, so an invalid
+    record is never sealed.
+  - `gate` reports `ledger.data_invariants`, kept separate from
+    `ledger.record_verified` because the hash matching and the numbers being possible
+    are different claims.
+  - A malformed ledger is now an input error with the documented exit code and no
+    traceback. `verify` used to let pydantic's `ValidationError` reach the user.
+
+  Policy thresholds were already guarded - `ge=0.0, le=1.0` rejects `NaN`, `Infinity`
+  and `42.0`, and `extra="forbid"` rejects a typo - and tests now pin that so it cannot
+  be removed quietly.
+
 - **A field the sealing schema did not have could be injected and read as sealed
   evidence.** A record sealed under an older schema is re-hashed with the fields that
   schema lacked stripped out, which is what keeps an old ledger verifiable. The same

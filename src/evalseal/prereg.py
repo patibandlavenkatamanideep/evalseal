@@ -51,6 +51,7 @@ from .ledger import (
 from .models import RunRecord
 from .policy import Check, Policy
 from .provenance import file_hash, git_provenance
+from .validation import InvalidInput, strict_json_loads
 from .verification import ExternalEvidence, SignatureVerification
 
 PREREG_VERSION: Literal[1] = 1
@@ -130,10 +131,13 @@ def load_preregistration(path: str | Path) -> Preregistration:
         raise PreregError(f"{p} could not be read: {e.strerror}") from None
     if not text.strip():
         raise PreregError(f"{p} is empty")
+    # Strict: see `validation.strict_json_loads`. A contract is committed and read by
+    # people, and a duplicate member makes the reviewer and the gate read different
+    # numbers from the same file.
     try:
-        data = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise PreregError(f"{p} is not valid JSON: {e}") from None
+        data = strict_json_loads(text, what=str(p))
+    except InvalidInput as e:
+        raise PreregError(str(e)) from None
     if not isinstance(data, dict):
         raise PreregError(f"{p} must contain a mapping at the top level")
     try:

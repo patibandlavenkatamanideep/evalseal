@@ -67,6 +67,46 @@ may have added fields this build cannot see, or changed what an existing one mea
 Schema 1.3 added no field at all and only changed the meaning of
 `scorer.judge_prompt_hash`, so a format change need not be visible in the data.
 
+### Data invariants
+
+A hash attests that nobody changed a number after it was sealed. It says nothing about
+whether the number was ever possible, because an impossible number gets sealed along
+with everything else. Until v2.3 nothing asked, so invalid data did not fail a gate -
+it passed one: `aggregate.mean_score = 42.0` cleared `--min-score 0.9`, and
+`aggregate.n_cases = 999` on a two-case run with `mean_score = 1.0` cleared
+`--min-score 0.95`.
+
+`evalseal.validation` now checks, and `gate` reports `ledger.data_invariants`
+separately from `ledger.record_verified`, because the hash matching and the numbers
+being possible are different claims:
+
+- scores, means, flip rates and interval bounds are finite and within range, and
+  intervals run the right way round
+- each case mean matches its own scores, and each case's verdict counts match its
+  verdicts
+- the case set is non-empty with distinct ids - a per-case threshold addresses a case
+  by id, so two cases sharing one makes which was checked undecidable
+- `n_cases` and the stability counts match the cases present, and the summary mean
+  matches the case means
+
+A record failing any of these is refused at seal time rather than written, because a
+non-finite score additionally serialises as `null` and the sealed receipt could then
+never be loaded again.
+
+**Protects against:** a fabricated or mis-copied summary passing a threshold, a
+non-finite value clearing every limit it is compared against (every comparison against
+`NaN` is false), a receipt that measured nothing satisfying a gate.
+**Does not protect against:** a plausible lie. Numbers that are internally consistent
+and in range are accepted; whether the evaluation that produced them happened as
+described is what the rest of this document is about.
+
+**File-level strictness.** JSON resolves a duplicate member silently in favour of the
+last one, so a policy committed as `{"run": {"min_score": 0.9, "min_score": 0.0}}` was
+reviewed as `0.9` and enforced as `0.0` - no tampering and no broken hash needed,
+because nothing hashes a policy file. Policies, pre-registrations and ledger lines are
+now parsed strictly: a duplicate member is refused rather than resolved, and `NaN`,
+`Infinity` and `-Infinity` - which are not JSON at all - are refused as well.
+
 ### Signing
 
 `evalseal sign` signs the ledger head with Ed25519. The head commits to every earlier

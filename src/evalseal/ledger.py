@@ -6,6 +6,8 @@ import os
 from collections import Counter
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from .locking import ledger_lock
 from .models import SCHEMA_VERSION, ProvenanceManifest, RunRecord
 
@@ -188,13 +190,34 @@ def _content_hash(record: RunRecord, as_schema: str | None = None) -> str:
 
 
 def load_all(path: Path = LEDGER_PATH) -> list[RunRecord]:
+    """Every record in a ledger, parsed strictly.
+
+    Strictly, because `model_validate_json` accepts two things a receipt must not
+    contain. A duplicate member is resolved silently in favour of the last one, so the
+    value a reader sees and the value a gate uses can differ. And `NaN`, `Infinity` and
+    `-Infinity` - which are not JSON at all - parse as floats, and every comparison
+    against them is false, so such a score would clear any threshold it was tested
+    against.
+
+    `InvalidInput` is a `ValueError`, which the callers that already handle a malformed
+    ledger catch.
+    """
+    from .validation import InvalidInput, strict_json_loads
+
     if not path.exists():
         return []
-    return [
-        RunRecord.model_validate_json(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    records = []
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        payload = strict_json_loads(line, what=f"{path} line {number}")
+        if not isinstance(payload, dict):
+            raise InvalidInput(f"{path} line {number} is not a record object")
+        try:
+            records.append(RunRecord.model_validate(payload))
+        except ValidationError as e:
+            raise InvalidInput(f"{path} line {number} is not a valid record:\n{e}") from None
+    return records
 
 
 def last_hash(path: Path = LEDGER_PATH) -> str:
@@ -216,6 +239,15 @@ def seal_and_append(
     re-points the record at whatever the head is once the lock is held, which is what a
     concurrent `evalseal run` wants: every writer appends, in some serial order.
     """
+    from .validation import require_valid
+
+    # Refused before the lock is taken. Sealing an invalid record would put an
+    # authoritative-looking hash on a number that cannot be a measurement, and a
+    # non-finite score additionally serialises as `null`, so the sealed receipt could
+    # never be loaded again: the measurement lost, and every later command failing on
+    # a file that verifies as nothing.
+    require_valid(record)
+
     path = Path(path)
     with ledger_lock(path):
         head = last_hash(path)                     # read under the lock, not before it

@@ -17,7 +17,6 @@ happened.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -33,6 +32,7 @@ from .ledger import (
 )
 from .models import FailOn, RunRecord
 from .report import failing_cases
+from .validation import InvalidInput, strict_json_loads
 
 
 class _Strict(BaseModel):
@@ -133,10 +133,14 @@ def load_policy(path: str | Path) -> Policy:
         except yaml.YAMLError as e:
             raise PolicyError(f"{p} is not valid YAML: {e}") from e
     elif suffix == ".json":
+        # Strict: a duplicate member is resolved silently in favour of the last one, so
+        # a policy committed as `{"min_score": 0.9, "min_score": 0.0}` is reviewed as
+        # 0.9 and enforced as 0.0. Nothing hashes a policy file, so no other layer
+        # would notice.
         try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise PolicyError(f"{p} is not valid JSON: {e}") from e
+            data = strict_json_loads(text, what=str(p))
+        except InvalidInput as e:
+            raise PolicyError(str(e)) from None
     else:
         raise PolicyError(f"{p} must be .json, .yml or .yaml")
 

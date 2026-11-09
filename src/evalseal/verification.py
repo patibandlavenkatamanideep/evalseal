@@ -551,6 +551,11 @@ class RecordVerification:
     status: str
     sealed_under: str | None = None
     quarantined: tuple[str, ...] = ()
+    #: Data invariants that do not hold, as "field: why". Kept apart from `verified`
+    #: on purpose: that the hash matches and that the numbers can be measurements are
+    #: different claims, and a fabricated summary satisfies the first one, because it
+    #: was sealed along with everything else.
+    problems: tuple[str, ...] = ()
     detail: str = ""
 
     @property
@@ -558,13 +563,19 @@ class RecordVerification:
         """Whether the content matches the hash, under today's schema or its own."""
         return self.status in ("ok", "legacy")
 
+    @property
+    def internally_consistent(self) -> bool:
+        return not self.problems
+
     def to_dict(self) -> dict[str, object]:
         return {
             "index": self.index,
             "status": self.status,
             "sealed_under": self.sealed_under,
             "quarantined": list(self.quarantined),
+            "problems": list(self.problems),
             "verified": self.verified,
+            "internally_consistent": self.internally_consistent,
             "detail": self.detail,
         }
 
@@ -610,6 +621,7 @@ def load_verified(ledger: Path | str) -> VerifiedLedger:
     field still present was covered by the hash that was verified.
     """
     from .ledger import check_record_hash, load_all, quarantine_unsealed, verify_chain
+    from .validation import validate_record
 
     path = Path(ledger)
     try:
@@ -626,6 +638,9 @@ def load_verified(ledger: Path | str) -> VerifiedLedger:
         status, sealed_under = check_record_hash(record)
         safe, removed = quarantine_unsealed(record)
         cleaned.append(safe)
+        # Validated after quarantine, so a value the schema never sealed cannot make
+        # the summary look consistent, nor inconsistent.
+        problems = tuple(f"{p.name}: {p.detail}" for p in validate_record(safe))
         detail = {
             "ok": f"verified under schema {sealed_under}",
             "legacy": f"verified under the schema that sealed it ({sealed_under})",
@@ -639,9 +654,13 @@ def load_verified(ledger: Path | str) -> VerifiedLedger:
             detail += (
                 f". {len(removed)} field(s) carried a value its schema did not seal and "
                 f"were removed before anything read them: {', '.join(removed)}")
+        if problems:
+            detail += (f". {len(problems)} data invariant(s) do not hold: "
+                       + "; ".join(problems[:3])
+                       + ("" if len(problems) <= 3 else f" (and {len(problems) - 3} more)"))
         results.append(RecordVerification(
             index=index, status=status, sealed_under=sealed_under,
-            quarantined=removed, detail=detail))
+            quarantined=removed, problems=problems, detail=detail))
 
     result = VerifiedLedger(tuple(cleaned), tuple(results), chain_ok, chain_detail)
     failed = [r for r in results if not r.verified]

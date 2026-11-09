@@ -10,7 +10,8 @@ from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from .adapters.dataset import Case, Dataset
-from .adapters.recording import slot
+from .adapters.recording import FORMAT_VERSION as CASSETTE_FORMAT
+from .adapters.recording import unit as recording_unit
 from .adapters.scorer import Scorer, scorer_config
 from .adapters.target import Target, TargetResponse
 from .analyze import analyze_case
@@ -131,6 +132,26 @@ def _drift_warnings(responses: list[TargetResponse], role: str) -> list[str]:
     return w
 
 
+def _cassette_warnings(target: Target, scorer: Scorer) -> list[str]:
+    """Whether any cassette behind this run was keyed by an older, weaker rule.
+
+    A format-2 cassette cannot tell two cases apart that ask the same question, so its
+    replay serves one draw to both. That caveat changes what the numbers mean, which
+    makes it a line in the receipt rather than a note in a changelog.
+    """
+    seen: list[str] = []
+    for role, holder in (("TARGET", target), ("JUDGE", getattr(scorer, "judge", None))):
+        cassette = getattr(holder, "cassette", None)
+        version = getattr(cassette, "format", None)
+        if version is not None and version != CASSETTE_FORMAT:
+            seen.append(
+                f"{role} CASSETTE FORMAT {version}: its entries are keyed without case "
+                "identity, so two cases asking the same question replay one draw and "
+                f"their scores agree by construction. Re-record it to get format "
+                f"{CASSETTE_FORMAT}.")
+    return seen
+
+
 def _dedupe(items: list[str]) -> list[str]:
     return list(dict.fromkeys(items))
 
@@ -217,11 +238,15 @@ class _Unit:
         self.seconds: float = 0.0
 
     def run(self, target: Target, scorer: Scorer) -> _Unit:
-        # The slot pins this unit's cassette entries to `repeat`, so replays are
-        # identical regardless of how many workers run or what order they finish in.
+        # Each call is pinned to this measurement - case, repeat and role - so replays
+        # are identical regardless of how many workers run or what order they finish
+        # in, and so two cases asking the same question do not share one draw. The
+        # role is named per call because a target call and a judge call for one unit
+        # are two different measurements.
         started = time.perf_counter()
-        with slot(self.repeat):
+        with recording_unit(self.case.case_id, self.repeat, "target"):
             tr = target.generate(self.case.prompt)
+        with recording_unit(self.case.case_id, self.repeat, "judge"):
             sr = scorer.score(self.case.prompt, tr.text, self.case.expected)
         self.seconds = time.perf_counter() - started
         self.target_resp = tr
@@ -312,6 +337,7 @@ def run_eval(
         warnings += _provenance_warnings(_to_provenance(jr), "JUDGE")
     warnings += _drift_warnings(judge_resps, "JUDGE")
     warnings += _truncation_warnings(judge_resps, "JUDGE")
+    warnings += _cassette_warnings(target, scorer)
 
     # Hashed here, not by the caller: the cassette is still being written while the
     # units run, so its digest is only meaningful once they have finished.

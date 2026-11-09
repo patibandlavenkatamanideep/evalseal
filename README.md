@@ -187,6 +187,22 @@ To re-record with your own key, copy `.env.example` to `.env`, add a free
 `EVALSEAL_RECORD=1`. If the free tier rate-limits you, run the same command again later;
 responses already recorded are kept.
 
+There are three modes, and `--cassette-mode` names them explicitly:
+
+| mode | provider calls | what it is for |
+|---|---|---|
+| `replay` | none; a missing entry fails the run | CI. The default. |
+| `resume` | for whatever is not recorded yet | finishing a run a rate limit interrupted. `EVALSEAL_RECORD=1` means this. |
+| `fresh` | for everything, ignoring what is recorded | a new experiment, which must not inherit another run's draws. |
+
+A cassette entry is keyed by the measurement it belongs to - case, repeat and role - as
+well as by the request. It used to be keyed by `(request, repeat)` alone, so **two
+different cases that happened to ask the same question shared one entry**: one provider
+draw served both, and their scores agreed by construction. An eval whose purpose is to
+measure disagreement between repeated draws was measuring one draw twice. Cassettes
+recorded by an older build (format 2) still replay, and a run that uses one says so in
+the receipt, because that caveat changes what the numbers mean.
+
 ## A benchmark, objectively graded
 
 The suite above is graded by an LLM judge. This one is graded by arithmetic: 40 problems
@@ -851,6 +867,12 @@ tracked target).
 - **Linear appends under concurrent writers.** The head is read and the record appended
   inside one file lock, so two simultaneous runs cannot create sibling records. `verify`
   reports siblings explicitly if a ledger acquires them another way.
+- **One response per measurement, whatever the scheduling.** A cassette entry belongs to
+  one (case, repeat, role), and two callers scheduled for the same measurement get the
+  same response: the second waits for the first rather than asking the provider again.
+  Before this, both called, both wrote, and the last write won - so one of the two scores
+  in the receipt came from bytes the cassette no longer held, and replaying that receipt
+  produced a different number than the receipt recorded.
 - **Repeat-run instability measurement.** Per-case verdict sequences, counts, flip rates
   and Wilson intervals, rather than one aggregate number.
 - **A paired comparison between two runs.** Both runs cover the same items, so `diff`

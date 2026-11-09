@@ -46,7 +46,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from .adapters.dataset import Dataset
-from .adapters.recording import slot
+from .adapters.recording import unit as recording_unit
 from .adapters.scorer import Scorer
 from .adapters.target import Target
 from .analyze import flip_rate
@@ -144,17 +144,19 @@ def _judge_only_case(case, target: Target, scorer: Scorer, n_repeats: int) -> li
 
     The target call and the judgings of it cannot overlap - there is nothing to judge
     until the response exists - so the parallelism in this arm is across cases, never
-    within one. Each `slot` is entered inside the worker, because a contextvar does not
+    within one. Each unit is entered inside the worker, because a contextvar does not
     cross into a thread.
     """
-    # The single target call lives in slot 0; each judging gets its own slot, so the
-    # N judge calls are distinct cassette entries even though the request is
-    # byte-identical every time. That is the whole point of the arm.
-    with slot(0):
+    # The single target call is repeat 0; each judging gets its own repeat, so the N
+    # judge calls are distinct cassette entries even though the request is
+    # byte-identical every time. That is the whole point of the arm. Both are named
+    # with this case's id, so a case that shares a prompt with another still gets its
+    # own draws rather than inheriting that one's.
+    with recording_unit(case.case_id, 0, "target"):
         response = target.generate(case.prompt)
     verdicts: list[int] = []
     for k in range(n_repeats):
-        with slot(k):
+        with recording_unit(case.case_id, k, "judge"):
             result = scorer.score(case.prompt, response.text, case.expected)
         verdicts.append(int(result.score >= 0.5))
     return verdicts
@@ -182,8 +184,9 @@ def run_judge_only_arm(
 
 def _full_unit(case, repeat: int, target: Target, scorer: Scorer) -> int:
     """One (case, repeat) of the full arm: generate once, judge that response once."""
-    with slot(repeat):
+    with recording_unit(case.case_id, repeat, "target"):
         response = target.generate(case.prompt)
+    with recording_unit(case.case_id, repeat, "judge"):
         result = scorer.score(case.prompt, response.text, case.expected)
     return int(result.score >= 0.5)
 

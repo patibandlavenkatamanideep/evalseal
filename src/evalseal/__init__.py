@@ -1,7 +1,7 @@
 """EvalSeal: reproducibility and provenance receipts for LLM evaluations."""
 
 from .adapters.dataset import Case, Dataset
-from .adapters.recording import Cassette, slot
+from .adapters.recording import Cassette, current_unit, slot, unit
 from .adapters.scorer import (
     AnswerMatchScorer,
     ExactMatchScorer,
@@ -82,6 +82,7 @@ __all__ = [
     "Check", "Policy", "PolicyError", "PolicyResult", "evaluate", "load_policy",
     "ledger_lock", "strip_decoration", "text_hash", "wilson_ci",
     "last_hash", "load_all", "run_eval", "seal_and_append", "slot", "to_junit",
+    "current_unit", "unit",
     "to_markdown", "generate_keypair", "sign_head", "verify_chain",
     "verify_signatures",
 ]

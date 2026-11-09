@@ -55,15 +55,18 @@ def test_concurrent_run_matches_serial_run(tmp_path):
                 from evalseal.adapters.target import TargetResponse
                 raw = cass.call(
                     {"prompt": prompt},
-                    lambda: {"text": scripted[prompt][_slot_of(cass)]},
+                    lambda: {"text": scripted[prompt][_repeat_of(cass)]},
                 )
                 return TargetResponse(raw["text"], "m", "m", None, "local://", {}, "explicit")
 
         return T()
 
-    def _slot_of(_cass):
-        from evalseal.adapters import recording
-        return recording._slot.get() or 0
+    def _repeat_of(_cass):
+        """Which repeat this call is answering, through the public accessor."""
+        from evalseal.adapters.recording import current_unit
+
+        here = current_unit()
+        return here.repeat if here is not None else 0
 
     path = tmp_path / "c.json"
     serial = run_eval(ds, build(path, True), RegexScorer("^yes$"), n_repeats=5, concurrency=1)

@@ -458,6 +458,12 @@ def run(
     scorer_config: Path | None = typer.Option(None, exists=True, dir_okay=False),
     n: int | None = typer.Option(None, min=1, help="Repeats per case (flip rate needs N>=5)."),
     cassette: Path | None = typer.Option(None),
+    cassette_mode: str | None = typer.Option(
+        None, "--cassette-mode",
+        help="replay (no provider calls; a miss fails) | resume (reuse what is "
+             "recorded, call for the rest) | fresh (ignore what is recorded and draw "
+             "again). Defaults to $EVALSEAL_MODE, or replay unless EVALSEAL_RECORD=1.",
+    ),
     ledger: Path = LedgerOpt,
     concurrency: int | None = typer.Option(None, min=1, help="Parallel requests in flight."),
     max_retries: int | None = typer.Option(None, min=0, help="Retries per request on 429/5xx."),
@@ -530,10 +536,12 @@ def run(
             raise typer.BadParameter(f"case id(s) not in {dataset}: {', '.join(missing)}")
         ds = Dataset([c for c in ds.cases if c.case_id in wanted], ds.hash)
     try:
-        cass = Cassette(cassette)
+        cass = Cassette(cassette, mode=cassette_mode)
     except CassetteFormatError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=1) from e
+    except ValueError as e:                     # an unknown mode name
+        raise typer.BadParameter(str(e)) from None
     target_cfg = json.loads(target_config.read_text(encoding="utf-8"))
     scorer_cfg = json.loads(scorer_config.read_text(encoding="utf-8"))
     target = _build_target(target_cfg, cass, max_retries, timeout)

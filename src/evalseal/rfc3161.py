@@ -808,21 +808,26 @@ class Rfc3161Backend:
                 f"{BOUNDARY_AT_REST}"),
         }
 
-    def check(self, subject_digest: str, proof: dict) -> tuple[bool, str]:
-        """Re-read the stored token offline. Network is never touched here.
+    def verify(self, subject_digest: str, proof: dict) -> tuple[str, str]:
+        """Re-read the stored token offline and report which of three states it reached.
 
-        How far this gets depends on whether a trust root was supplied. With one, the
-        signature and the signing certificate are checked and the result can say
-        "signature verified". Without one, it establishes what it always did - the
-        imprint - and says so in the same words as before.
+        Network is never touched here. How far this gets depends on whether a trust
+        root was supplied. With one, the signature and the signing certificate are
+        checked and the result can say "signature verified". Without one, it
+        establishes what it always did - the imprint - and says so.
+
+        This is the primary form, and `check` wraps it. A bool cannot tell a verified
+        signature apart from an imprint nobody checked: both are "ok" to a caller
+        reading the boolean, so a gate requiring external evidence that read `check`
+        would accept an unverified token. Returning the state keeps the two apart.
         """
         blob = proof.get("proof")
         if not blob:
-            return (False, "not checked: the proof entry carries no token")
+            return (FAILED, "not checked: the proof entry carries no token")
         try:
             der = base64.b64decode(blob, validate=True)
         except (ValueError, TypeError):
-            return (False, "not checked: the stored token is not valid base64")
+            return (FAILED, "not checked: the stored token is not valid base64")
 
         result = verify_token(der, subject_digest, ca_pem=self.ca_pem)
         authority = proof.get("authority", "the authority")
@@ -832,14 +837,23 @@ class Rfc3161Backend:
         when = (parse_gen_time(info["gen_time"]) or info["gen_time"]) if info else "?"
 
         if result.state == VERIFIED:
-            return (True,
+            return (VERIFIED,
                     f"{BOUNDARY_VERIFIED}. {authority} asserts this digest existed no "
                     f"later than {when}, and the token's signature checks out against "
                     "the certificate you supplied. Revocation was not checked.")
         if result.state == IMPRINT_ONLY:
-            return (True,
+            return (IMPRINT_ONLY,
                     f"{BOUNDARY_IMPRINT_ONLY}. The imprint matches this anchor's "
                     f"subject digest, and {authority} asserts it existed no later than "
                     f"{when} - on that authority's word, unverified here. {_UNVERIFIED}")
         failing = "; ".join(c.detail for c in result.checks if c.ran and not c.passed)
-        return (False, f"{BOUNDARY_FAILED}: {failing}")
+        return (FAILED, f"{BOUNDARY_FAILED}: {failing}")
+
+    def check(self, subject_digest: str, proof: dict) -> tuple[bool, str]:
+        """The `AnchorBackend` boolean form, unchanged: verified and imprint-only are
+        both "ok" here, because this answers "could it be re-checked at all?".
+
+        Anything that needs the difference calls `verify` instead.
+        """
+        state, detail = self.verify(subject_digest, proof)
+        return (state in (VERIFIED, IMPRINT_ONLY), detail)

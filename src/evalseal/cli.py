@@ -30,6 +30,7 @@ from .anchor import (
     build_anchor,
     check_artifacts,
     register_backend,
+    temporary_backends,
     verify_anchor,
     write_anchor,
 )
@@ -88,7 +89,14 @@ from .signing import (
     signatures_path,
     verify_signatures,
 )
-from .verification import verify_receipt_signature
+from .verification import (
+    DEFAULT_APPROVED_BACKENDS,
+    ExternalEvidence,
+    ExternalTrust,
+    verify_external_evidence,
+    verify_receipt_signature,
+)
+from .verification import FAILED as EXTERNAL_FAILED
 
 # Distinct from 1 (uncaught error) and 2 (usage error) so CI can tell
 # "the eval is unstable" apart from "the tool broke".
@@ -690,10 +698,39 @@ def _anchor_state(
     return AnchorState(
         present=True,
         verified=ok,
-        has_external_proof=bool(anchor_obj.get("external_proofs")),
         detail=f"anchor verified ({anchor_file})" if ok
         else f"anchor failed: {', '.join(failed) or 'see anchor-verify'}",
     )
+
+
+def _external_state(
+    anchor_file: Path | None,
+    *,
+    tsa_ca: Path | None = None,
+    approved: list[str] | None = None,
+) -> ExternalEvidence | None:
+    """Verify the anchor's external proofs under trust this invocation supplied.
+
+    This replaces `bool(anchor["external_proofs"])`, which satisfied
+    `require_external_anchor` for `[{}]`, for a backend that does not exist, and for
+    the local backend that attests nothing. Returning None when there is no anchor to
+    read makes the clause fail as "not checked" rather than pass.
+    """
+    if anchor_file is None:
+        return None
+    try:
+        anchor_obj = json.loads(anchor_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return ExternalEvidence(
+            EXTERNAL_FAILED, (),
+            f"{anchor_file} could not be read, so no external proof was checked: {e}")
+    if not isinstance(anchor_obj, dict):
+        return ExternalEvidence(
+            EXTERNAL_FAILED, (), f"{anchor_file} does not hold an anchor object")
+    return verify_external_evidence(anchor_obj, trust=ExternalTrust(
+        tsa_ca_pem=tsa_ca.read_bytes() if tsa_ca is not None else None,
+        approved_backends=(tuple(approved) if approved
+                           else DEFAULT_APPROVED_BACKENDS)))
 
 
 def _resolve_record(token: str, ledger: Path) -> RunRecord:
@@ -894,6 +931,18 @@ def gate(
              "contract's own list. Supplied by the verifier, because a key the "
              "producer chose establishes nothing. Repeatable.",
     ),
+    tsa_ca: Path | None = typer.Option(
+        None, "--tsa-ca", exists=True, dir_okay=False,
+        help="PEM trust root for an RFC 3161 proof, for `require_external_anchor`. "
+             "Without it a timestamp token's signature cannot be checked, so the "
+             "proof counts as imprint-only and the requirement fails.",
+    ),
+    approved_backend: list[str] = typer.Option(
+        [], "--approved-backend", metavar="NAME",
+        help="Anchor backend(s) you accept as sources of external evidence "
+             f"(default: {', '.join(DEFAULT_APPROVED_BACKENDS)}). `local` is never "
+             "accepted: it attests nothing. Repeatable.",
+    ),
     as_json: bool = typer.Option(
         False, "--json", help="Emit every check as machine-readable JSON."
     ),
@@ -951,6 +1000,10 @@ def gate(
             signature=verify_receipt_signature(
                 ledger, index,
                 trusted_keys=(list(trusted_key) or contract.trusted_public_keys or None)),
+            # Verified here, under a root this invocation supplied, rather than read
+            # as a boolean off the anchor the producer wrote.
+            external=_external_state(
+                anchor_file, tsa_ca=tsa_ca, approved=list(approved_backend)),
         )
         policy_checks = [*policy_checks, *prereg_checks]
         failures += [f"{c.rule}: {c.detail}" for c in prereg_checks if not c.passed]
@@ -1328,12 +1381,14 @@ def anchor_verify(
         raise typer.Exit(code=1) from None
     if ledger is None and _looks_like_ledger(source):
         ledger = source
-    if tsa_ca is not None:
-        # Configured for this verification only, so the signature check becomes
-        # possible without the anchor having any say in which root is trusted.
-        register_backend(Rfc3161Backend(ca_pem=tsa_ca.read_bytes()))
     record = _read_receipt(source)
-    checks = verify_anchor(anchor_obj, record, ledger=ledger)
+    # Configured for this verification only, so the signature check becomes possible
+    # without the anchor having any say in which root is trusted - and without the
+    # root outliving the call, which `register_backend` would have let it do.
+    overrides = ([Rfc3161Backend(ca_pem=tsa_ca.read_bytes())]
+                 if tsa_ca is not None else [])
+    with temporary_backends(*overrides):
+        checks = verify_anchor(anchor_obj, record, ledger=ledger)
     passed = anchor_passed(checks)
 
     if as_json:
@@ -1430,7 +1485,9 @@ def preregister(
         False, "--require-anchor", help="Require a verifying anchor at gate time."),
     require_external_anchor: bool = typer.Option(
         False, "--require-external-anchor",
-        help="Require that anchor to carry an external proof of time."),
+        help="Require an externally VERIFIED proof of time on that anchor: a token "
+             "from an approved backend, checked against a root the verifier supplies "
+             "with `gate --tsa-ca`. An unverified imprint does not satisfy it."),
     policy: Path | None = typer.Option(
         None, "--policy", exists=True, dir_okay=False,
         help="A policy file to embed, so thresholds are fixed before the number exists."),

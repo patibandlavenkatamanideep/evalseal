@@ -30,6 +30,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -140,9 +142,36 @@ def _load_builtin_backends() -> None:
 
 
 def register_backend(backend: AnchorBackend) -> None:
-    """Add a backend. Adapters for real services register themselves here."""
+    """Add a backend. Adapters for real services register themselves here.
+
+    Process-wide and permanent. For a backend configured with trust supplied for one
+    verification, use `temporary_backends` instead - see why there.
+    """
     _load_builtin_backends()
     _BACKENDS[backend.name] = backend
+
+
+@contextmanager
+def temporary_backends(*backends: AnchorBackend) -> Iterator[None]:
+    """Register backends for one block, then put the registry back as it was.
+
+    `register_backend` mutates a module-global dict that never gets cleaned up. The
+    CLI used it to apply the trust root a verifier passed with `--tsa-ca`, which left
+    that root configured for every later call in the same process. In a CLI that exits
+    straight after, that is invisible; in a test suite, or any program that verifies
+    more than one anchor, a root supplied for one verification silently decides the
+    next one's result, and a proof can appear verified against a root its verifier
+    never chose.
+    """
+    _load_builtin_backends()
+    saved = dict(_BACKENDS)
+    try:
+        for backend in backends:
+            _BACKENDS[backend.name] = backend
+        yield
+    finally:
+        _BACKENDS.clear()
+        _BACKENDS.update(saved)
 
 
 def get_backend(name: str) -> AnchorBackend:
@@ -482,8 +511,26 @@ def verify_anchor(
                 f"external proof ({name})", False,
                 f"not checked: no backend named {name!r} is available here", required=False))
             continue
-        ok, detail = backend.check(anchor.get("subject_digest", ""), proof)
-        checks.append(AnchorCheck(f"external proof ({name})", ok, detail))
+        # A backend that can report its state is read that way, so an imprint nobody
+        # verified is not shown as a required check that passed. The prose already said
+        # "NOT verified"; a required tick beside it is the assurance label being
+        # upgraded by the display. Backends with only the boolean `check` keep their
+        # previous behaviour, since a bool cannot tell the two apart.
+        verify = getattr(backend, "verify", None)
+        subject = anchor.get("subject_digest", "")
+        if callable(verify):
+            state, detail = verify(subject, proof)
+            # Only imprint-only is demoted. A proof that FAILED stays required, or
+            # an anchor whose token does not verify against the root you supplied
+            # would pass: the first version of this line read `state == "verified"`
+            # and made `anchor-verify --tsa-ca wrong-root.pem` exit 0 saying
+            # "Anchor verified."
+            checks.append(AnchorCheck(
+                f"external proof ({name})", state != "failed", detail,
+                required=state != "imprint_only"))
+        else:
+            ok, detail = backend.check(subject, proof)
+            checks.append(AnchorCheck(f"external proof ({name})", ok, detail))
     return checks
 
 

@@ -104,7 +104,21 @@ What it still does not do, stated rather than omitted:
 - **Path building.** One hop only: supply the issuing certificate directly.
 - **Choose a root for you.** The root is never read from the anchor. A root the author
   chose would defeat the point of an external attestation, and a test greps the source
-  to keep it that way.
+  to keep it that way. It is also scoped to the invocation that supplied it: it used to
+  be applied through a process-wide registry, where a root passed for one verification
+  stayed configured for every later call and could decide a verdict its own verifier
+  never chose.
+
+**Requiring it in a gate.** `require_external_anchor` passes only on a `verified` proof
+from an approved backend - meaning a signature checked against a root *you* passed with
+`gate --tsa-ca`. Four weaker states are kept distinct from it and none of them satisfy
+it: `imprint_only` (the imprint matches, the signature was never checked), `unsupported`
+(an unknown backend, a malformed entry, or `local`, which attests nothing), `missing`,
+and `failed`. Until v2.3 the clause was `bool(anchor["external_proofs"])`, so
+`[{"backend": "local"}]`, `[{}]` and the string `"no"` all satisfied a requirement for
+third-party attestation; a producer could meet it by editing their own anchor. A proof
+that **failed** fails the requirement even alongside a verified one, because a token
+that does not verify is evidence of tampering or of a proof lifted from another anchor.
 
 Without `--tsa-ca` nothing about the signature is established, and the signature check
 is reported as *not run* rather than as passed. `openssl ts -verify` remains a fine

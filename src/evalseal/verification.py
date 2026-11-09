@@ -251,4 +251,283 @@ def verify_receipt_signature(
     )
 
 
-__all__ = ["SignatureVerification", "verify_receipt_signature"]
+# --------------------------------------------------------------------------------------
+# External evidence
+# --------------------------------------------------------------------------------------
+#
+# `prereg.require_external_anchor` - the strongest clause a contract can declare - was
+# evaluated as `bool(anchor["external_proofs"])`. That made it the easiest clause to
+# satisfy in the whole contract. On the baseline it passed for:
+#
+#   [{"backend": "local", "proof": None}]   the backend whose own check() says
+#                                          "no external party attested this"
+#   [{}]                                   an empty object
+#   [{"backend": "notarius-maximus"}]      a backend that does not exist
+#   ["no"]                                 the string "no"
+#
+# Only a completely empty list failed. Any producer could satisfy the requirement by
+# writing one character into their own anchor.
+#
+# Reading the backend's `check()` instead would not have fixed it: that returns
+# `(True, ...)` for an imprint-only token too, because it answers "could this be
+# re-checked at all?". A token whose signature was never verified - because no trust
+# root was supplied - is "ok" to that boolean. So the five states below are kept
+# distinct, and only one of them satisfies a requirement.
+
+VERIFIED = "verified"
+IMPRINT_ONLY = "imprint_only"
+UNSUPPORTED = "unsupported"
+MISSING = "missing"
+FAILED = "failed"
+
+#: Backends that can produce externally verified evidence in this build. `local` is
+#: absent and cannot be added: it attests nothing by construction, and says so.
+DEFAULT_APPROVED_BACKENDS: tuple[str, ...] = ("rfc3161",)
+
+#: Never approvable, whatever a caller passes. The point of external evidence is that
+#: it rests on somebody other than the party being audited.
+_NEVER_EXTERNAL = frozenset({"local", "?"})
+
+
+@dataclass(frozen=True)
+class ExternalTrust:
+    """The verifier's trust configuration, supplied per invocation.
+
+    Held in a value object and passed down rather than registered globally. The CLI
+    used to do `register_backend(Rfc3161Backend(ca_pem=...))`, which mutates a
+    process-wide dict: one `verify --tsa-ca` call then silently configured the trust
+    root for every later call in that process, including later tests. A root that
+    arrives from somewhere other than this invocation is a root nobody chose here.
+    """
+
+    tsa_ca_pem: bytes | None = None
+    approved_backends: tuple[str, ...] = DEFAULT_APPROVED_BACKENDS
+
+    def approves(self, backend: str) -> bool:
+        return backend not in _NEVER_EXTERNAL and backend in self.approved_backends
+
+
+@dataclass(frozen=True)
+class ExternalProofResult:
+    """What one entry in `external_proofs` established."""
+
+    backend: str
+    state: str
+    detail: str
+    approved: bool = False
+
+    @property
+    def satisfies_requirement(self) -> bool:
+        return self.state == VERIFIED and self.approved
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "backend": self.backend,
+            "state": self.state,
+            "approved": self.approved,
+            "satisfies_requirement": self.satisfies_requirement,
+            "detail": self.detail,
+        }
+
+
+@dataclass(frozen=True)
+class ExternalEvidence:
+    """The external-evidence state of one anchor, per proof and in aggregate."""
+
+    state: str = MISSING
+    proofs: tuple[ExternalProofResult, ...] = ()
+    detail: str = "no external proof was supplied"
+    subject_digest: str | None = None
+
+    @property
+    def satisfies_requirement(self) -> bool:
+        """Whether `require_external_anchor` may pass on this.
+
+        One approved backend must have reached `verified`, and no proof may have
+        failed. A failed proof is not routed around: a token in the anchor that does
+        not verify is evidence of tampering or of a proof copied from elsewhere, and
+        passing on a second proof while ignoring the broken one would be the same
+        false green in a new place.
+        """
+        return (any(p.satisfies_requirement for p in self.proofs)
+                and not any(p.state == FAILED for p in self.proofs))
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "state": self.state,
+            "satisfies_requirement": self.satisfies_requirement,
+            "detail": self.detail,
+            "subject_digest": self.subject_digest,
+            "proofs": [p.to_dict() for p in self.proofs],
+        }
+
+
+def _resolve_backend(name: str, trust: ExternalTrust):
+    """A backend instance for this invocation, configured from `trust`.
+
+    rfc3161 is constructed fresh with the caller's root rather than looked up, so the
+    trust root used is the one supplied here and the global registry is left alone.
+    Any other backend comes from the registry as registered, and is read through the
+    boolean protocol, which caps it at `imprint_only`.
+    """
+    if name == "rfc3161":
+        from .rfc3161 import Rfc3161Backend
+
+        return Rfc3161Backend(ca_pem=trust.tsa_ca_pem)
+    from .anchor import AnchorError, get_backend
+
+    try:
+        return get_backend(name)
+    except AnchorError:
+        return None
+
+
+def _verify_one(proof: object, digest: str, trust: ExternalTrust) -> ExternalProofResult:
+    if not isinstance(proof, dict):
+        return ExternalProofResult(
+            "?", UNSUPPORTED,
+            f"this entry is not a proof object but {type(proof).__name__} "
+            f"({proof!r:.40}); nothing can be checked against it")
+    name = proof.get("backend") or "?"
+    if not isinstance(name, str):
+        return ExternalProofResult(
+            "?", UNSUPPORTED, f"this entry names no usable backend ({name!r})")
+
+    if name in _NEVER_EXTERNAL:
+        return ExternalProofResult(
+            name, UNSUPPORTED,
+            "the local backend attests nothing: this anchor was made by the same party "
+            "that produced the receipt, so it establishes no external evidence and "
+            "cannot satisfy a requirement for any"
+            if name == "local" else
+            "this entry names no backend, so nothing can re-check it")
+
+    backend = _resolve_backend(name, trust)
+    if backend is None:
+        return ExternalProofResult(
+            name, UNSUPPORTED,
+            f"no backend named {name!r} is available here, so this proof was not "
+            "checked. An unchecked proof is not evidence")
+
+    approved = trust.approves(name)
+    verify = getattr(backend, "verify", None)
+    try:
+        if callable(verify):
+            state, detail = verify(digest, proof)
+        else:
+            # The boolean protocol cannot say "verified", so it does not get to.
+            ok, detail = backend.check(digest, proof)
+            state = IMPRINT_ONLY if ok else FAILED
+            if ok:
+                detail += (f". {name} reports only pass/fail, so this is recorded as "
+                           "imprint-only: nothing here established a signature")
+    except Exception as e:                                   # a backend must not abort
+        return ExternalProofResult(
+            name, FAILED, f"{name} raised while checking this proof: {e!r}", approved)
+
+    if state == VERIFIED and not approved:
+        detail += (f". However, {name} is not approved as a source of external "
+                   f"evidence here (approved: {', '.join(trust.approved_backends) or 'none'})")
+    return ExternalProofResult(name, state, detail, approved)
+
+
+def verify_external_evidence(
+    anchor: dict,
+    *,
+    tsa_ca_pem: bytes | None = None,
+    approved_backends: list[str] | tuple[str, ...] | None = None,
+    trust: ExternalTrust | None = None,
+) -> ExternalEvidence:
+    """Verify every external proof an anchor carries, under explicit trust config.
+
+    The proofs are checked against the subject digest *recomputed from the anchor*,
+    never against the `subject_digest` field the anchor carries. Those differ exactly
+    when the anchor was edited after it was stamped, and checking the stored field
+    would confirm a proof over content that is no longer there.
+    """
+    if trust is None:
+        trust = ExternalTrust(
+            tsa_ca_pem=tsa_ca_pem,
+            approved_backends=(tuple(approved_backends)
+                               if approved_backends is not None
+                               else DEFAULT_APPROVED_BACKENDS))
+    elif tsa_ca_pem is not None or approved_backends is not None:
+        raise ValueError("pass either `trust` or the individual trust arguments")
+
+    from .anchor import subject_digest as recompute
+
+    try:
+        digest = recompute(anchor)
+    except (TypeError, ValueError) as e:
+        return ExternalEvidence(
+            FAILED, (),
+            f"the anchor could not be digested, so no proof could be checked: {e}")
+
+    stored = anchor.get("subject_digest")
+    proofs = anchor.get("external_proofs") or []
+    if not isinstance(proofs, list) or not proofs:
+        return ExternalEvidence(
+            MISSING, (), subject_digest=digest,
+            detail="the anchor carries no external proof, so nothing establishes when "
+                   "it was made. A local anchor is this machine's clock")
+
+    if isinstance(stored, str) and stored != digest:
+        # Every proof in the anchor was made over `stored`, and the anchor no longer
+        # hashes to it. Checking them against the recomputed digest would report an
+        # imprint mismatch per proof; saying it once, by name, is clearer.
+        return ExternalEvidence(
+            FAILED,
+            tuple(ExternalProofResult(
+                (p.get("backend") or "?") if isinstance(p, dict) else "?", FAILED,
+                "not checked: the anchor's subject digest no longer matches its content")
+                for p in proofs),
+            subject_digest=digest,
+            detail=f"the anchor's subject digest is {stored[:20]}... but its content "
+                   f"hashes to {digest[:20]}...: it was edited after being stamped, so "
+                   "its proofs are about content this anchor no longer holds")
+
+    results = tuple(_verify_one(p, digest, trust) for p in proofs)
+
+    if any(r.state == FAILED for r in results):
+        state = FAILED
+    elif any(r.state == VERIFIED for r in results):
+        state = VERIFIED
+    elif any(r.state == IMPRINT_ONLY for r in results):
+        state = IMPRINT_ONLY
+    else:
+        state = UNSUPPORTED
+
+    satisfying = [r.backend for r in results if r.satisfies_requirement]
+    if satisfying and state == VERIFIED:
+        detail = (f"externally verified by {', '.join(satisfying)}"
+                  + (f" ({len(results) - len(satisfying)} further proof(s) established "
+                     "less; see each)" if len(satisfying) != len(results) else ""))
+    else:
+        detail = _unsatisfied_detail(state, results, trust)
+    return ExternalEvidence(state, results, detail, digest)
+
+
+def _unsatisfied_detail(
+    state: str, results: tuple[ExternalProofResult, ...], trust: ExternalTrust,
+) -> str:
+    """One sentence saying which state was reached and why it is not enough."""
+    lead = {
+        FAILED: "external verification FAILED",
+        VERIFIED: "verified, but by no approved backend",
+        IMPRINT_ONLY: "imprint only: NOT verified",
+        UNSUPPORTED: "no proof here could be checked",
+    }.get(state, state)
+    if state == VERIFIED:
+        lead += (f" (approved: {', '.join(trust.approved_backends) or 'none'})")
+    return lead + " - " + "; ".join(f"{r.backend}: {r.detail}" for r in results)
+
+
+__all__ = [
+    "DEFAULT_APPROVED_BACKENDS",
+    "ExternalEvidence",
+    "ExternalProofResult",
+    "ExternalTrust",
+    "SignatureVerification",
+    "verify_external_evidence",
+    "verify_receipt_signature",
+]

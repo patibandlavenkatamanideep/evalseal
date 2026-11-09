@@ -574,7 +574,10 @@ def test_the_trust_root_is_never_read_from_the_proof():
 
     from evalseal import rfc3161
 
-    source = inspect.getsource(rfc3161.Rfc3161Backend.check)
+    # Both methods: `check` wraps `verify`, and the root is read in `verify`.
+    source = "".join(
+        inspect.getsource(m)
+        for m in (rfc3161.Rfc3161Backend.verify, rfc3161.Rfc3161Backend.check))
     assert 'proof.get("ca' not in source
     assert "proof['ca" not in source
     assert "self.ca_pem" in source

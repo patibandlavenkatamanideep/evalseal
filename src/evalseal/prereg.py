@@ -51,7 +51,7 @@ from .ledger import (
 from .models import RunRecord
 from .policy import Check, Policy
 from .provenance import file_hash, git_provenance
-from .verification import SignatureVerification
+from .verification import ExternalEvidence, SignatureVerification
 
 PREREG_VERSION: Literal[1] = 1
 
@@ -221,10 +221,17 @@ def _git_branch() -> str | None:
 
 @dataclass
 class AnchorState:
-    """What the caller found out about an anchor, so this module need not re-verify it."""
+    """What the caller found out about an anchor, so this module need not re-verify it.
+
+    `has_external_proof: bool` used to live here and was computed by the CLI as
+    `bool(anchor["external_proofs"])`. It is gone rather than deprecated: while the
+    field existed, the cheapest way to answer the strongest clause in a contract was
+    to read a boolean that any producer could set by writing `[{}]` into their own
+    anchor. External evidence now arrives as `ExternalEvidence`, which has to say
+    which of five states it reached.
+    """
     present: bool = False
     verified: bool = False
-    has_external_proof: bool = False
     detail: str = ""
 
 
@@ -234,6 +241,7 @@ def check_preregistration(
     *,
     anchor: AnchorState | None = None,
     signature: SignatureVerification | None = None,
+    external: ExternalEvidence | None = None,
 ) -> list[Check]:
     """Check one receipt against the contract, one named check per clause.
 
@@ -306,7 +314,7 @@ def check_preregistration(
             "EvalSeal recognises"))
 
     checks.extend(_signature_checks(prereg, signature))
-    checks.extend(_anchor_checks(prereg, anchor))
+    checks.extend(_anchor_checks(prereg, anchor, external))
     return checks
 
 
@@ -394,7 +402,11 @@ def _artifact_checks(prereg: Preregistration, record: RunRecord) -> list[Check]:
     return checks
 
 
-def _anchor_checks(prereg: Preregistration, anchor: AnchorState | None) -> list[Check]:
+def _anchor_checks(
+    prereg: Preregistration,
+    anchor: AnchorState | None,
+    external: ExternalEvidence | None,
+) -> list[Check]:
     if not (prereg.require_anchor or prereg.require_external_anchor):
         return []
     state = anchor or AnchorState()
@@ -403,11 +415,16 @@ def _anchor_checks(prereg: Preregistration, anchor: AnchorState | None) -> list[
         state.detail or ("anchor verified" if state.verified
                          else "no anchor was supplied to check (pass --anchor)"))]
     if prereg.require_external_anchor:
-        checks.append(Check(
-            "prereg.require_external_anchor", state.has_external_proof,
-            "the anchor carries an external proof" if state.has_external_proof
-            else "the anchor carries no external proof, so nothing establishes when it "
-                 "was made. A local anchor is this machine's clock"))
+        if external is None:
+            # Unevaluable, so it fails: the same rule as every other clause here.
+            checks.append(Check(
+                "prereg.require_external_anchor", False,
+                "not checked: no external evidence state was supplied, so nothing "
+                "established that a third party attested this anchor"))
+        else:
+            checks.append(Check(
+                "prereg.require_external_anchor", external.satisfies_requirement,
+                external.detail))
     return checks
 
 

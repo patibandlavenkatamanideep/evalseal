@@ -9,6 +9,64 @@ older version still verifies.
 
 ### Fixed
 
+- **`require_external_anchor` was satisfied by any non-empty list.** The strongest
+  clause a contract can declare was evaluated as `bool(anchor["external_proofs"])`,
+  which made it the easiest clause in the contract to satisfy. On the previous release
+  all of these passed it:
+
+  ```json
+  [{"backend": "local", "proof": null}]   // the backend that attests nothing
+  [{}]                                     // an empty object
+  [{"backend": "notarius-maximus"}]        // a backend that does not exist
+  ["no"]                                   // the string "no"
+  ```
+
+  Only a completely empty list failed, so any producer could satisfy a requirement for
+  third-party attestation by writing one character into an anchor they wrote themselves.
+
+  Reading the backend's `check()` instead would have produced a quieter false green:
+  it returns `True` for an imprint-only token, because it answers "could this be
+  re-checked at all?". A token whose signature was never verified - because the verifier
+  supplied no trust root - is "ok" to that boolean. `Rfc3161Backend.verify()` now
+  returns the state and `check()` wraps it, with its own boolean semantics unchanged.
+
+  External evidence is now an `ExternalEvidence` result with five states, of which one
+  satisfies the requirement:
+
+  | state | satisfies it |
+  |---|---|
+  | `verified` - an approved backend checked the proof against a root the **verifier** supplied | yes |
+  | `imprint_only` - the imprint matches; the signature was not checked | no |
+  | `unsupported` - an unknown backend, a malformed entry, or `local`, which attests nothing | no |
+  | `missing` - no external proof at all | no |
+  | `failed` - checked, and it did not hold | no |
+
+  A verified proof must also come from an approved backend: `rfc3161` by default,
+  replaceable with `gate --approved-backend NAME`. `local` is never accepted even when
+  named, because external evidence rests on someone other than the party being audited.
+  A proof that **failed** is not routed around - an anchor carrying one verified and one
+  failed proof fails the requirement, since a token that does not verify is evidence of
+  tampering or of a proof copied from another anchor. Proofs are checked against the
+  subject digest **recomputed** from the anchor, never the `subject_digest` field it
+  carries, which differ exactly when the anchor was edited after being stamped.
+
+  `gate` gains `--tsa-ca` so the requirement can actually be met, and
+  `--approved-backend`. A requirement the gate could not evaluate - `--require-external-anchor`
+  with no `--anchor` - reports `not checked` and fails.
+
+  `AnchorState.has_external_proof` is **removed** rather than deprecated: while the
+  field existed, the cheapest way to answer the clause was to read a boolean a producer
+  could set. Callers pass `check_preregistration(..., external=...)` instead.
+
+- **A trust root supplied for one verification stayed configured for the whole process.**
+  `verify --tsa-ca` applied the root with `register_backend()`, which mutates a
+  module-global registry. In a CLI that exits immediately this is invisible; in a test
+  suite, or any program verifying more than one anchor, a root supplied for one
+  verification silently decided the next one's result, and a proof could appear verified
+  against a root its verifier never chose. `anchor.temporary_backends()` scopes a
+  registration to a block and restores the registry, and the gate's own path constructs
+  a configured backend per call without touching the registry at all.
+
 - **`require_signature` was declared and never read.** A pre-registration could set it,
   `examples/prereg.json` shipped it, and `gate --prereg` passed an **unsigned** receipt
   silently - no signature clause appeared in the output at all. It was reachable only

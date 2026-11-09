@@ -9,6 +9,55 @@ older version still verifies.
 
 ### Fixed
 
+- **A field the sealing schema did not have could be injected and read as sealed
+  evidence.** A record sealed under an older schema is re-hashed with the fields that
+  schema lacked stripped out, which is what keeps an old ledger verifiable. The same
+  strip leaves those fields *unsealed*: they are absent from the bytes the hash commits
+  to, so any value may be written into them without disturbing it.
+
+  Writing `manifest.suite = {"hash": <forged>}` into a genuine 1.1 receipt left
+  `check_record_hash` returning `("legacy", "1.1")`, `verify` printing *"Chain
+  intact"*, and a pre-registration pinning that digest reporting **"suite digest
+  matches"** - on a digest that was never sealed.
+
+  Two related defects made it worse:
+
+  - `_schema_tuple` returned `(0,)` for any version it could not parse, so a record
+    claiming `schema_version: "nonsense"` was treated as predating every field and had
+    the **whole** strip table applied before hashing: `manifest.suite`,
+    `manifest.code`, `manifest.environment`, `manifest.artifacts`,
+    `results[].verdicts`, `results[].pass_count` and `results[].stability_label` all
+    injectable at once, with the chain still reported intact.
+  - Support for a claimed schema was checked only as a *fallback*, after the hashes
+    were compared, so a record claiming a version this build does not understand could
+    still come back verified. `9.9` was reported as `("ok", "1.5")` - asserting it was
+    sealed under today's schema.
+
+  Fixed by quarantine rather than rejection, so old receipts keep working:
+
+  - `ledger.quarantine_unsealed()` removes the fields the sealing schema did not cover
+    and names what it removed. A genuine old receipt is untouched, because those
+    fields are already at their defaults; a receipt with a value written into one comes
+    back without it. The record still verifies - quarantine is not an accusation.
+  - `verification.load_verified()` is the loading path for anything that decides
+    something: it verifies the chain, establishes each record's sealing schema,
+    quarantines unsealed fields before anything reads them, and reports per record.
+    `gate` now loads through it, and adds two named checks, `ledger.record_verified`
+    and `ledger.unsealed_fields`. The gate previously read `load_all` and verified the
+    chain *after* every check had already used the record.
+  - `schema_is_supported()` and `SUPPORTED_SCHEMAS` reject a version that is
+    unparseable or newer than this build, before any hash is compared. Unknown in
+    either direction is unsupported: a newer schema may have added fields this build
+    cannot see, or changed what an existing one means - 1.3 added no field and only
+    changed the meaning of `scorer.judge_prompt_hash`, so a format change need not be
+    visible in the data at all.
+  - `verify` now says when a record that verified carries unsealed fields. "Chain
+    intact" was true and not the whole truth.
+
+  Genuine 1.0 through 1.5 ledgers still verify, and a record whose schema label was
+  changed without rewriting its content is still reported as such rather than as
+  tampering.
+
 - **`require_external_anchor` was satisfied by any non-empty list.** The strongest
   clause a contract can declare was evaluated as `bool(anchor["external_proofs"])`,
   which made it the easiest clause in the contract to satisfy. On the previous release

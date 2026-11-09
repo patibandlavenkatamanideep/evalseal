@@ -54,11 +54,106 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
 }
 
 
-def _schema_tuple(version: str) -> tuple[int, ...]:
+#: Every schema version this build can re-hash, oldest first. The last entry is
+#: today's. A version outside this tuple is rejected rather than guessed at: see
+#: `schema_is_supported` for why guessing is unsafe in both directions.
+SUPPORTED_SCHEMAS: tuple[str, ...] = ("1.0", "1.1", "1.2", "1.3", "1.4", "1.5")
+
+
+def _schema_tuple(version: str) -> tuple[int, ...] | None:
+    """Parse a version, or None when it is not a version at all.
+
+    This returned `(0,)` for anything unparseable, which made an unparseable version
+    mean "older than every field". A record claiming `schema_version: "nonsense"` then
+    had the whole strip table applied before hashing - `manifest.suite`,
+    `manifest.code`, `manifest.environment`, `manifest.artifacts`, `results[].verdicts`
+    and the rest - so every one of those fields could be written to freely while the
+    hash still matched and the ledger reported an intact chain.
+    """
     try:
         return tuple(int(part) for part in version.split("."))
     except ValueError:
-        return (0,)
+        return None
+
+
+def schema_is_supported(version: str | None) -> bool:
+    """Whether this build can honestly verify a record sealed under `version`.
+
+    Unknown in either direction is unsupported. An unparseable version cannot be
+    placed against the strip table. A *newer* version cannot be either: this build
+    does not know which fields it added, nor whether it changed what an existing field
+    means - 1.3 added no field and only changed the meaning of
+    `scorer.judge_prompt_hash`, so a format change need not be visible in the data at
+    all. Verifying such a record would be vouching for a format we cannot read.
+    """
+    return version in SUPPORTED_SCHEMAS
+
+
+def unsealed_paths(sealed_under: str | None) -> tuple[tuple[str, ...], ...]:
+    """The field paths a record sealed under `sealed_under` did not cover.
+
+    These are the fields stripped before hashing, which is exactly what makes them
+    unsealed: they are absent from the bytes the hash commits to, so any value may be
+    written into them without disturbing it. Empty for an unsupported version, because
+    stripping a field is what makes it injectable.
+    """
+    if not schema_is_supported(sealed_under):
+        return ()
+    target = _schema_tuple(sealed_under or "")
+    if target is None:
+        return ()
+    out: list[tuple[str, ...]] = []
+    for version, fields in _FIELDS_ADDED_IN.items():
+        added_in = _schema_tuple(version)
+        if added_in is not None and added_in > target:
+            out.extend(fields)
+    return tuple(out)
+
+
+def _value_at(payload: dict, path: tuple[str, ...]) -> object:
+    """The value at a dotted path; `results[]` collects the value across every case."""
+    if path[0] == "results[]":
+        return [case.get(path[1]) for case in payload.get("results", [])]
+    node: object = payload
+    for key in path:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    return node
+
+
+def quarantine_unsealed(record: RunRecord) -> tuple[RunRecord, tuple[str, ...]]:
+    """Remove the fields the sealing schema did not cover. Returns (record, removed).
+
+    A legitimate old receipt is unchanged: the fields its schema lacked are already
+    at their defaults, so nothing is removed and `removed` is empty. A receipt with a
+    value written into one of them comes back with that value gone and the path named,
+    because the signature and the chain say nothing about it.
+
+    The record still verifies afterwards - quarantine is not an accusation. A real 1.1
+    receipt with `manifest.suite` filled in is still a real 1.1 receipt; what changes
+    is that the unsealed field cannot be read as evidence.
+    """
+    paths = unsealed_paths(record.manifest.schema_version)
+    if not paths:
+        return (record, ())
+    before = record.model_dump(mode="json")
+    payload = record.model_dump(mode="json")
+    for path in paths:
+        _drop(payload, path)
+    cleaned = RunRecord.model_validate(payload)
+    after = cleaned.model_dump(mode="json")
+    # Compared after a round trip rather than against None, because most of these
+    # fields default to something non-None (`code` and `environment` to populated
+    # models, `verdicts` to [], `pass_count` to 0), so "is it set?" cannot be asked
+    # directly. What matters is whether dropping it changed anything.
+    removed = tuple(
+        ".".join(path) for path in paths
+        if _value_at(before, path) != _value_at(after, path))
+    if not removed:
+        return (record, ())
+    cleaned.hash = record.hash
+    return (cleaned, removed)
 
 
 def _drop(payload: dict, path: tuple[str, ...]) -> None:
@@ -85,11 +180,8 @@ def _content_hash(record: RunRecord, as_schema: str | None = None) -> str:
     payload = record.model_dump(mode="json")
     payload.pop("hash", None)
     if as_schema is not None and as_schema != SCHEMA_VERSION:
-        target = _schema_tuple(as_schema)
-        for version, fields in _FIELDS_ADDED_IN.items():
-            if _schema_tuple(version) > target:
-                for path in fields:
-                    _drop(payload, path)
+        for path in unsealed_paths(as_schema):
+            _drop(payload, path)
         payload.setdefault("manifest", {})["schema_version"] = as_schema
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(blob.encode()).hexdigest()
@@ -146,14 +238,25 @@ def seal_and_append(
 def check_record_hash(record: RunRecord) -> tuple[str, str | None]:
     """Does a record's stored hash match its content? One definition for every caller.
 
-    Returns (status, schema): "ok" under today's schema; "legacy" when it matches only
-    under the older schema it was sealed with; "unknown_schema" when it was sealed under
-    a schema this build cannot re-hash; "tampered" otherwise. `verify` and `anchor` both
-    ask this question, and two answers to it would eventually disagree.
+    Returns (status, schema): "unsupported_schema" when the version it claims is not
+    one this build can verify; "ok" under today's schema; "legacy" when it matches only
+    under the older schema it was sealed with; "unknown_schema" when the hash matches
+    nothing and the version is one the strip table has no entry for, which is the
+    likeliest explanation; "tampered" otherwise. `verify` and `anchor` both ask this
+    question, and two answers to it would eventually disagree.
+
+    Support is checked **first**, before any hash is compared. It used to be a
+    fallback, reached only when no hash matched, which meant a record claiming a
+    version this build does not understand could still come back verified: `9.9` was
+    reported as `("ok", "1.5")`, asserting it was sealed under today's schema, and
+    `nonsense` as `("legacy", "nonsense")` with every field in the strip table left
+    unsealed.
     """
+    sealed_under = record.manifest.schema_version
+    if not schema_is_supported(sealed_under):
+        return ("unsupported_schema", sealed_under)
     if _content_hash(record) == record.hash:
         return ("ok", SCHEMA_VERSION)
-    sealed_under = record.manifest.schema_version
     if sealed_under != SCHEMA_VERSION and _content_hash(record, sealed_under) == record.hash:
         return ("legacy", sealed_under)
     if sealed_under not in _FIELDS_ADDED_IN and sealed_under != SCHEMA_VERSION:
@@ -188,6 +291,13 @@ def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
         status, sealed_under = check_record_hash(r)
         if status == "legacy" and sealed_under is not None:
             legacy.add(sealed_under)
+        elif status == "unsupported_schema":
+            return (False, (
+                f"Record {i} claims schema version {sealed_under!r}, which this build "
+                f"cannot verify. Supported: {', '.join(SUPPORTED_SCHEMAS)}. A version "
+                "this build does not know may have added fields it cannot see, or "
+                "changed what an existing one means, so nothing here can vouch for it."
+            ))
         elif status == "unknown_schema":
             return (False, (
                 f"Record {i} was sealed under schema {sealed_under}, which this build does "
@@ -328,7 +438,10 @@ def records_share_fingerprint_inputs(before: RunRecord, after: RunRecord) -> boo
     difference against a 1.4 record may be an artefact of the older schema rather than a
     real change, and a reader has to be told which.
     """
-    return all(_schema_tuple(r.manifest.schema_version) >= (1, 4) for r in (before, after))
+    # An unparseable version is not >= 1.4: it is not a version at all, so the
+    # comparison must not be attempted. Such a record is rejected before this runs.
+    parsed = [_schema_tuple(r.manifest.schema_version) for r in (before, after)]
+    return all(v is not None and v >= (1, 4) for v in parsed)
 
 
 def config_fingerprint(record: RunRecord) -> str:

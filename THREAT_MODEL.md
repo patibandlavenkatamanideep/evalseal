@@ -47,6 +47,26 @@ record.
 **Does not protect against:** someone rewriting the whole file. A complete rebuild
 produces a valid chain. That is what signing is for.
 
+**What the hash covers depends on the schema that sealed the record.** A record sealed
+under an older schema is re-hashed with the fields that schema did not have stripped
+out - that is what lets a 1.1-era ledger still verify today. Those fields are therefore
+*not* covered by the hash for that record: a value written into one leaves the chain
+intact. On the previous release, writing `manifest.suite = {"hash": X}` into a genuine
+1.1 receipt left `verify` printing *"Chain intact"* and a pre-registration pinning `X`
+reporting *"suite digest matches"*, for a digest nothing had sealed.
+
+Such fields are now **quarantined**: `load_verified()` removes them before anything
+reads them and names what it removed, `gate` fails `ledger.unsealed_fields`, and
+`verify` says so beside the intact chain. A genuine old receipt is unaffected, because
+the fields its schema lacked are already at their defaults - the only way a value gets
+there is for someone to write it.
+
+A claimed schema version that is unparseable, or newer than this build, is rejected
+before any hash is compared. Unknown in either direction is unsupported: a later format
+may have added fields this build cannot see, or changed what an existing one means.
+Schema 1.3 added no field at all and only changed the meaning of
+`scorer.judge_prompt_hash`, so a format change need not be visible in the data.
+
 ### Signing
 
 `evalseal sign` signs the ledger head with Ed25519. The head commits to every earlier

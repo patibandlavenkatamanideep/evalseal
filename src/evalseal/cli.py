@@ -52,7 +52,7 @@ from .ledger import (
     verify_chain,
 )
 from .models import FailOn, RunRecord, SuiteProvenance
-from .policy import PolicyError, evaluate, load_policy
+from .policy import Check, PolicyError, evaluate, load_policy
 from .power import (
     BERNOULLI,
     DETERMINISTIC,
@@ -93,6 +93,7 @@ from .verification import (
     DEFAULT_APPROVED_BACKENDS,
     ExternalEvidence,
     ExternalTrust,
+    load_verified,
     verify_external_evidence,
     verify_receipt_signature,
 )
@@ -605,6 +606,20 @@ def verify(
     console.print(f"[{'green' if ok else 'red'}]{msg}[/{'green' if ok else 'red'}]")
     if not ok:
         raise typer.Exit(code=1)
+    # An intact chain does not mean every field in the record is covered by it. A
+    # record sealed under an older schema is hashed with the fields that schema lacked
+    # stripped out, so a value written into one of them leaves the chain intact and
+    # this command saying so. Reporting "Chain intact" and nothing else is how that
+    # value gets read as sealed evidence further down.
+    unsealed = load_verified(ledger)
+    for result in unsealed.results:
+        if result.quarantined:
+            console.print(
+                f"[yellow]Unsealed field(s) in record {result.index}:[/yellow] "
+                f"{rich_escape(', '.join(result.quarantined))} - present in the file "
+                f"but not covered by the hash that just verified, because schema "
+                f"{result.sealed_under} did not seal them. Nothing here vouches for "
+                "their contents, and `gate` refuses them.")
     if public_key is not None or signed:
         sig_ok, sig_msg = verify_signatures(ledger, public_key)
         console.print(f"[{'green' if sig_ok else 'red'}]{sig_msg}[/{'green' if sig_ok else 'red'}]")
@@ -955,11 +970,42 @@ def gate(
     `--prereg` adds a different kind of check. A policy asks "is this number good
     enough"; a pre-registration asks "is this the evaluation you said you would run".
     """
-    recs = load_all(ledger)
+    # Loaded through verification rather than `load_all`, so a field the selected
+    # record's schema did not seal is removed before any check reads it. A receipt
+    # sealed under 1.1 is re-hashed with the post-1.1 fields stripped, which is what
+    # keeps it verifiable - and also leaves those fields free to write to without
+    # disturbing the hash. A `manifest.suite.hash` written into one used to satisfy a
+    # pre-registration that pinned that digest.
+    verified = load_verified(ledger)
+    if not verified.records:
+        raise typer.BadParameter(verified.detail)
+    recs = verified.records
     if not -len(recs) <= index < len(recs):
         raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
     record = recs[index]
+    selected = verified.results[index % len(recs)]
     failures: list[str] = []
+
+    integrity_checks = [Check(
+        "ledger.record_verified", selected.verified, selected.detail)]
+    if not selected.verified:
+        failures.append(f"ledger.record_verified: {selected.detail}")
+    if selected.quarantined:
+        # Only reachable by writing a value into space the hash does not cover: a
+        # genuine old receipt leaves those fields at their defaults.
+        integrity_checks.append(Check(
+            "ledger.unsealed_fields", False,
+            f"record {index} carries {len(selected.quarantined)} field(s) its schema "
+            f"({selected.sealed_under}) did not seal: "
+            f"{', '.join(selected.quarantined)}. They were removed before any check "
+            "read them, and nothing here vouches for them"))
+        failures.append(
+            f"ledger.unsealed_fields: unsealed value(s) in "
+            f"{', '.join(selected.quarantined)}")
+    else:
+        integrity_checks.append(Check(
+            "ledger.unsealed_fields", True,
+            f"every field present was sealed under schema {selected.sealed_under}"))
 
     if policy is None and suite is not None:
         # A `policy` section that nothing reads would be a threshold silently doing
@@ -971,7 +1017,7 @@ def gate(
         if not policy.exists():
             raise typer.BadParameter(f"{suite} names a policy that is not there: {policy}")
 
-    policy_checks = []
+    policy_checks = [*integrity_checks]
     if policy is not None:
         try:
             loaded = load_policy(policy)

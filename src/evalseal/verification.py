@@ -37,6 +37,10 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import RunRecord
 
 from .signing import (
     ALGORITHM,
@@ -522,12 +526,145 @@ def _unsatisfied_detail(
     return lead + " - " + "; ".join(f"{r.backend}: {r.detail}" for r in results)
 
 
+# --------------------------------------------------------------------------------------
+# Verified loading
+# --------------------------------------------------------------------------------------
+#
+# `load_all` returns records. It does not verify them, and nothing forced a caller to.
+# A record sealed under an older schema is re-hashed with the fields that schema did
+# not have stripped out, which is what keeps an old ledger verifiable - and is also
+# what leaves those fields unsealed. Writing a value into one of them does not disturb
+# the hash, so on the baseline a genuine 1.1 receipt could be given a
+# `manifest.suite.hash` and a pre-registration pinning that digest reported "suite
+# digest matches" while the ledger reported an intact chain.
+#
+# So loading for the purpose of deciding anything goes through here: the chain is
+# verified, each record's sealing schema is established, unsealed fields are
+# quarantined before anything can read them, and what was removed is named.
+
+
+@dataclass(frozen=True)
+class RecordVerification:
+    """What one record in a ledger turned out to be."""
+
+    index: int
+    status: str
+    sealed_under: str | None = None
+    quarantined: tuple[str, ...] = ()
+    detail: str = ""
+
+    @property
+    def verified(self) -> bool:
+        """Whether the content matches the hash, under today's schema or its own."""
+        return self.status in ("ok", "legacy")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "index": self.index,
+            "status": self.status,
+            "sealed_under": self.sealed_under,
+            "quarantined": list(self.quarantined),
+            "verified": self.verified,
+            "detail": self.detail,
+        }
+
+
+@dataclass(frozen=True)
+class VerifiedLedger:
+    """Records that verified, with unsealed fields already removed."""
+
+    records: tuple[RunRecord, ...] = ()
+    results: tuple[RecordVerification, ...] = ()
+    chain_ok: bool = False
+    detail: str = "the ledger was not read"
+
+    @property
+    def ok(self) -> bool:
+        return (self.chain_ok and bool(self.results)
+                and all(r.verified for r in self.results))
+
+    @property
+    def quarantined(self) -> tuple[str, ...]:
+        """Every unsealed field removed anywhere in the ledger, deduplicated."""
+        seen: dict[str, None] = {}
+        for result in self.results:
+            for path in result.quarantined:
+                seen[path] = None
+        return tuple(seen)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "ok": self.ok,
+            "chain_ok": self.chain_ok,
+            "detail": self.detail,
+            "quarantined": list(self.quarantined),
+            "results": [r.to_dict() for r in self.results],
+        }
+
+
+def load_verified(ledger: Path | str) -> VerifiedLedger:
+    """Load a ledger, verify it, and quarantine every field it did not seal.
+
+    Nothing is raised for a ledger that fails: a gate has to report that as a failed
+    check, not abort. The returned records are safe to read in the sense that every
+    field still present was covered by the hash that was verified.
+    """
+    from .ledger import check_record_hash, load_all, quarantine_unsealed, verify_chain
+
+    path = Path(ledger)
+    try:
+        records = load_all(path)
+    except (OSError, ValueError) as e:
+        return VerifiedLedger(detail=f"{path} could not be read: {e}")
+    if not records:
+        return VerifiedLedger(detail=f"{path} holds no records")
+
+    chain_ok, chain_detail = verify_chain(path)
+    cleaned: list[RunRecord] = []
+    results: list[RecordVerification] = []
+    for index, record in enumerate(records):
+        status, sealed_under = check_record_hash(record)
+        safe, removed = quarantine_unsealed(record)
+        cleaned.append(safe)
+        detail = {
+            "ok": f"verified under schema {sealed_under}",
+            "legacy": f"verified under the schema that sealed it ({sealed_under})",
+            "tampered": "content does not match its stored hash",
+            "unknown_schema": f"sealed under schema {sealed_under}, which this build "
+                              "cannot re-hash",
+            "unsupported_schema": f"claims schema version {sealed_under!r}, which this "
+                                  "build cannot verify",
+        }.get(status, status)
+        if removed:
+            detail += (
+                f". {len(removed)} field(s) carried a value its schema did not seal and "
+                f"were removed before anything read them: {', '.join(removed)}")
+        results.append(RecordVerification(
+            index=index, status=status, sealed_under=sealed_under,
+            quarantined=removed, detail=detail))
+
+    result = VerifiedLedger(tuple(cleaned), tuple(results), chain_ok, chain_detail)
+    failed = [r for r in results if not r.verified]
+    if failed:
+        detail = (f"{len(failed)} of {len(results)} record(s) did not verify: "
+                  + "; ".join(f"record {r.index}: {r.detail}" for r in failed))
+    elif result.quarantined:
+        detail = (f"{chain_detail} Unsealed field(s) removed before reading: "
+                  f"{', '.join(result.quarantined)}")
+    else:
+        detail = chain_detail
+    return VerifiedLedger(tuple(cleaned), tuple(results), chain_ok, detail)
+
+
 __all__ = [
     "DEFAULT_APPROVED_BACKENDS",
     "ExternalEvidence",
     "ExternalProofResult",
     "ExternalTrust",
+    "RecordVerification",
     "SignatureVerification",
+    "VerifiedLedger",
+    "load_verified",
     "verify_external_evidence",
     "verify_receipt_signature",
 ]

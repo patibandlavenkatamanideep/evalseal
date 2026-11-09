@@ -106,12 +106,18 @@ def run_workflow(ws: Path, **env_overrides: str) -> dict:
 def _baseline(ws: Path, suite: str) -> None:
     """A receipt from a different run, placed where the workflow looks for a baseline."""
     ledger = ws / ".evalseal" / "baseline.jsonl"
-    subprocess.run(
+    proc = subprocess.run(
         ["evalseal", "run", "--suite", suite, "--ledger", str(ledger),
          "--fail-on", "none", "--quiet"],
-        cwd=ws, check=True, capture_output=True,
+        cwd=ws, check=False, capture_output=True, text=True,
         env=_env_with_evalseal(),
     )
+    # Not check=True: that raises CalledProcessError, whose repr says only "returned
+    # non-zero exit status 1" and throws away everything the command printed. This
+    # failed once during a full run and left nothing to diagnose it with.
+    assert proc.returncode == 0, (
+        f"building the baseline with `evalseal run` failed ({proc.returncode}):\n"
+        f"--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}")
     (ws / "evals").mkdir(exist_ok=True)
     shutil.move(ws / "report.json", ws / "evals" / "baseline-receipt.json")
 

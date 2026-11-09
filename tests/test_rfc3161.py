@@ -62,6 +62,31 @@ def _response(digest: str, status: int = 0, **kwargs) -> bytes:
     return _token(digest, status=status, **kwargs)
 
 
+def _echoing_post(digest: str | None = None, **token_kwargs):
+    """A fake authority that echoes the request's nonce, as RFC 3161 requires.
+
+    The fakes used to return a token with no nonce at all, so `submit` had nothing to
+    compare and would have accepted a replayed token for the same digest. Echoing also
+    means the request encoder is exercised end to end: the nonce is read back out of
+    the DER that was actually sent.
+    """
+    import httpx as _httpx
+    from tsa_fixture import nonce_of_request
+
+    captured: dict = {}
+
+    def post(url, **kwargs):
+        captured["url"] = url
+        captured["body"] = kwargs["content"]
+        nonce = nonce_of_request(kwargs["content"])
+        captured["nonce"] = nonce
+        content = _response(digest or DIGEST, nonce=nonce, **token_kwargs)
+        return _httpx.Response(200, content=content,
+                               request=_httpx.Request("POST", url))
+
+    return post, captured
+
+
 # --- the request ---------------------------------------------------------------------
 
 def test_a_request_is_der_and_carries_the_digest():
@@ -142,16 +167,11 @@ def test_submit_refuses_without_an_authority():
 
 
 def test_submit_stores_the_token_and_the_asserted_time(monkeypatch):
-    posted = {}
-
-    def fake_post(url, **kwargs):
-        posted["url"] = url
-        posted["body"] = kwargs["content"]
-        return httpx.Response(200, content=_response(DIGEST),
-                              request=httpx.Request("POST", url))
-
+    fake_post, posted = _echoing_post()
     monkeypatch.setattr(httpx, "post", fake_post)
     proof = Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
+    assert posted["nonce"] is not None and posted["nonce"] > 0, (
+        "the request must carry a positive nonce for the echo to be checkable")
 
     assert posted["url"] == "https://tsa.example/tsr"
     assert bytes.fromhex(DIGEST.split(":", 1)[1]) in posted["body"]   # digest only
@@ -163,13 +183,7 @@ def test_submit_stores_the_token_and_the_asserted_time(monkeypatch):
 
 def test_submit_sends_only_the_digest(monkeypatch):
     """The authority must never see the receipt or anything it hashes."""
-    captured = {}
-
-    def fake_post(url, **kwargs):
-        captured["body"] = kwargs["content"]
-        return httpx.Response(200, content=_response(DIGEST),
-                              request=httpx.Request("POST", url))
-
+    fake_post, captured = _echoing_post()
     monkeypatch.setattr(httpx, "post", fake_post)
     Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
     assert len(captured["body"]) < 128        # a request is tens of bytes, not a receipt
@@ -295,11 +309,16 @@ def test_an_anchor_carries_the_proof_and_verifies_offline(tmp_path, monkeypatch)
     # The authority answers about whatever digest it is asked for, read out of the
     # request the way a real TSA would rather than by guessing at byte offsets.
     def fake_post(url, **kwargs):
+        from tsa_fixture import nonce_of_request
+
         body = kwargs["content"]
         imprint = next(body[b:e] for tag, b, e in _walk(body)
                        if tag == 0x04 and e - b == 32)
-        return httpx.Response(200, content=_response("sha256:" + imprint.hex()),
-                              request=httpx.Request("POST", url))
+        return httpx.Response(
+            200,
+            content=_response("sha256:" + imprint.hex(),
+                              nonce=nonce_of_request(body)),
+            request=httpx.Request("POST", url))
 
     monkeypatch.setattr(httpx, "post", fake_post)
     from evalseal.anchor import register_backend

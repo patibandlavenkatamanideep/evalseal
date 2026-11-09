@@ -9,6 +9,73 @@ older version still verifies.
 
 ### Fixed
 
+- **About half of all timestamp requests encoded a negative nonce.** DER integers are
+  signed, so a value whose top byte has the high bit set needs a leading zero byte.
+  `_integer()` reserved that byte and the next line stripped it off, so `128` encoded
+  as `-128`, `255` as `-1`, and **492 of 1000** random 64-bit nonces as a different,
+  negative number. `build_timestamp_request` draws a random 64-bit nonce, so roughly
+  half of every request EvalSeal ever sent was malformed: a strict authority rejects
+  it, and a lenient one echoes whatever it parsed. Certificate serial numbers are large
+  random integers and hit the same path.
+
+- **The message imprint's algorithm was never read.** Any 32-byte `hashedMessage` was
+  accepted and labelled `sha256:`, whatever the `AlgorithmIdentifier` said. A token
+  declaring SHA-512 beside a 32-byte imprint was accepted and compared against the
+  anchor's SHA-256 digest as though the authority had timestamped it; a genuine SHA-384
+  or SHA-512 token, whose imprint is 48 or 64 bytes, was rejected as "not a readable
+  TSTInfo". The OID now decides the algorithm, the length must be the one that
+  algorithm produces, and an unrecognised OID fails closed naming it.
+
+- **The signer certificate was whichever came first.** `certificates[0]` was assumed to
+  be the signer. The certificate set is a DER `SET OF`, whose order is its sorted
+  encoding rather than signer-first - and the recorded real token embeds **two**
+  certificates, so this was live against the one real authority in the repository. The
+  certificate is now selected by matching the `SignerIdentifier`, by issuer and serial
+  or by subject key identifier.
+
+- **`SignerInfo` was parsed by counting SEQUENCEs.** That works only for the
+  `IssuerAndSerialNumber` form of `sid`. In the equally legal `[0] SubjectKeyIdentifier`
+  form every index shifts and the *signature* algorithm was read as the digest
+  algorithm. It is now parsed positionally per RFC 5652 section 5.3.
+
+- **The `contentType` signed attribute was defined and never compared.** The constant
+  existed in the module and nothing read it, so the signature did not commit to what
+  kind of content it covered; only the unsigned `eContentType` field was checked.
+
+- **No RFC 5035 signing-certificate binding.** `SignerIdentifier` is outside
+  `signedAttrs` and so is not covered by the signature, which means that without this
+  attribute nothing signed says which certificate signed the token. It is now required
+  and its hash must match the certificate the signature was checked against. This gap
+  was found by the new `openssl ts -verify` cross-check, not by any test written here -
+  and the recorded freetsa token already carries the attribute, so requiring it is what
+  a real authority does.
+
+- **Signed attributes had no cardinality.** `attribute()` returned the first match and
+  skipped an attribute carrying several values, so two verifiers could read the same
+  token differently. Exactly one `contentType` and one `messageDigest`, each with one
+  value, or the token fails.
+
+- **Trailing material after the token was ignored**, letting one reader see a token and
+  another see a token plus something else from the same bytes.
+
+- **The request nonce was generated and discarded**, so a response could not be
+  distinguished from a replay of an earlier token for the same digest. `submit` now
+  keeps the nonce and requires it to be echoed, as RFC 3161 section 2.4.2 says it must
+  be. Freshness is claimed only for a submission, never for a token read back from a
+  file, and a test pins that no verification wording implies otherwise.
+
+  [ADR 0001](docs/adr/0001-timestamp-verification-trust-model.md) records the trust
+  model these rest on: one-hop issuer verification rather than path building, no
+  revocation claim because none is checked, verifier-supplied roots only, the supported
+  algorithms, and the parser profile. It also records an open decision - whether to
+  replace the hand-written CMS parser with `asn1crypto` - which needs a maintainer call
+  because it adds a required runtime dependency.
+
+  The demo bundle's synthetic proof and its throwaway CA were regenerated offline,
+  since the old token predates the signing-certificate requirement. Nothing outside
+  `external_proofs` changed, and the anchor's subject digest excludes that field, so
+  the rest of the bundle verifies unchanged.
+
 - **A number that could not be a measurement was read as one.** The receipt models
   carried no constraints - no bounds, no finiteness, and no check that a summary agreed
   with the cases it summarises - so invalid data did not fail a gate, it *passed* one:

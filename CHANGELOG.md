@@ -9,6 +9,31 @@ older version still verifies.
 
 ### Fixed
 
+- **A setting a config asked for could be silently dropped.** `_build_target` read the
+  keys it knew about with `cfg.get(...)` and ignored everything else:
+
+  - `top_p` and `max_tokens` were **never transmitted** for an OpenAI-compatible
+    target. The adapter had no fields for them. A config asking for `top_p: 0.1` ran
+    unconstrained, and the receipt recorded `top_p: null` - which reads as an effective
+    value rather than as "we never set one".
+  - a misspelled key was indistinguishable from a decision. `tempreature: 0.9` beside
+    `temperature: 0.0` was accepted, ignored, and the run used the value that happened
+    to be spelled correctly, with nothing in the output mentioning the other key.
+  - `params_source` was derived from `temperature` alone, so a run that set only
+    `top_p` was reported as inheriting every provider default.
+
+  New `evalseal.config` validates the target and scorer files against models that
+  forbid unknown keys, and the error names the nearest legal key: an unsupported key
+  now reports *"did you mean 'temperature'?"* and lists what is supported. Every field
+  in those schemas is one the adapters actually transmit, and ranges are the provider's
+  own - Anthropic's `temperature` stops at 1.0 where OpenAI's reaches 2.0, and
+  `system` and `seed` belong to the provider that has them rather than to both.
+
+  The judge's `judge_`-prefixed keys are translated into target vocabulary and
+  validated by the same schema, so a judge can no longer accept a key a target would
+  reject. Tests assert that every target and scorer config in this repository still
+  loads, because a schema that rejects the project's own examples is the wrong schema.
+
 - **About half of all timestamp requests encoded a negative nonce.** DER integers are
   signed, so a value whose top byte has the high bit set needs a leading zero byte.
   `_integer()` reserved that byte and the next line stripped it off, so `128` encoded

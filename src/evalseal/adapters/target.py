@@ -126,6 +126,8 @@ class OpenAICompatibleTarget:
     cassette: Cassette
     base_url: str = "https://api.openai.com/v1"
     temperature: float | None = None      # None means "we did not set it"
+    top_p: float | None = None
+    max_tokens: int | None = None
     seed: int | None = None
     api_key_env: str = "EVALSEAL_API_KEY"
     max_retries: int = 5                     # transient failures only; 0 disables
@@ -133,9 +135,14 @@ class OpenAICompatibleTarget:
     sleep: Callable[[float], None] = field(default=time.sleep, repr=False)
 
     def generate(self, prompt: str) -> TargetResponse:
-        # Record whether we explicitly set temperature or are inheriting the default.
+        # Derived from every sampling parameter this adapter can set, not from
+        # `temperature` alone: a run that set only `top_p` was reported as inheriting
+        # every default.
         params_source: ParamsSource = (
-            "explicit" if self.temperature is not None else "provider_default"
+            "explicit"
+            if any(v is not None for v in
+                   (self.temperature, self.top_p, self.max_tokens, self.seed))
+            else "provider_default"
         )
         body: dict[str, Any] = {
             "model": self.model,
@@ -145,6 +152,13 @@ class OpenAICompatibleTarget:
             body["temperature"] = self.temperature
         if self.seed is not None:
             body["seed"] = self.seed
+        # Transmitted, not dropped. This adapter had no fields for these two, so a
+        # config asking for `top_p: 0.1` ran unconstrained and the receipt recorded
+        # `top_p: null` as though that were the effective value.
+        if self.top_p is not None:
+            body["top_p"] = self.top_p
+        if self.max_tokens is not None:
+            body["max_tokens"] = self.max_tokens
 
         # Cassette key is the full effective body (never the API key).
         raw = self.cassette.call({"url": self.base_url, "body": body}, lambda: self._post(body))
@@ -159,8 +173,8 @@ class OpenAICompatibleTarget:
             effective_params={
                 "temperature": self.temperature,
                 "seed": self.seed,
-                "top_p": None,
-                "max_tokens": None,     # this adapter never sets one
+                "top_p": self.top_p,
+                "max_tokens": self.max_tokens,
             },
             params_source=params_source,
             truncated=raw["choices"][0].get("finish_reason") == "length",
@@ -211,8 +225,12 @@ class AnthropicTarget:
         return "anthropic"
 
     def generate(self, prompt: str) -> TargetResponse:
+        # `max_tokens` is always sent here because the API requires it, so it says
+        # nothing about whether the caller chose the sampling parameters.
         params_source: ParamsSource = (
-            "explicit" if self.temperature is not None else "provider_default"
+            "explicit"
+            if any(v is not None for v in (self.temperature, self.top_p))
+            else "provider_default"
         )
         body: dict[str, Any] = {
             "model": self.model,

@@ -34,6 +34,13 @@ from .anchor import (
     verify_anchor,
     write_anchor,
 )
+from .config import (
+    AnthropicTargetConfig,
+    ConfigError,
+    judge_config,
+    load_scorer_config,
+    load_target_config,
+)
 from .decompose import decompose as run_decompose
 from .decompose import render as render_decomposition
 from .diffing import ReceiptError, diff_records, load_receipt, mean_flip_rate
@@ -363,55 +370,80 @@ def _build_target(
     cfg: dict, cassette: Cassette, max_retries: int, timeout: float,
     prefix: str = "",
 ) -> AnthropicTarget | OpenAICompatibleTarget:
-    """Build a target from config. `provider` picks the wire format, defaulting to the
-    OpenAI-compatible one so every existing config and suite file keeps working.
+    """Build a target from config, rejecting anything this build would not transmit.
+
+    The config is validated by `config.py` first. It used to be read key by key with
+    `cfg.get(...)`, which meant `top_p` and `max_tokens` were silently dropped for an
+    OpenAI-compatible target, and a misspelled key was indistinguishable from a
+    decision not to set it.
 
     `prefix` lets the judge reuse this with its own `judge_*` keys, so a judge is
     configured exactly like a target rather than through a second, smaller vocabulary.
     """
-    provider = cfg.get(f"{prefix}provider", cfg.get("provider", "openai"))
-    model = cfg[f"{prefix}model"]
+    if prefix:
+        # The judge's keys are translated into target vocabulary, so one schema
+        # governs both and the judge cannot accept a key a target would reject.
+        try:
+            scorer = load_scorer_config(cfg, what="the scorer config")
+        except ConfigError as e:
+            raise typer.BadParameter(str(e)) from None
+        cfg = judge_config(scorer)
 
-    if provider == "anthropic":
+    try:
+        validated = load_target_config(
+            cfg, what="the judge config" if prefix else "the target config")
+    except ConfigError as e:
+        raise typer.BadParameter(str(e)) from None
+
+    if isinstance(validated, AnthropicTargetConfig):
         return AnthropicTarget(
-            model=model,
+            model=validated.model,
             cassette=cassette,
-            base_url=cfg.get("base_url", "https://api.anthropic.com/v1"),
-            max_tokens=cfg.get(f"{prefix}max_tokens", cfg.get("max_tokens", 1024)),
-            temperature=cfg.get(f"{prefix}temperature"),
-            top_p=cfg.get(f"{prefix}top_p"),
-            system=cfg.get("system"),
-            api_key_env=cfg.get("api_key_env", "ANTHROPIC_API_KEY"),
+            base_url=validated.base_url,
+            max_tokens=validated.max_tokens,
+            temperature=validated.temperature,
+            top_p=validated.top_p,
+            system=validated.system,
+            api_key_env=validated.api_key_env,
             max_retries=max_retries,
             timeout=timeout,
         )
-    if provider != "openai":
-        raise typer.BadParameter(
-            f"unknown provider {provider!r}; expected 'openai' or 'anthropic'"
-        )
     return OpenAICompatibleTarget(
-        model=model,
+        model=validated.model,
         cassette=cassette,
-        base_url=cfg.get("base_url", "https://api.openai.com/v1"),
-        temperature=cfg.get(f"{prefix}temperature"),  # omit to surface the "unset" warning
-        seed=cfg.get(f"{prefix}seed"),
-        api_key_env=cfg.get("api_key_env", "EVALSEAL_API_KEY"),
+        base_url=validated.base_url,
+        temperature=validated.temperature,  # omit to surface the "unset" warning
+        top_p=validated.top_p,
+        max_tokens=validated.max_tokens,
+        seed=validated.seed,
+        api_key_env=validated.api_key_env,
         max_retries=max_retries,
         timeout=timeout,
     )
 
 
 def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: float):
-    if cfg["type"] == "exact":
+    """Build a scorer from config, rejecting keys this build does not read."""
+    try:
+        validated = load_scorer_config(cfg)
+    except ConfigError as e:
+        raise typer.BadParameter(str(e)) from None
+
+    if validated.type == "exact":
         return ExactMatchScorer()
-    if cfg["type"] == "regex":
-        return RegexScorer(pattern=cfg["pattern"])
-    if cfg["type"] == "answer_match":
-        return AnswerMatchScorer(tolerance=cfg.get("tolerance", 1e-6))
-    if cfg["type"] == "llm_judge":
+    if validated.type == "regex":
+        if validated.pattern is None:
+            raise typer.BadParameter("a regex scorer needs a `pattern`")
+        return RegexScorer(pattern=validated.pattern)
+    if validated.type == "answer_match":
+        return AnswerMatchScorer(
+            tolerance=1e-6 if validated.tolerance is None else validated.tolerance)
+    if validated.type == "llm_judge":
+        if validated.rubric is None:
+            raise typer.BadParameter("an llm_judge scorer needs a `rubric`")
         judge = _build_target(cfg, cassette, max_retries, timeout, prefix="judge_")
-        return LLMJudgeScorer(judge=judge, rubric=cfg["rubric"])
-    raise typer.BadParameter(f"unknown scorer type {cfg['type']!r}")
+        return LLMJudgeScorer(judge=judge, rubric=validated.rubric)
+    raise typer.BadParameter(f"unknown scorer type {validated.type!r}")
 
 
 @app.command()

@@ -38,6 +38,15 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
         ("manifest", "suite", "evaluator_hash"),
         ("manifest", "suite", "target_hash"),
     ],
+    "1.6": [
+        ("manifest", "scorer", "impl_hash"),
+        ("manifest", "target", "api_version"),
+        ("manifest", "target", "system_prompt_hash"),
+        ("manifest", "target", "effective_params", "unset"),
+        ("manifest", "scorer", "judge", "api_version"),
+        ("manifest", "scorer", "judge", "system_prompt_hash"),
+        ("manifest", "scorer", "judge", "effective_params", "unset"),
+    ],
     "1.2": [
         ("manifest", "suite"),
         ("manifest", "code"),
@@ -59,7 +68,8 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
 #: Every schema version this build can re-hash, oldest first. The last entry is
 #: today's. A version outside this tuple is rejected rather than guessed at: see
 #: `schema_is_supported` for why guessing is unsafe in both directions.
-SUPPORTED_SCHEMAS: tuple[str, ...] = ("1.0", "1.1", "1.2", "1.3", "1.4", "1.5")
+SUPPORTED_SCHEMAS: tuple[str, ...] = (
+    "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6")
 
 
 def _schema_tuple(version: str) -> tuple[int, ...] | None:
@@ -347,7 +357,7 @@ def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
     return (True, f"Chain intact: {len(recs)} record(s).")
 
 
-FINGERPRINT_SCHEME = 2
+FINGERPRINT_SCHEME = 3
 FINGERPRINT_PREFIX = f"evalseal-fp/{FINGERPRINT_SCHEME}"
 
 
@@ -372,25 +382,40 @@ def _judge_identity(m: ProvenanceManifest) -> dict:
     """Everything about the judge that can change a verdict."""
     judge = m.scorer.judge
     if judge is None:
-        return {"provider": None, "endpoint": None, "model": None, "params": None}
+        return {"provider": None, "endpoint": None, "model": None, "params": None,
+                "api_version": None, "system_prompt_hash": None}
     return {
         "provider": judge.provider,
         # The endpoint, not only the model name: the same model reached through a proxy
         # or a different deployment is not self-evidently the same grader.
         "endpoint": judge.base_url,
         "model": judge.requested_model,
+        # Includes `effective_params.unset` from schema 1.6, so a judge that inherited
+        # a provider default is not confused with one whose API has no such parameter.
         "params": judge.effective_params.model_dump(mode="json"),
+        # The version decides how the request is read; the system prompt steers the
+        # verdict. Scheme 2 sealed neither, so "be lenient" and "be harsh" fingerprinted
+        # identically.
+        "api_version": judge.api_version,
+        "system_prompt_hash": judge.system_prompt_hash,
     }
 
 
 def evaluator_fingerprint(record: RunRecord) -> str:
     """Hash of the measuring instrument: everything that decides how a response scores.
 
-    Scheme 2 covers the scorer type and its own settings, the judge's provider,
-    endpoint, model and sampling parameters including `max_tokens`, the rubric and
-    prompt template hashes, and the identity of the inputs - the dataset and the exact
-    set of case ids. Scheme 1 missed the endpoint, `max_tokens` and the scorer's
+    Scheme 3 covers the scorer type, its own settings and *the code that grades*, the
+    judge's provider, endpoint, model, API version, system prompt and sampling
+    parameters including `max_tokens` and which of them were merely inherited, the
+    rubric and prompt template hashes, and the identity of the inputs - the dataset and
+    the exact set of case ids.
+
+    Each earlier scheme was superseded because something that moved a score did not
+    move the fingerprint. Scheme 1 missed the endpoint, `max_tokens` and the scorer's
     settings, so two runs graded by different regexes fingerprinted identically.
+    Scheme 2 missed the grading algorithm, the judge's system prompt and its API
+    version: a fork that changed answer extraction took a benchmark from 1.0 to 0.0
+    while `--expect-evaluator` kept passing.
 
     Deliberately excluded: the target model and its parameters, and the suite file's
     hash. Swapping the model under test is the reason to run a benchmark, and a suite
@@ -406,6 +431,7 @@ def evaluator_fingerprint(record: RunRecord) -> str:
         "scheme": FINGERPRINT_SCHEME,
         "scorer_type": m.scorer.type,
         "scorer_config_hash": m.scorer.config_hash,
+        "scorer_impl_hash": m.scorer.impl_hash,
         "judge": _judge_identity(m),
         "rubric_hash": m.scorer.rubric_hash,
         "judge_prompt_hash": m.scorer.judge_prompt_hash,
@@ -445,7 +471,10 @@ def explain_fingerprint_mismatch(kind: str, pinned: str, actual: str) -> str:
         return (
             f"The pinned {kind} fingerprint was made under {named}; this build computes "
             f"scheme {FINGERPRINT_SCHEME}, which covers fields the older scheme did not. "
-            "The two cannot be compared. Re-pin from `evalseal report --json`."
+            "The two cannot be compared, and this is not evidence that anything about "
+            "the run changed. Re-pin deliberately: check what moved with `evalseal diff`, "
+            "then take the new value from `evalseal report --json`. "
+            "See docs/fingerprint-schemes.md."
         )
     if kind == "evaluator":
         return (
@@ -462,18 +491,25 @@ def explain_fingerprint_mismatch(kind: str, pinned: str, actual: str) -> str:
     )
 
 
-def records_share_fingerprint_inputs(before: RunRecord, after: RunRecord) -> bool:
-    """Whether both records recorded the fields scheme 2 hashes.
+#: The oldest schema that recorded every field the current fingerprint scheme hashes.
+#: A record sealed before this is still fingerprinted - the computation is well defined
+#: - but a *difference* against a newer record may be an artefact of the older schema
+#: rather than a change anyone made, which a reader has to be told.
+FINGERPRINT_INPUTS_FROM = (1, 6)
 
-    A record sealed before schema 1.4 has no provider, no `max_tokens` and no scorer
-    config hash. Fingerprinting it under scheme 2 is still well defined, but a
-    difference against a 1.4 record may be an artefact of the older schema rather than a
-    real change, and a reader has to be told which.
+
+def records_share_fingerprint_inputs(before: RunRecord, after: RunRecord) -> bool:
+    """Whether both records recorded the fields the current scheme hashes.
+
+    A record sealed before 1.4 has no provider, no `max_tokens` and no scorer config
+    hash; one sealed before 1.6 has no digest of the grading code, no judge API version
+    and no judge system prompt hash. Either way the older record's fingerprint is
+    missing inputs the newer one has, so the two cannot be compared field for field.
     """
-    # An unparseable version is not >= 1.4: it is not a version at all, so the
-    # comparison must not be attempted. Such a record is rejected before this runs.
+    # An unparseable version is not a version at all, so the comparison must not be
+    # attempted. Such a record is rejected before this runs.
     parsed = [_schema_tuple(r.manifest.schema_version) for r in (before, after)]
-    return all(v is not None and v >= (1, 4) for v in parsed)
+    return all(v is not None and v >= FINGERPRINT_INPUTS_FROM for v in parsed)
 
 
 def config_fingerprint(record: RunRecord) -> str:
@@ -492,6 +528,11 @@ def config_fingerprint(record: RunRecord) -> str:
             "endpoint": m.target.base_url,
             "model": m.target.requested_model,
             "params": m.target.effective_params.model_dump(mode="json"),
+            # The API version and the system prompt change what the target was asked,
+            # so a run that changed either is not the run that was approved. Scheme 2
+            # covered neither, which made `--expect-config` pass across both changes.
+            "api_version": m.target.api_version,
+            "system_prompt_hash": m.target.system_prompt_hash,
         },
         "suite_hash": m.suite.hash if m.suite else None,
     }

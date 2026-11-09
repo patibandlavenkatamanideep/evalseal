@@ -136,7 +136,8 @@ def test_a_pin_from_an_older_scheme_says_so_instead_of_blaming_the_grading(tmp_p
     assert result.exit_code == EXIT_UNSTABLE
     text = _text(result)
     assert "made under an unversioned scheme" in text
-    assert "Re-pin from" in text
+    assert "Re-pin deliberately" in text
+    assert "evalseal report --json" in text
     assert "grading setup changed" not in text
 
 
@@ -177,7 +178,8 @@ def test_a_policy_file_pin_from_an_older_scheme_explains_itself_too(tmp_path):
     detail = next(c["detail"] for c in json.loads(result.output)["checks"]
                   if c["rule"] == "run.expect_evaluator")
     assert "made under an unversioned scheme" in detail
-    assert "Re-pin from" in detail
+    assert "Re-pin deliberately" in detail
+    assert "evalseal diff" in detail
     assert "grading setup changed" not in detail
 
 

@@ -12,6 +12,7 @@ from .adapters.recording import slot
 from .adapters.scorer import Scorer, scorer_config
 from .adapters.target import Target, TargetResponse
 from .analyze import analyze_case
+from .identity import scorer_implementation
 from .models import (
     Aggregate,
     ArtifactProvenance,
@@ -60,6 +61,8 @@ def _to_provenance(tr: TargetResponse) -> TargetProvenance:
         base_url=tr.base_url,
         effective_params=EffectiveParams(**tr.effective_params),
         params_source=tr.params_source,
+        api_version=tr.api_version,
+        system_prompt_hash=tr.system_prompt_hash,
     )
 
 
@@ -244,6 +247,10 @@ def run_eval(
     template = getattr(scorer, "judge_prompt_template", None)
     sp = ScorerProvenance(
         type=scorer.kind,
+        # The grading code itself, not only its settings. `config_hash` covers what the
+        # user wrote; this covers what the algorithm does with it. A fork that changed
+        # answer extraction moved every score and left the fingerprint untouched.
+        impl_hash=scorer_implementation(scorer),
         judge=_to_provenance(judge_resps[0]) if judge_resps else None,
         rubric_hash=getattr(scorer, "rubric_hash", None),
         config_hash=text_hash(

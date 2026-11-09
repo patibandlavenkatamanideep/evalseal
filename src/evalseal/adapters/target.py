@@ -9,6 +9,7 @@ from typing import Any, Protocol, runtime_checkable
 import httpx
 
 from ..models import ParamsSource
+from ..provenance import text_hash
 from .recording import Cassette
 
 # Transient conditions: the same request may well succeed a moment later.
@@ -32,6 +33,13 @@ class TargetResponse:
     # and a custom Target written before 1.4 should keep working and report "unknown"
     # rather than fail to construct.
     provider: str = "unknown"
+    # The API version this request declared, where the wire format carries one. Part of
+    # the instrument for a judge: the same request can be read differently under a
+    # different version.
+    api_version: str | None = None
+    # Hash of the system prompt, or None when none was sent. Never the text: a judge's
+    # system prompt steers its verdicts and can be as private as the rubric.
+    system_prompt_hash: str | None = None
 
 
 @runtime_checkable
@@ -54,7 +62,10 @@ class LocalCallableTarget:
             served_model=self.name,
             system_fingerprint=None,
             base_url="local://",
-            effective_params={},
+            # A Python callable has no sampling parameters at all. Saying "inherited"
+            # would claim a provider default that nothing applied.
+            effective_params={"unset": dict.fromkeys(
+                ("temperature", "seed", "top_p", "max_tokens"), "unsupported")},
             params_source="explicit",
         )
 
@@ -129,6 +140,10 @@ class OpenAICompatibleTarget:
     top_p: float | None = None
     max_tokens: int | None = None
     seed: int | None = None
+    # Sent as a leading system message, which is how this wire format carries one.
+    # It had no field here at all, so a judge configured with a `system` prompt was
+    # graded without it and the receipt said nothing.
+    system: str | None = None
     api_key_env: str = "EVALSEAL_API_KEY"
     max_retries: int = 5                     # transient failures only; 0 disables
     timeout: float = 60.0
@@ -144,10 +159,11 @@ class OpenAICompatibleTarget:
                    (self.temperature, self.top_p, self.max_tokens, self.seed))
             else "provider_default"
         )
-        body: dict[str, Any] = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-        }
+        messages: list[dict[str, str]] = []
+        if self.system is not None:
+            messages.append({"role": "system", "content": self.system})
+        messages.append({"role": "user", "content": prompt})
+        body: dict[str, Any] = {"model": self.model, "messages": messages}
         if self.temperature is not None:
             body["temperature"] = self.temperature
         if self.seed is not None:
@@ -175,8 +191,20 @@ class OpenAICompatibleTarget:
                 "seed": self.seed,
                 "top_p": self.top_p,
                 "max_tokens": self.max_tokens,
+                # Every parameter this adapter can send but did not. The provider
+                # applied its own default and this receipt does not know which.
+                "unset": {
+                    name: "inherited" for name, value in (
+                        ("temperature", self.temperature), ("seed", self.seed),
+                        ("top_p", self.top_p), ("max_tokens", self.max_tokens))
+                    if value is None
+                },
             },
             params_source=params_source,
+            # This wire format declares no version, so there is none to record. None
+            # here means "the format carries none", not "we failed to look".
+            api_version=None,
+            system_prompt_hash=text_hash(self.system) if self.system is not None else None,
             truncated=raw["choices"][0].get("finish_reason") == "length",
         )
 
@@ -262,8 +290,20 @@ class AnthropicTarget:
                 "seed": None,             # the API has no seed parameter
                 "top_p": self.top_p,
                 "max_tokens": self.max_tokens,
+                # `seed` is absent because this API has no such parameter, not because
+                # we declined to set one. `max_tokens` is always sent, so it is never
+                # absent. Both distinctions were lost in a bare `null`.
+                "unset": {
+                    "seed": "unsupported",
+                    **{name: "inherited"
+                       for name, value in (("temperature", self.temperature),
+                                           ("top_p", self.top_p))
+                       if value is None},
+                },
             },
             params_source=params_source,
+            api_version=self.anthropic_version,
+            system_prompt_hash=text_hash(self.system) if self.system is not None else None,
             truncated=raw.get("stop_reason") == "max_tokens",
         )
 

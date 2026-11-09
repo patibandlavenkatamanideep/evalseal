@@ -67,6 +67,9 @@ class OpenAITargetConfig(_Strict):
     top_p: float | None = Field(default=None, ge=0.0, le=1.0)
     max_tokens: int | None = Field(default=None, gt=0)
     seed: int | None = None
+    #: Sent as a leading system message. Supported here because the scorer file has
+    #: always accepted `system`, and for an OpenAI judge it was accepted and dropped.
+    system: str | None = None
     api_key_env: str = "EVALSEAL_API_KEY"
 
 
@@ -178,12 +181,13 @@ def judge_config(scorer: ScorerConfig) -> dict:
         out["base_url"] = scorer.base_url
     if scorer.api_key_env is not None:
         out["api_key_env"] = scorer.api_key_env
-    if provider == "anthropic" and scorer.system is not None:
+    if scorer.system is not None:
+        # Passed through for either provider. It used to be dropped for an OpenAI
+        # judge, which has the shape of C1-2 one layer out: the key was accepted, the
+        # judge was built without it, and nothing said so. Both adapters transmit it.
         out["system"] = scorer.system
     if provider == "anthropic" and "max_tokens" not in out:
         out["max_tokens"] = 1024
-    if provider == "openai":
-        out.pop("system", None)
     return out
 
 

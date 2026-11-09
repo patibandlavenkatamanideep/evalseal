@@ -18,7 +18,7 @@ from .ledger import (
     evaluator_fingerprint,
     records_share_fingerprint_inputs,
 )
-from .models import RunRecord
+from .models import EffectiveParams, RunRecord
 from .paired import INCONCLUSIVE, PairedComparison, compare_runs, per_case_halfwidth
 
 # The verdict when the two runs were not graded the same way. It is not a score result,
@@ -274,10 +274,18 @@ __all__ = ["DiffResult", "FieldChange", "ReceiptError", "diff_records",
 # `_config_fields` so the two cannot drift: if the fingerprint covers something this set
 # does not name, a diff can only say "something changed", which is not an explanation.
 EVALUATOR_FIELDS = frozenset({
-    "scorer type", "scorer settings", "judge provider", "judge endpoint", "judge model",
-    "judge temperature", "judge top_p", "judge max_tokens", "judge seed",
-    "judge prompt", "rubric", "dataset", "case set",
+    "scorer type", "scorer settings", "scorer implementation",
+    "judge provider", "judge endpoint", "judge model", "judge api version",
+    "judge system prompt", "judge temperature", "judge top_p", "judge max_tokens",
+    "judge seed", "judge unset params", "judge prompt", "rubric", "dataset", "case set",
 })
+
+
+def _unset_summary(params: EffectiveParams | None) -> str | None:
+    """`temperature=inherited, seed=unsupported`, or None when nothing is absent."""
+    if params is None or not params.unset:
+        return None
+    return ", ".join(f"{name}={why}" for name, why in sorted(params.unset.items()))
 
 
 def _config_fields(record: RunRecord) -> dict[str, str | None]:
@@ -290,13 +298,23 @@ def _config_fields(record: RunRecord) -> dict[str, str | None]:
         # The instrument.
         "scorer type": m.scorer.type,
         "scorer settings": m.scorer.config_hash,
+        # The grading code. Named here as well as hashed, so that "the fingerprints
+        # differ" can be answered with "the grading code changed" rather than with the
+        # fall-through sentence below, which explains nothing.
+        "scorer implementation": m.scorer.impl_hash,
         "judge provider": judge.provider if judge else None,
         "judge endpoint": judge.base_url if judge else None,
         "judge model": judge.requested_model if judge else None,
+        "judge api version": judge.api_version if judge else None,
+        "judge system prompt": judge.system_prompt_hash if judge else None,
         "judge temperature": str(jp.temperature) if jp else None,
         "judge top_p": str(jp.top_p) if jp else None,
         "judge max_tokens": str(jp.max_tokens) if jp else None,
         "judge seed": str(jp.seed) if jp else None,
+        # Which of those the judge inherited from the provider rather than being told.
+        # A run that set temperature and one that inherited it are different setups
+        # even when the recorded value happens to match.
+        "judge unset params": _unset_summary(jp),
         "judge prompt": m.scorer.judge_prompt_hash,
         "rubric": m.scorer.rubric_hash,
         "dataset": m.dataset.hash,
@@ -306,9 +324,12 @@ def _config_fields(record: RunRecord) -> dict[str, str | None]:
         "target provider": m.target.provider,
         "target endpoint": m.target.base_url,
         "target model": m.target.requested_model,
+        "target api version": m.target.api_version,
+        "target system prompt": m.target.system_prompt_hash,
         "target temperature": str(tp.temperature),
         "target top_p": str(tp.top_p),
         "target max_tokens": str(tp.max_tokens),
+        "target unset params": _unset_summary(tp),
         "suite": m.suite.hash if m.suite else None,
     }
 
@@ -341,10 +362,11 @@ def _incomparability_reason(
         versions = sorted({before.manifest.schema_version, after.manifest.schema_version})
         return (
             f"the two runs were sealed under different schema versions "
-            f"({', '.join(versions)}). Fields the evaluator fingerprint covers from 1.4 - "
-            "the judge endpoint, max_tokens, the scorer's own settings - are absent from "
-            "the older record, so they cannot be compared. Re-record the older run to "
-            "compare these directly."
+            f"({', '.join(versions)}). Fields the evaluator fingerprint covers - the "
+            "judge endpoint, max_tokens and the scorer's settings from 1.4, the grading "
+            "code, the judge's API version and its system prompt from 1.6 - are absent "
+            "from the older record, so they cannot be compared. Re-record the older run "
+            "to compare these directly."
         )
     changed = [c.name for c in config if c.changed and c.name in EVALUATOR_FIELDS]
     if changed:

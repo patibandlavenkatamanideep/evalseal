@@ -94,7 +94,7 @@ def _by_rule(checks):
 
 def test_a_genuine_old_receipt_still_verifies(tmp_path):
     """The whole point of the strip table. This must not regress."""
-    for version in ("1.1", "1.2", "1.4"):
+    for version in ("1.1", "1.2", "1.4", "1.5"):
         record = _sealed_under(version)
         status, sealed = check_record_hash(record)
         assert status == "legacy", (version, status)
@@ -161,6 +161,41 @@ def test_an_injected_suite_digest_does_not_satisfy_a_pinned_contract():
     assert "sealed no suite" in check.detail
 
 
+def test_a_grading_code_digest_cannot_be_written_into_an_older_receipt():
+    """The 1.6 field, under the A3 rule. A receipt that never sealed `impl_hash` must
+    not have one read as evidence that its grading code was anything in particular.
+
+    This is the shape of the whole quarantine rule: the newer the field, the more
+    tempting it is to backfill, and a backfilled digest would make an old receipt look
+    comparable with a new one.
+    """
+    from evalseal.ledger import quarantine_unsealed
+
+    record = _sealed_under("1.5")
+    sealed_hash = record.hash
+    record.manifest.scorer.impl_hash = "sha256:" + "f" * 64
+    record.hash = sealed_hash
+    assert check_record_hash(record) == ("legacy", "1.5"), "the hash still matches"
+
+    cleaned, removed = quarantine_unsealed(record)
+    assert cleaned.manifest.scorer.impl_hash is None
+    assert "manifest.scorer.impl_hash" in removed
+
+
+def test_the_1_6_fields_are_unsealed_for_every_earlier_schema():
+    """Each new field has to be in the strip table or an old receipt stops verifying."""
+    from evalseal.ledger import unsealed_paths
+
+    for version in ("1.0", "1.4", "1.5"):
+        paths = {".".join(p) for p in unsealed_paths(version)}
+        assert "manifest.scorer.impl_hash" in paths, version
+        assert "manifest.target.api_version" in paths, version
+        assert "manifest.target.system_prompt_hash" in paths, version
+        assert "manifest.target.effective_params.unset" in paths, version
+        assert "manifest.scorer.judge.api_version" in paths, version
+    assert unsealed_paths("1.6") == ()
+
+
 def test_the_injection_is_still_reported_as_verifying_under_its_own_schema():
     """Quarantine is not an accusation: the receipt is a real 1.1 receipt. What
     changes is that the unsealed field is not readable, not that the record fails."""
@@ -202,7 +237,7 @@ def test_nothing_is_stripped_for_an_unsupported_version():
 
 # --- A3-3: a future schema is not today's schema --------------------------------------
 
-@pytest.mark.parametrize("version", ["9.9", "2.0", "1.6"])
+@pytest.mark.parametrize("version", ["9.9", "2.0", "1.7"])
 def test_a_future_schema_version_is_rejected(tmp_path, version):
     """On the baseline `9.9` came back as ("ok", "1.5")."""
     record = _sealed_under(version, strip=False)

@@ -6,6 +6,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 ParamsSource = Literal["explicit", "provider_default"]
+#: Why a sampling parameter has no value in a receipt. `null` alone could not say.
+#:   inherited   - we did not send one, so the provider applied its own default. This
+#:                 receipt does not know what that default was.
+#:   unsupported - this API has no such parameter, so there was never one to send.
+#: Reported as the same `null`, those two read as "the effective value was nothing",
+#: which is a fabricated effective value rather than an honest absence.
+ParamAbsence = Literal["inherited", "unsupported"]
 ScorerKind = Literal["exact", "regex", "llm_judge", "answer_match"]
 FailOn = Literal["none", "unstable", "borderline"]
 
@@ -18,11 +25,16 @@ FailOn = Literal["none", "unstable", "borderline"]
 # hashed the last judge prompt sent, which varied with the target's responses and with
 # scheduling. Under 1.3 it hashes the judge prompt template. A 1.2 judge record and a
 # 1.3 one therefore disagree on this hash for that reason alone.
+# 1.6 adds the fields scheme 3 of the evaluator fingerprint needs: a digest of the
+# scoring *code* (`scorer.impl_hash`), the judge's API version and system prompt hash,
+# and the per-parameter reason a sampling value is absent. Until 1.6 a fork that changed
+# answer extraction, a judge given a different system prompt, and a judge reached
+# through a different API version all produced the same evaluator fingerprint.
 # 1.5 adds what the environment claimed about the CI job, so a pre-registration can
 # require that a receipt came from CI rather than from someone's laptop. It is a claim
 # and is named as one; see CIProvenance. It also records the evaluator and target
 # section digests of a version-2 suite file.
-SCHEMA_VERSION = "1.5"
+SCHEMA_VERSION = "1.6"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
 
@@ -41,6 +53,9 @@ class EffectiveParams(BaseModel):
     seed: int | None = None
     top_p: float | None = None
     max_tokens: int | None = None
+    #: Parameter name -> why it has no value, for the ones that have none. From 1.6.
+    #: A parameter carrying a value never appears here, so the two cannot disagree.
+    unset: dict[str, ParamAbsence] = Field(default_factory=dict)
 
 
 class TargetProvenance(BaseModel):
@@ -51,10 +66,25 @@ class TargetProvenance(BaseModel):
     base_url: str
     effective_params: EffectiveParams
     params_source: ParamsSource = "explicit"
+    #: The provider API version the request declared, when the wire format carries one
+    #: (Anthropic's `anthropic-version` header). It decides how the request is
+    #: interpreted, so for a judge it is part of the instrument. None where the format
+    #: has no version to declare, which is not the same as not having recorded it.
+    api_version: str | None = None
+    #: Hash, never the text: a system prompt can be as private as the rubric it
+    #: carries. None means no system prompt was sent, which is a different claim from
+    #: an empty one - an empty string hashes to a value.
+    system_prompt_hash: str | None = None
 
 
 class ScorerProvenance(BaseModel):
     type: ScorerKind
+    #: Digest of the code that turns a response into a score - the scoring method and
+    #: every same-module helper and constant it reaches, normalized so that comments
+    #: and docstrings do not count. From 1.6. A changed extraction or normalization
+    #: algorithm is a changed instrument even when `config_hash` is identical, and
+    #: until this field existed the receipt could not say so. See identity.py.
+    impl_hash: str | None = None
     # Hash of the scorer's own verdict-affecting settings: a regex pattern, a numeric
     # tolerance. Two runs graded by different regexes used to fingerprint identically.
     config_hash: str | None = None

@@ -416,6 +416,7 @@ def _build_target(
         top_p=validated.top_p,
         max_tokens=validated.max_tokens,
         seed=validated.seed,
+        system=validated.system,
         api_key_env=validated.api_key_env,
         max_retries=max_retries,
         timeout=timeout,

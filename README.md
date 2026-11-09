@@ -408,16 +408,24 @@ Every sealed record carries two fingerprints, and they are not interchangeable:
 
 The **evaluator fingerprint** (scheme 2) hashes everything that decides how a response
 scores: the scorer type **and its own settings** (a regex pattern, a numeric tolerance),
-the judge's provider, endpoint, model and sampling parameters (temperature, top_p,
-max_tokens, seed), the rubric hash, the prompt template hash, the dataset hash, and the
-exact set of case ids that ran. Change any of them and two runs stop being comparable.
+**the grading code itself**, the judge's provider, endpoint, model, API version, system
+prompt and sampling parameters (temperature, top_p, max_tokens, seed, and which of them
+were inherited rather than set), the rubric hash, the prompt template hash, the dataset
+hash, and the exact set of case ids that ran. Change any of them and two runs stop being
+comparable.
 
-Scheme 1 missed three of those, and each omission was a way to be misled: `regex "^yes$"`
-and `regex "^no$"` fingerprinted identically, the same judge model reached through a
-different endpoint looked like the same grader, and `max_tokens` was not sealed at all, so
-a receipt could not explain a truncated verdict. Fingerprints now carry their scheme
-(`evalseal-fp/2:sha256:…`), so a pin made under an older one fails with an explanation
-rather than an unexplained mismatch.
+Each earlier scheme was superseded because something that moved a score did not move the
+fingerprint. Scheme 1 missed the scorer's own settings, so `regex "^yes$"` and
+`regex "^no$"` fingerprinted identically; it missed the endpoint, so the same judge model
+reached through a proxy looked like the same grader; and it did not seal `max_tokens` at
+all, so a receipt could not explain a truncated verdict. Scheme 2 missed the grading
+*algorithm*: editing how an answer is extracted from a reply took a benchmark from 1.00 to
+0.00 while `--expect-evaluator` kept passing and `diff` called the runs comparable.
+
+Fingerprints carry their scheme (`evalseal-fp/3:sha256:…`), so a pin made under an older
+one fails with an explanation rather than an unexplained mismatch - and fails rather than
+passing. Re-pinning is a deliberate two-step workflow, not something EvalSeal does for
+you: see [docs/fingerprint-schemes.md](docs/fingerprint-schemes.md).
 
 It deliberately **excludes the target model and its parameters**. Comparing target model A
 with target model B is the entire point of a benchmark, so a different target must not make
@@ -549,7 +557,7 @@ not drift: 0 of 40 shared case(s) returned a different verdict. Use evalseal dif
 for the paired test.
 
                        before                       after
- evaluator fingerprint  evalseal-fp/2:sha256:10555…  evalseal-fp/2:sha256:10555…
+ evaluator fingerprint  evalseal-fp/3:sha256:8191c…  evalseal-fp/3:sha256:8191c…
  comparable             yes
  mean flip rate         0.0%                         0.0%
  cases with a changed   0 of 40

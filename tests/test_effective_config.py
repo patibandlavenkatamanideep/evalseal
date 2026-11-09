@@ -155,12 +155,19 @@ def test_an_unknown_provider_is_named():
 
 # --- the provider discriminates which fields exist -------------------------------------
 
-def test_system_belongs_to_anthropic_only():
-    """`system` is an Anthropic parameter. On an OpenAI target it did nothing."""
+def test_both_providers_accept_a_system_prompt():
+    """Both transmit it, so both accept it.
+
+    C1a asserted the opposite - that `system` belongs to Anthropic and is rejected for
+    an OpenAI target - and that was wrong in the same way C1-2 was wrong: the OpenAI
+    adapter had no field for it, so the key was accepted at the scorer layer, dropped
+    on the way to the judge, and nothing said so. Rejecting it would have been one
+    honest answer; transmitting it as a leading system message is the better one,
+    because that is how this wire format carries a system prompt.
+    """
     assert load_target_config(
         {"provider": "anthropic", "model": "m", "system": "be terse"}).system == "be terse"
-    with pytest.raises(ConfigError, match="system"):
-        load_target_config({"model": "m", "system": "be terse"})
+    assert load_target_config({"model": "m", "system": "be terse"}).system == "be terse"
 
 
 def test_seed_belongs_to_openai_only():
@@ -207,14 +214,16 @@ def test_an_anthropic_judge_keeps_its_system_prompt():
     assert load_target_config(cfg).system == "grade strictly"
 
 
-def test_an_openai_judge_does_not_receive_a_system_key():
-    """`system` would be rejected by the OpenAI schema, so it must not be passed on."""
+def test_an_openai_judge_receives_its_system_prompt():
+    """A system prompt steers a judge's verdicts, so dropping it changes the scores."""
     scorer = load_scorer_config({
         "type": "llm_judge", "rubric": "r", "judge_model": "j",
         "system": "grade strictly"})
     cfg = judge_config(scorer)
-    assert "system" not in cfg
-    assert load_target_config(cfg).model == "j"
+    assert cfg["system"] == "grade strictly"
+    validated = load_target_config(cfg)
+    assert validated.model == "j"
+    assert validated.system == "grade strictly"
 
 
 # --- the existing configs in this repository still load --------------------------------

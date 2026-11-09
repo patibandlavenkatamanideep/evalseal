@@ -124,7 +124,10 @@ def test_effective_params_record_max_tokens_and_no_seed(tmp_path, monkeypatch):
     _capture(monkeypatch, [_reply()])
     resp = _target(tmp_path, temperature=0.0, top_p=0.9, max_tokens=64).generate("hi")
     assert resp.effective_params == {
-        "temperature": 0.0, "seed": None, "top_p": 0.9, "max_tokens": 64}
+        "temperature": 0.0, "seed": None, "top_p": 0.9, "max_tokens": 64,
+        # `seed` is null because this API has no such parameter, which is a different
+        # claim from "we chose not to set one". Schema 1.6 says which.
+        "unset": {"seed": "unsupported"}}
     assert resp.params_source == "explicit"
 
 

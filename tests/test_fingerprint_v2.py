@@ -149,7 +149,7 @@ def test_max_tokens_reaches_the_receipt_from_the_anthropic_adapter(tmp_path, mon
 def test_the_fingerprint_carries_its_scheme():
     value = _fp(_scored(RegexScorer("yes")))
     assert value.startswith(f"{FINGERPRINT_PREFIX}:sha256:")
-    assert fingerprint_scheme(value) == 2
+    assert fingerprint_scheme(value) == 3
     assert fingerprint_scheme("sha256:" + "0" * 64) is None
 
 

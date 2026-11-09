@@ -6,6 +6,21 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 ParamsSource = Literal["explicit", "provider_default"]
+#: Where a response came from.
+#:   live    - a real provider call was made for it
+#:   replay  - it was served out of a cassette; no provider was contacted
+#:   local   - an in-process callable produced it; there is no provider at all
+#:   unknown - a custom Target did not say. Never assume "live" from a silence: it is
+#:             the strongest claim a receipt makes.
+CallOrigin = Literal["live", "replay", "local", "unknown"]
+#: The origins of a whole run's calls, collapsed. `mixed` when they disagree - a run
+#: that replayed half its calls is not a live run, and saying so is the point.
+ExecutionOrigin = Literal["live", "replay", "local", "unknown", "mixed"]
+#: Which side of a judged measurement a call belongs to.
+CallRole = Literal["target", "judge"]
+#: How a call ended. `truncated` means the reply hit the token limit, so the answer is
+#: absent rather than wrong; `empty` means the provider returned no text at all.
+CallStatus = Literal["complete", "truncated", "empty"]
 #: Why a sampling parameter has no value in a receipt. `null` alone could not say.
 #:   inherited   - we did not send one, so the provider applied its own default. This
 #:                 receipt does not know what that default was.
@@ -25,6 +40,12 @@ FailOn = Literal["none", "unstable", "borderline"]
 # hashed the last judge prompt sent, which varied with the target's responses and with
 # scheduling. Under 1.3 it hashes the judge prompt template. A 1.2 judge record and a
 # 1.3 one therefore disagree on this hash for that reason alone.
+# 1.7 adds the execution manifest: what each provider call was for, where it came from,
+# and what it took. Until 1.7 `manifest.target` was the provenance of call number one
+# standing in for every call, and nothing said whether a run had called a provider or
+# replayed a cassette - so a replayed run and a live one produced receipts that no field
+# could tell apart. It changes no fingerprint: it describes what ran, not how it was
+# graded, so no pin moves.
 # 1.6 adds the fields scheme 3 of the evaluator fingerprint needs: a digest of the
 # scoring *code* (`scorer.impl_hash`), the judge's API version and system prompt hash,
 # and the per-parameter reason a sampling value is absent. Until 1.6 a fork that changed
@@ -34,7 +55,7 @@ FailOn = Literal["none", "unstable", "borderline"]
 # require that a receipt came from CI rather than from someone's laptop. It is a claim
 # and is named as one; see CIProvenance. It also records the evaluator and target
 # section digests of a version-2 suite file.
-SCHEMA_VERSION = "1.6"
+SCHEMA_VERSION = "1.7"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
 
@@ -171,6 +192,66 @@ class DatasetProvenance(BaseModel):
     case_ids: list[str] = Field(default_factory=list)
 
 
+class CallProvenance(BaseModel):
+    """One provider call, bound to the measurement it was made for.
+
+    **Everything a provider reports here is that provider's claim.** `served_model` and
+    `reported_fingerprint` are strings it chose to send. They are not proof of which
+    weights answered, not proof the request was served at all, and not proof that no
+    other call happened. What they are good for is noticing a *change*: a fingerprint
+    that moves mid-run says the backend moved under you, which is worth seeing even
+    though neither value can be checked from outside.
+
+    `request_digest` and `response_digest` are ours, not the provider's: the canonical
+    digests of the request as keyed and the response bytes this call used. On a replay
+    the response digest is of the cassette's bytes, because those are the bytes that
+    produced the score.
+    """
+    case_id: str
+    repeat: int
+    role: CallRole
+    #: Ordinal of this call within its (case, repeat, role), from 0. Normally one call,
+    #: but a scorer that asks twice must not have the second overwrite the first.
+    sequence: int = 0
+    origin: CallOrigin = "unknown"
+    request_digest: str | None = None
+    response_digest: str | None = None
+    provider_request_id: str | None = None     # the provider's claim
+    requested_model: str
+    served_model: str | None = None            # the provider's claim
+    reported_fingerprint: str | None = None    # the provider's claim
+    status: CallStatus = "complete"
+    #: HTTP attempts this call took. 0 means none was made - it was replayed, or served
+    #: by an in-process callable. 1 means it succeeded first time.
+    attempts: int = 0
+
+
+class ExecutionProvenance(BaseModel):
+    """What happened when the numbers were produced, as opposed to what was configured.
+
+    The summary fields are sealed in the record and the per-call detail with them, so a
+    count that disagrees with its own calls is a validation failure rather than a thing
+    a reader has to notice.
+    """
+    #: This run. Not a claim about uniqueness across machines - it is a handle for
+    #: keying measurements and for telling two runs of one suite apart.
+    session_id: str
+    #: The origins of every call, collapsed: one value when they agree, `mixed` when
+    #: they do not. A `mixed` run is not a live run, which is the point of saying so.
+    origin: ExecutionOrigin
+    #: Around the calls themselves, not around the process: a receipt that counts
+    #: argument parsing and report writing as measurement time overstates both.
+    started_at: str
+    ended_at: str
+    n_calls: int = 0
+    n_live: int = 0
+    n_replayed: int = 0
+    #: Total HTTP attempts across every call. Higher than `n_live` means retries.
+    attempts: int = 0
+    n_truncated: int = 0
+    calls: list[CallProvenance] = Field(default_factory=list)
+
+
 class RunConfig(BaseModel):
     n_repeats: int = 5
     concurrency: int = 1
@@ -191,6 +272,10 @@ class ProvenanceManifest(BaseModel):
     # it holds the responses the verdicts came from, and until 1.4 nothing bound it to
     # the receipt, so the responses could be swapped without the receipt noticing.
     artifacts: list[ArtifactProvenance] = Field(default_factory=list)
+    #: From 1.7. None means this receipt keeps no execution detail - which is what every
+    #: receipt sealed before 1.7 looks like, and is why it is nullable rather than
+    #: defaulted to an empty manifest that would read as "nothing happened".
+    execution: ExecutionProvenance | None = None
 
 
 class CaseResult(BaseModel):

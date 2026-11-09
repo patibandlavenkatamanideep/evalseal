@@ -1160,6 +1160,7 @@ def gate(
             failures.append(
                 explain_fingerprint_mismatch("config", expect_config, actual))
 
+    execution = record.manifest.execution
     if as_json:
         console.print_json(json.dumps({
             "passed": not failures,
@@ -1169,6 +1170,11 @@ def gate(
             "sealed_hash": record.hash,
             "evaluator_fingerprint": evaluator_fingerprint(record),
             "config_fingerprint": config_fingerprint(record),
+            # Not a check: replaying a cassette is a legitimate way to run a gate. It
+            # is reported because a gate that passes on replayed numbers and one that
+            # passes on live ones mean different things, and nothing used to say which.
+            # None for a receipt sealed before schema 1.7.
+            "origin": execution.origin if execution else None,
         }))
         raise typer.Exit(code=EXIT_UNSTABLE if failures else 0)
 
@@ -1178,6 +1184,12 @@ def gate(
         if check.passed:
             console.print(
                 f"[green]ok  [/green] {rich_escape(check.rule)}: {rich_escape(check.detail)}")
+
+    if execution is not None and execution.origin != "live":
+        console.print(
+            f"[yellow]note[/yellow] origin: {rich_escape(execution.origin)} "
+            f"({execution.n_replayed} of {execution.n_calls} call(s) replayed) - these "
+            "numbers are not a fresh measurement of the model")
 
     if failures:
         for f in failures:

@@ -8,15 +8,53 @@ import threading
 from collections import Counter
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 FORMAT_VERSION = 2
 
 
+def canonical(payload: object) -> bytes:
+    """The one serialization this module hashes and compares.
+
+    Everything that needs a digest of a request or a response goes through this, so a
+    cassette key and the digest sealed in a receipt cannot be computed two ways and
+    then disagree.
+    """
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+
+
 def request_key(payload: dict) -> str:
     """Stable hash of the *effective* request, so identical requests hit the cassette."""
-    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(blob.encode()).hexdigest()
+    return hashlib.sha256(canonical(payload)).hexdigest()
+
+
+def digest(payload: object) -> str:
+    """`sha256:...` of the canonical form of `payload`."""
+    return "sha256:" + hashlib.sha256(canonical(payload)).hexdigest()
+
+
+#: A call was served by a real provider call, or out of the cassette. Typed as literals
+#: so a receipt's `origin` field cannot be widened to an arbitrary string on the way in.
+LIVE: Literal["live"] = "live"
+REPLAY: Literal["replay"] = "replay"
+
+
+@dataclass(frozen=True)
+class CallOutcome:
+    """One cassette call: what came back, and where it came from.
+
+    `origin` is the field a receipt could not previously report. Without it a run that
+    replayed a stale cassette and a run that called the model produce receipts no
+    reader can tell apart, which is the strongest false green a CI gate can give.
+    """
+    response: dict
+    origin: Literal["live", "replay"]
+    request_digest: str
+    response_digest: str
+    repeat: int
+    entry_key: str
 
 
 _slot: contextvars.ContextVar[int | None] = contextvars.ContextVar("evalseal_slot", default=None)
@@ -83,6 +121,22 @@ class Cassette:
         do_real_call: Callable[[], dict],
         index: int | None = None,
     ) -> dict:
+        """The response alone. Kept because it is the public shape callers already use."""
+        return self.call_detail(payload, do_real_call, index).response
+
+    def call_detail(
+        self,
+        payload: dict,
+        do_real_call: Callable[[], dict],
+        index: int | None = None,
+    ) -> CallOutcome:
+        """The response, plus where it came from and digests of both sides.
+
+        The digests are computed here rather than by each adapter so that the value a
+        receipt seals is the same value the cassette keyed on. Two implementations of
+        "the digest of this request" would eventually disagree, and the disagreement
+        would read as a tampered cassette.
+        """
         if index is None:
             index = _slot.get()
         with self._lock:
@@ -94,7 +148,7 @@ class Cassette:
             key = self.entry_key(payload, index)
             hit = self._entries.get(key)
             if hit is not None:
-                return hit
+                return self._outcome(payload, hit, REPLAY, index, key)
             if not self.record:
                 raise RuntimeError(
                     f"No cassette entry for repeat {index} of request {key[:12]} in {self.path} "
@@ -104,7 +158,20 @@ class Cassette:
         with self._lock:
             self._entries[key] = resp
             self._write()
-        return resp
+        return self._outcome(payload, resp, LIVE, index, key)
+
+    def _outcome(self, payload: dict, response: dict,
+                 origin: Literal["live", "replay"], index: int, key: str) -> CallOutcome:
+        return CallOutcome(
+            response=response,
+            origin=origin,
+            # The request as it was keyed, and the response bytes this call used -
+            # on a replay, the bytes in the cassette rather than anything new.
+            request_digest=digest(payload),
+            response_digest=digest(response),
+            repeat=index,
+            entry_key=key,
+        )
 
     def _write(self) -> None:
         """Replace the cassette atomically: the file is always the old version or the new.

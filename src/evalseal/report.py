@@ -49,6 +49,35 @@ def to_case_table(record: RunRecord, unstable_only: bool = False) -> str:
     return "\n".join(lines)
 
 
+#: How each origin reads to someone who has to decide whether to trust the number.
+_ORIGIN_NOTE = {
+    "live": "live provider calls",
+    "replay": "**replayed from a cassette - no provider was called**",
+    "local": "an in-process callable - no provider was called",
+    "mixed": "**partly replayed from a cassette**",
+    "unknown": "**an unknown origin: the target did not say**",
+}
+
+
+def origin_line(record: RunRecord) -> str | None:
+    """One line saying where the numbers came from, or None for a pre-1.7 receipt.
+
+    Near the top, because it is the first thing that decides what the rest means. A
+    replayed run is a perfectly good regression check and a useless claim about a
+    model's current behaviour, and the difference used to be invisible.
+    """
+    execution = record.manifest.execution
+    if execution is None:
+        return None
+    note = _ORIGIN_NOTE.get(execution.origin, execution.origin)
+    detail = f"{execution.n_calls} call(s)"
+    if execution.n_replayed and execution.n_live:
+        detail += f": {execution.n_live} live, {execution.n_replayed} replayed"
+    if execution.attempts > execution.n_live:
+        detail += f", {execution.attempts} HTTP attempt(s)"
+    return f"- Origin: {note} ({detail})"
+
+
 def to_markdown(record: RunRecord) -> str:
     a = record.aggregate
     t = record.manifest.target
@@ -65,10 +94,14 @@ def to_markdown(record: RunRecord) -> str:
         f"- N repeats: {record.manifest.run_config.n_repeats}",
         f"- Dataset: `{record.manifest.dataset.hash[:20]}...` "
         f"({record.manifest.dataset.n_cases} cases)",
-        f"- Sealed hash: `{record.hash[:20]}...`\n",
-        f"**Aggregate:** {a.n_cases} cases · mean {a.mean_score:.2f} · "
-        f"{a.n_stable} stable / {a.n_borderline} borderline / {a.n_unstable} unstable\n",
+        f"- Sealed hash: `{record.hash[:20]}...`",
     ]
+    if (origin := origin_line(record)) is not None:
+        lines.append(origin)
+    lines.append("")
+    lines.append(
+        f"**Aggregate:** {a.n_cases} cases · mean {a.mean_score:.2f} · "
+        f"{a.n_stable} stable / {a.n_borderline} borderline / {a.n_unstable} unstable\n")
     if a.warnings:
         lines.append("## ⚠ Provenance warnings")
         lines += [f"- {w}" for w in a.warnings]

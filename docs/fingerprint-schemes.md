@@ -147,3 +147,4 @@ what `--require-artifact cassette` is for.
 | 1.4 | provider and `max_tokens` for target and judge; scorer `config_hash`; artifact digests |
 | 1.5 | the CI claim; a v2 suite's evaluator and target section digests |
 | 1.6 | `scorer.impl_hash`; judge `api_version` and `system_prompt_hash`; per-parameter `unset` reasons |
+| 1.7 | `manifest.execution`: the per-call manifest, and whether the run called a provider or replayed a cassette. Changes no fingerprint - it describes what ran, not how it was graded, so no pin moves |

@@ -857,9 +857,17 @@ tracked target).
   tests them item by item: an exact McNemar test on the items that changed verdict, and a
   cluster bootstrap over items for the interval.
 - **Sealed provenance.** The receipt seals the judge prompt hash, rubric hash, scorer
-  type, judge model, endpoint and parameters, the target's requested and served model,
-  endpoint and parameters, dataset and suite hashes, EvalSeal version, git commit and dirty
-  flag, Python version and platform.
+  type, a digest of the scoring *code*, judge model, endpoint, API version, system prompt
+  hash and parameters, the target's requested and served model, endpoint and parameters,
+  dataset and suite hashes, EvalSeal version, git commit and dirty flag, Python version
+  and platform.
+- **A per-call execution manifest.** Every provider call is bound to the case, repeat and
+  role it was made for, with digests of the request and the response it used, the
+  provider's request id, how many HTTP attempts it took, and whether it was a live call or
+  a cassette replay. The summary counts are checked against the calls, so a receipt whose
+  summary disagrees with its own detail is an input error rather than something a reader
+  has to notice. Before this, `manifest.target` was call number one standing in for every
+  call - and **a replayed run and a live one produced receipts no field could tell apart**.
 - **Two fingerprints over that provenance.** An evaluator fingerprint that decides whether
   two runs are comparable, and a config fingerprint that identifies exactly what ran.
 - **Artifact digests that are re-checkable.** The cassette, dataset and suite are sealed
@@ -871,7 +879,17 @@ tracked target).
 ## What EvalSeal does not guarantee
 
 - **It cannot prove the provider behaved the same way later.** A replay reproduces recorded
-  responses; it says nothing about what the model would return today.
+  responses; it says nothing about what the model would return today. The receipt now says
+  plainly which it was - `origin: replay` - because the two support different conclusions.
+- **What the provider reports is the provider's claim.** `served_model`,
+  `system_fingerprint` and the per-call `reported_fingerprint` are strings a provider
+  chose to send. They are not proof of which weights answered, that the request was served
+  at all, or that no other call happened. They are useful for noticing a *change*: a
+  fingerprint that moves mid-run says the backend moved under you.
+- **A digest of the grading code is not proof that code ran.** `scorer.impl_hash` says
+  what the scoring code in the build that wrote the receipt *is*. It is a record made by
+  the same process it describes. What it does is make an undeclared change to the grading
+  algorithm visible to someone comparing two receipts.
 - **It does not make a nondeterministic judge deterministic.** It measures the
   nondeterminism instead.
 - **It does not replace human review of borderline cases.** A 40% flip rate tells you where

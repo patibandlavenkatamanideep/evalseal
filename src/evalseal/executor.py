@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import re
 import time
+import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from .adapters.dataset import Case, Dataset
@@ -16,12 +18,17 @@ from .identity import scorer_implementation
 from .models import (
     Aggregate,
     ArtifactProvenance,
+    CallProvenance,
+    CallRole,
+    CallStatus,
     CaseResult,
     CIProvenance,
     CodeProvenance,
     DatasetProvenance,
     EffectiveParams,
     EnvironmentProvenance,
+    ExecutionOrigin,
+    ExecutionProvenance,
     ProvenanceManifest,
     RunConfig,
     RunRecord,
@@ -128,6 +135,73 @@ def _dedupe(items: list[str]) -> list[str]:
     return list(dict.fromkeys(items))
 
 
+def _call_status(response: TargetResponse) -> CallStatus:
+    """How this call ended. Truncation is checked before emptiness: a reply cut off at
+    the first token is truncated, which explains the emptiness."""
+    if response.truncated:
+        return "truncated"
+    return "empty" if not response.text else "complete"
+
+
+def _call_provenance(
+    unit: _Unit, response: TargetResponse, role: CallRole,
+) -> CallProvenance:
+    """One call, bound to the measurement it was made for.
+
+    The binding is the point: `manifest.target` recorded call number one and let it
+    stand for every call, so a served-model change mid-run could be warned about but
+    not located, and nobody could re-run just the affected cases.
+    """
+    return CallProvenance(
+        case_id=unit.case.case_id,
+        repeat=unit.repeat,
+        role=role,
+        origin=response.origin,
+        request_digest=response.request_digest,
+        response_digest=response.response_digest,
+        provider_request_id=response.provider_request_id,
+        requested_model=response.requested_model,
+        served_model=response.served_model,
+        reported_fingerprint=response.system_fingerprint,
+        status=_call_status(response),
+        attempts=response.attempts,
+    )
+
+
+def _unit_calls(units: list[_Unit]) -> list[CallProvenance]:
+    """Every provider call these units made, bound to the unit that made it."""
+    calls: list[CallProvenance] = []
+    for unit in units:
+        roles: tuple[tuple[CallRole, TargetResponse | None], ...] = (
+            ("target", unit.target_resp), ("judge", unit.judge_resp))
+        for role, response in roles:
+            if response is not None:
+                calls.append(_call_provenance(unit, response, role))
+    return calls
+
+
+def _execution_provenance(
+    calls: list[CallProvenance], started_at: str, ended_at: str,
+) -> ExecutionProvenance:
+    """The summary, derived from the calls so it cannot disagree with them."""
+    origins: set[ExecutionOrigin] = {c.origin for c in calls}
+    # One value when they agree. A run that replayed half its calls is neither live nor
+    # replayed, and calling it either would be the more useful-sounding lie.
+    origin: ExecutionOrigin = origins.pop() if len(origins) == 1 else "mixed"
+    return ExecutionProvenance(
+        session_id=uuid.uuid4().hex,
+        origin=origin,
+        started_at=started_at,
+        ended_at=ended_at,
+        n_calls=len(calls),
+        n_live=sum(1 for c in calls if c.origin == "live"),
+        n_replayed=sum(1 for c in calls if c.origin == "replay"),
+        attempts=sum(c.attempts for c in calls),
+        n_truncated=sum(1 for c in calls if c.status == "truncated"),
+        calls=calls,
+    )
+
+
 class _Unit:
     """One (case, repeat) measurement: generate once, score once."""
 
@@ -185,6 +259,9 @@ def run_eval(
             on_unit_done()
         return done
 
+    # Around the calls, not around the function: parsing arguments and writing reports
+    # are not measurement time, and counting them would overstate both ends.
+    started_at = datetime.now(UTC).isoformat()
     if concurrency == 1:
         for unit in units:
             execute(unit)
@@ -192,6 +269,7 @@ def run_eval(
         with ThreadPoolExecutor(max_workers=concurrency) as pool:
             # list() re-raises the first failure; order of `units` is untouched.
             list(pool.map(execute, units))
+    ended_at = datetime.now(UTC).isoformat()
 
     results: list[CaseResult] = []
     for i, case in enumerate(dataset.cases):
@@ -272,6 +350,7 @@ def run_eval(
         run_config=RunConfig(n_repeats=n_repeats, concurrency=concurrency),
         suite=suite,
         artifacts=artifacts,
+        execution=_execution_provenance(_unit_calls(units), started_at, ended_at),
         code=CodeProvenance(commit=git["commit"], dirty=git["dirty"]),
         environment=EnvironmentProvenance(
             **environment_provenance(),

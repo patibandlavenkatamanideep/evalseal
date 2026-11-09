@@ -21,6 +21,7 @@ import json
 import pytest
 
 from evalseal.adapters.recording import Cassette
+from evalseal.adapters.target import ProviderCall
 from evalseal.config import (
     AnthropicTargetConfig,
     ConfigError,
@@ -48,8 +49,10 @@ def _capture(target):
 
     def fake_post(body):
         sent.update(body)
-        return {"choices": [{"message": {"content": "yes"}, "finish_reason": "stop"}],
-                "model": body["model"]}
+        return ProviderCall(
+            {"choices": [{"message": {"content": "yes"}, "finish_reason": "stop"}],
+             "model": body["model"]},
+            attempts=1)
 
     target._post = fake_post
     return sent, target.generate("hello")

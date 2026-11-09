@@ -182,7 +182,7 @@ def test_a_grading_code_digest_cannot_be_written_into_an_older_receipt():
     assert "manifest.scorer.impl_hash" in removed
 
 
-def test_the_1_6_fields_are_unsealed_for_every_earlier_schema():
+def test_the_fields_added_since_1_5_are_unsealed_for_every_earlier_schema():
     """Each new field has to be in the strip table or an old receipt stops verifying."""
     from evalseal.ledger import unsealed_paths
 
@@ -193,7 +193,8 @@ def test_the_1_6_fields_are_unsealed_for_every_earlier_schema():
         assert "manifest.target.system_prompt_hash" in paths, version
         assert "manifest.target.effective_params.unset" in paths, version
         assert "manifest.scorer.judge.api_version" in paths, version
-    assert unsealed_paths("1.6") == ()
+        assert "manifest.execution" in paths, version
+    assert unsealed_paths("1.7") == ()
 
 
 def test_the_injection_is_still_reported_as_verifying_under_its_own_schema():
@@ -237,7 +238,7 @@ def test_nothing_is_stripped_for_an_unsupported_version():
 
 # --- A3-3: a future schema is not today's schema --------------------------------------
 
-@pytest.mark.parametrize("version", ["9.9", "2.0", "1.7"])
+@pytest.mark.parametrize("version", ["9.9", "2.0", "1.8"])
 def test_a_future_schema_version_is_rejected(tmp_path, version):
     """On the baseline `9.9` came back as ("ok", "1.5")."""
     record = _sealed_under(version, strip=False)

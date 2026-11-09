@@ -167,6 +167,104 @@ def validate_record(record: RunRecord) -> list[Problem]:
         problems.extend(_case_summary_problems(index, case))
 
     problems.extend(_aggregate_problems(record))
+    problems.extend(_execution_problems(record))
+    return problems
+
+
+def _execution_problems(record: Any) -> list[Problem]:
+    """Whether the execution manifest agrees with the measurements it describes.
+
+    A per-call manifest is only worth sealing if a reader can trust the binding. Two
+    calls claiming one (case, repeat, role) makes "what did repeat 1 of c0 return"
+    undecidable; a call naming a case the receipt does not have, or a repeat the run
+    never had, describes a measurement that is not in this receipt. Either way the
+    detail would read as evidence about a unit it does not belong to.
+
+    The summary counts are checked against the calls for the same reason the aggregate
+    is checked against the cases: a summary nobody cross-checks is a summary anybody
+    can write.
+    """
+    execution = getattr(record.manifest, "execution", None)
+    if execution is None:
+        # A receipt sealed before schema 1.7, or one built without execution detail.
+        # Absent is not inconsistent; what it cannot be is read as "nothing happened".
+        return []
+
+    problems: list[Problem] = []
+    calls = execution.calls
+    repeats_by_case = {case.case_id: len(case.scores) for case in record.results}
+
+    seen: set[tuple[str, int, str, int]] = set()
+    duplicates: list[str] = []
+    for index, call in enumerate(calls):
+        key = (call.case_id, call.repeat, call.role, call.sequence)
+        if key in seen:
+            duplicates.append(f"{call.case_id} repeat {call.repeat} {call.role}")
+        seen.add(key)
+
+        if call.case_id not in repeats_by_case:
+            problems.append(Problem(
+                f"manifest.execution.calls[{index}].case_id",
+                f"the call is attributed to case {call.case_id!r}, which this receipt "
+                "does not contain, so it describes a measurement that is not here"))
+        elif not 0 <= call.repeat < repeats_by_case[call.case_id]:
+            problems.append(Problem(
+                f"manifest.execution.calls[{index}].repeat",
+                f"repeat {call.repeat} is outside the {repeats_by_case[call.case_id]} "
+                f"repeat(s) recorded for case {call.case_id!r}"))
+        if call.sequence < 0 or call.attempts < 0:
+            problems.append(Problem(
+                f"manifest.execution.calls[{index}]",
+                f"sequence {call.sequence} and attempts {call.attempts} count "
+                "occurrences; neither can be negative"))
+
+    if duplicates:
+        problems.append(Problem(
+            "manifest.execution.calls",
+            f"{len(duplicates)} call(s) claim a repeat another call already claims "
+            f"({', '.join(sorted(set(duplicates)))}). Which one produced that score is "
+            "then undecidable"))
+
+    # Every score needs the call that produced it, and every call a score to belong to.
+    # Checked even when the call list is empty: a manifest that says a run happened and
+    # lists nothing is the same false claim as one that lists the wrong thing. An
+    # *absent* manifest is a different matter and returns early above.
+    expected = {(case.case_id, repeat)
+                for case in record.results for repeat in range(len(case.scores))}
+    measured = {(c.case_id, c.repeat) for c in calls if c.role == "target"}
+    if measured != expected:
+        missing = len(expected - measured)
+        extra = len(measured - expected)
+        problems.append(Problem(
+            "manifest.execution.calls",
+            f"the target calls do not cover the scores: {missing} scored "
+            f"(case, repeat) pair(s) have no call and {extra} call(s) have no score. "
+            "A score without the call behind it cannot be traced to anything"))
+
+    for field, actual in (
+        ("n_calls", len(calls)),
+        ("n_live", sum(1 for c in calls if c.origin == "live")),
+        ("n_replayed", sum(1 for c in calls if c.origin == "replay")),
+        ("attempts", sum(c.attempts for c in calls)),
+        ("n_truncated", sum(1 for c in calls if c.status == "truncated")),
+    ):
+        stated = getattr(execution, field)
+        if stated != actual:
+            problems.append(Problem(
+                f"manifest.execution.{field}",
+                f"the summary says {stated} but the sealed calls say {actual}"))
+
+    origins = {c.origin for c in calls}
+    if not calls:
+        expected_origin = execution.origin
+    else:
+        expected_origin = origins.pop() if len(origins) == 1 else "mixed"
+    if execution.origin != expected_origin:
+        problems.append(Problem(
+            "manifest.execution.origin",
+            f"the run claims origin {execution.origin!r} but its calls say "
+            f"{expected_origin!r}. Whether a provider was called is the strongest "
+            "claim in a receipt and cannot disagree with the calls behind it"))
     return problems
 
 

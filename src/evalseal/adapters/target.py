@@ -8,9 +8,9 @@ from typing import Any, Protocol, runtime_checkable
 
 import httpx
 
-from ..models import ParamsSource
+from ..models import CallOrigin, ParamsSource
 from ..provenance import text_hash
-from .recording import Cassette
+from .recording import CallOutcome, Cassette, digest
 
 # Transient conditions: the same request may well succeed a moment later.
 RETRY_STATUSES = frozenset({408, 409, 425, 429, 500, 502, 503, 504, 529})
@@ -40,6 +40,21 @@ class TargetResponse:
     # Hash of the system prompt, or None when none was sent. Never the text: a judge's
     # system prompt steers its verdicts and can be as private as the rubric.
     system_prompt_hash: str | None = None
+    # Where this response came from: a real provider call, a cassette entry, an
+    # in-process callable, or a custom Target that does not say. Defaulted to
+    # "unknown" rather than "live", because "we called the model" is the strongest
+    # claim in a receipt and must never be the one a silence produces.
+    origin: CallOrigin = "unknown"
+    # Digests of the request as sent and the response as used. Empty strings would make
+    # an absent digest look like a computed one, so these are None when there is none.
+    request_digest: str | None = None
+    response_digest: str | None = None
+    # The provider's own id for this call, when it gives one: the only handle for
+    # checking a receipt against the provider's logs. On a replay it is the id of the
+    # call that produced the recorded bytes.
+    provider_request_id: str | None = None
+    # How many HTTP attempts this call took. 1 means it succeeded first time.
+    attempts: int = 1
 
 
 @runtime_checkable
@@ -55,9 +70,16 @@ class LocalCallableTarget:
     name: str = "local"
 
     def generate(self, prompt: str) -> TargetResponse:
+        text = self.fn(prompt)
         return TargetResponse(
-            text=self.fn(prompt),
+            text=text,
             provider="local",
+            # Not "live": no provider was involved. Not "replay" either - there is no
+            # recording behind it. A third value is the only honest answer.
+            origin="local",
+            request_digest=digest({"prompt": prompt, "target": self.name}),
+            response_digest=digest({"text": text}),
+            attempts=0,
             requested_model=self.name,
             served_model=self.name,
             system_fingerprint=None,
@@ -97,6 +119,19 @@ def _require_key(env_var: str) -> str:
     return key
 
 
+@dataclass(frozen=True)
+class ProviderCall:
+    """A provider response and what it took to get it.
+
+    `attempts` is here because a call that failed twice and then succeeded used to be
+    recorded exactly like one that succeeded first time. A run that retried its way
+    through a rate limit is a different run from one that did not - slower, later, and
+    possibly served by a different backend - and the receipt could not say so.
+    """
+    body: dict
+    attempts: int
+
+
 def post_with_retries(
     *,
     url: str,
@@ -105,7 +140,7 @@ def post_with_retries(
     max_retries: int,
     timeout: float,
     sleep: Callable[[float], None],
-) -> dict:
+) -> ProviderCall:
     """One real HTTP call, retrying transient failures with backoff.
 
     Shared by every provider adapter. A second copy of this loop would drift, and the
@@ -118,7 +153,7 @@ def post_with_retries(
                 response = client.post(url, headers=headers, json=body)
             if response.status_code not in RETRY_STATUSES:
                 response.raise_for_status()
-                return response.json()
+                return ProviderCall(response.json(), attempt + 1)
             last_response = response
         except httpx.TransportError:
             if attempt == max_retries:
@@ -128,6 +163,32 @@ def post_with_retries(
             last_response.raise_for_status()
         sleep(backoff_seconds(attempt, last_response))
     raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _request_id(raw: dict) -> str | None:
+    """The provider's id for this call, if it gave a usable one."""
+    value = raw.get("id")
+    return value if isinstance(value, str) and value else None
+
+
+def _through_cassette(
+    cassette: Cassette, payload: dict, post: Callable[[], ProviderCall],
+) -> tuple[CallOutcome, int]:
+    """Serve `payload` from the cassette or by calling the provider.
+
+    Returns the outcome and how many HTTP attempts it took - 0 for a replay, because no
+    attempt was made. Reporting 1 there would quietly turn "we read a file" into "we
+    called the model once and it worked".
+    """
+    attempts = 0
+
+    def real_call() -> dict:
+        nonlocal attempts
+        call = post()
+        attempts = call.attempts
+        return call.body
+
+    return cassette.call_detail(payload, real_call), attempts
 
 
 @dataclass
@@ -177,7 +238,9 @@ class OpenAICompatibleTarget:
             body["max_tokens"] = self.max_tokens
 
         # Cassette key is the full effective body (never the API key).
-        raw = self.cassette.call({"url": self.base_url, "body": body}, lambda: self._post(body))
+        outcome, attempts = _through_cassette(
+            self.cassette, {"url": self.base_url, "body": body}, lambda: self._post(body))
+        raw = outcome.response
 
         return TargetResponse(
             text=raw["choices"][0]["message"]["content"] or "",
@@ -206,9 +269,14 @@ class OpenAICompatibleTarget:
             api_version=None,
             system_prompt_hash=text_hash(self.system) if self.system is not None else None,
             truncated=raw["choices"][0].get("finish_reason") == "length",
+            origin=outcome.origin,
+            request_digest=outcome.request_digest,
+            response_digest=outcome.response_digest,
+            provider_request_id=_request_id(raw),
+            attempts=attempts,
         )
 
-    def _post(self, body: dict[str, Any]) -> dict:
+    def _post(self, body: dict[str, Any]) -> ProviderCall:
         key = _require_key(self.api_key_env)
         return post_with_retries(
             url=f"{self.base_url.rstrip('/')}/chat/completions",
@@ -274,7 +342,9 @@ class AnthropicTarget:
 
         # Keyed on the full effective body, exactly as the OpenAI adapter is, so a
         # cassette entry means the same thing whichever provider recorded it.
-        raw = self.cassette.call({"url": self.base_url, "body": body}, lambda: self._post(body))
+        outcome, attempts = _through_cassette(
+            self.cassette, {"url": self.base_url, "body": body}, lambda: self._post(body))
+        raw = outcome.response
 
         return TargetResponse(
             text=extract_text(raw),
@@ -305,9 +375,14 @@ class AnthropicTarget:
             api_version=self.anthropic_version,
             system_prompt_hash=text_hash(self.system) if self.system is not None else None,
             truncated=raw.get("stop_reason") == "max_tokens",
+            origin=outcome.origin,
+            request_digest=outcome.request_digest,
+            response_digest=outcome.response_digest,
+            provider_request_id=_request_id(raw),
+            attempts=attempts,
         )
 
-    def _post(self, body: dict[str, Any]) -> dict:
+    def _post(self, body: dict[str, Any]) -> ProviderCall:
         key = _require_key(self.api_key_env)
         return post_with_retries(
             url=f"{self.base_url.rstrip('/')}/messages",

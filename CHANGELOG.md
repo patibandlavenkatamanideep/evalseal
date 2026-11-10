@@ -9,6 +9,38 @@ older version still verifies.
 
 ### Fixed
 
+- **An input was used at the start of a run and hashed at the end.** Anything that
+  rewrote the file in between - a `git checkout`, an editor save, another job
+  regenerating a dataset - left a receipt describing bytes that produced no score:
+
+  ```
+  prompt actually used  : what the model was asked
+  dataset bytes at start: sha256:99a1baea720ec4631
+  dataset bytes at end  : sha256:15524b82f5e323980
+  digest SEALED in the receipt: sha256:15524b82f5e323980
+    -> sealed the bytes that ran  : False
+    -> sealed bytes nothing ran on: True
+  manifest.dataset.hash : sha256:99a1baea720ec4631 (computed at load)
+  any warning about it  : []
+  validate_record says  : nothing wrong
+  ```
+
+  The receipt held two different digests for one file and said nothing about either, and
+  `verify --artifacts` afterwards reported `ok` - against the file nothing ran on. A
+  check that passes because it is looking at the wrong bytes is worse than no check.
+
+  New `evalseal.inputs` captures each input once: the bytes are read, hashed as read,
+  and used from there. `Dataset.from_bytes` parses the captured bytes (hashing them the
+  way `read_text` did, so a CRLF dataset keeps the digest it has always had), the suite's
+  whole-file and section digests come from one read, and `validate_agent_artifact`
+  accepts the captured bytes so the file that is validated is the file whose digest is
+  sealed. A file that changes while the run is in flight becomes a named warning -
+  `DATASET CHANGED DURING RUN: it is now ...; this run used ...` - plus a note on the
+  artifact; the run keeps the bytes it read, and `verify --artifacts` reports `changed`
+  afterwards, which is the truth. A file that only *appears* mid-run is reported too,
+  and is not adopted: "there was no tool manifest" and "there was one, a moment too late
+  to be the one that applied" are different facts.
+
 - **Two writers on one cassette silently deleted each other's responses.** Every
   `Cassette` kept the whole entry table in memory and rewrote the whole file after each
   recorded response, so two writers each erased the other's entries and the last one

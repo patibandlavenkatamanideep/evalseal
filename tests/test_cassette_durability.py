@@ -560,6 +560,21 @@ def decompose_workspace(tmp_path):
                       "--cassette", str(tmp_path / "c.json"), "--n", "2"]
 
 
+def test_run_reports_an_incompatible_cassette_instead_of_raising(sealed):
+    """`run` always had the handler; `decompose` had it around the wrong block."""
+    workspace, ledger, cassette, _ = sealed
+    cassette.write_text('{"version": 99, "entries": {}}', encoding="utf-8")
+    result = runner.invoke(app, [
+        "run", "--dataset", str(workspace / "ds.jsonl"),
+        "--target-config", str(workspace / "t.json"),
+        "--scorer-config", str(workspace / "s.json"),
+        "--cassette", str(cassette), "--n", "3",
+        "--ledger", str(ledger), "--cassette-mode", "resume"])
+    assert result.exit_code == 1
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert "incompatible evalseal version" in " ".join(result.output.split())
+
+
 def test_decompose_reports_an_incompatible_cassette_instead_of_raising(decompose_workspace):
     """Found while wiring CassetteBusy in: the handler sat around the wrong block.
 

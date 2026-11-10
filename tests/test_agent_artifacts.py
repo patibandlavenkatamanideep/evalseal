@@ -368,13 +368,22 @@ def test_a_call_missing_a_key_field_is_caught(field):
 # --- fail closed at seal time -----------------------------------------------------------
 
 def test_run_refuses_to_seal_a_malformed_agent_artifact(tmp_path):
-    """A digest over a broken file verifies perfectly and describes nothing."""
+    """A digest over a broken file verifies perfectly and describes nothing.
+
+    The check moved from `_parse_artifacts` to `_check_agent_artifacts` in C2c, so that
+    the bytes it judges are the bytes whose digest the receipt seals: validating by path
+    and hashing by path are two reads, and a file edited between them is validated as
+    one thing and sealed as another.
+    """
     import typer
+
+    from evalseal.cli import _check_agent_artifacts
+    from evalseal.inputs import capture_all
 
     broken = tmp_path / "tools.json"
     broken.write_text(json.dumps(_manifest(response_mode="teleported")), encoding="utf-8")
     with pytest.raises(typer.BadParameter) as e:
-        _parse_artifacts([f"tool_acl={broken}"])
+        _check_agent_artifacts(capture_all(_parse_artifacts([f"tool_acl={broken}"])))
     message = str(e.value)
     assert "problem(s) in the agent artifact(s)" in message
     assert "teleported" in message

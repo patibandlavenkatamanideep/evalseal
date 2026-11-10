@@ -17,6 +17,7 @@ from .adapters.scorer import Scorer, scorer_config
 from .adapters.target import Target, TargetResponse
 from .analyze import analyze_case
 from .identity import scorer_implementation
+from .inputs import InputSnapshot
 from .models import (
     Aggregate,
     ArtifactProvenance,
@@ -57,20 +58,65 @@ _LOCAL_SCHEMES = {"local"}
 _MUTABLE_ROLES = frozenset({"cassette"})
 
 
-def _artifact(role: str, path: str) -> ArtifactProvenance:
-    """Bind one file by digest, or record plainly that there was nothing to bind."""
-    digest = file_hash(path)
-    if digest is None:
-        return ArtifactProvenance(
-            role=role, kind="external", path=str(path),
-            note="not readable when the record was sealed; nothing to verify against")
+def _bind(role: str, path: str, digest: str, note: str | None = None) -> ArtifactProvenance:
+    """One artifact, with the kind its role implies."""
     if role in _MUTABLE_ROLES:
         return ArtifactProvenance(
             role=role, kind="mutable", sha256=digest, path=str(path),
-            note="later runs record into this file, so a digest mismatch here is "
+            note=note or
+                 "later runs record into this file, so a digest mismatch here is "
                  "expected and is not a tamper signal; the immutable copy of what this "
                  "run used is the cassette_snapshot artifact")
-    return ArtifactProvenance(role=role, kind="hashed", sha256=digest, path=str(path))
+    return ArtifactProvenance(role=role, kind="hashed", sha256=digest, path=str(path),
+                              note=note)
+
+
+def _unreadable(role: str, path: str, note: str) -> ArtifactProvenance:
+    return ArtifactProvenance(role=role, kind="external", path=str(path), note=note)
+
+
+def _artifact(role: str, path: str) -> ArtifactProvenance:
+    """Bind one file by digest **as it stands now**, or say there was nothing to bind.
+
+    Only for a file the run itself writes, where "now" is the only time that means
+    anything - the cassette. Every input goes through `_captured_artifact` instead, so
+    that what is sealed is what was read.
+    """
+    digest = file_hash(path)
+    if digest is None:
+        return _unreadable(
+            role, path,
+            "not readable when the record was sealed; nothing to verify against")
+    return _bind(role, path, digest)
+
+
+def _captured_artifact(snapshot: InputSnapshot) -> tuple[ArtifactProvenance, str | None]:
+    """Bind an input from the bytes the run read, and report it if the file has moved.
+
+    The digest is the capture's, never a fresh one: an input used at the start and
+    hashed at the end left receipts sealing bytes that produced no score, and
+    re-hashing such an artifact afterwards reported `ok` against the wrong file.
+    """
+    drift = snapshot.drift()
+    label = f"{snapshot.role.upper()} CHANGED DURING RUN: {drift}."
+    if snapshot.sha256 is None:
+        # Nothing was read, so nothing is bound - but if the file turned up while the
+        # run was in flight, saying so is the difference between "there was no tool
+        # manifest" and "there was one, a moment too late to be the one that applied".
+        return _unreadable(
+            snapshot.role, snapshot.path,
+            "not readable when this run read it; nothing to verify against",
+        ), None if drift is None else f"{label} Nothing in this receipt is bound to it."
+    if drift is None:
+        return _bind(snapshot.role, snapshot.path, snapshot.sha256,
+                     "digest of the bytes this run read, taken before use"), None
+    return (
+        _bind(snapshot.role, snapshot.path, snapshot.sha256,
+              f"digest of the bytes this run read; the file changed while the run was "
+              f"in flight, and {drift}"),
+        f"{label} The scores come from the bytes this run read at the start, which is "
+        f"what the receipt seals - so the file as it stands now cannot reproduce them.",
+    )
 
 
 def _cassette_snapshots(
@@ -316,6 +362,7 @@ def run_eval(
     artifact_paths: dict[str, str] | None = None,
     session_id: str | None = None,
     snapshot_dir: str | Path | None = None,
+    captured: dict[str, InputSnapshot] | None = None,
 ) -> RunRecord:
     """Run `dataset` N times through `target`, score with `scorer`, seal the result.
 
@@ -327,6 +374,11 @@ def run_eval(
 
     `session_id` names this run; the caller supplies one when it needs the receipt and
     its output directory to carry the same name.
+
+    `captured` maps an artifact role to the `InputSnapshot` the caller read it from.
+    Those roles are sealed from the bytes that were read rather than re-hashed at the
+    end, and a file that changed while the run was in flight becomes a warning in the
+    receipt instead of a digest nothing ran on.
     """
     if not dataset.cases:
         raise ValueError("dataset has no cases")
@@ -403,7 +455,18 @@ def run_eval(
     # units run, so its digest is only meaningful once they have finished. For the same
     # reason the snapshot is taken here - after the last response is recorded, before
     # the record that binds it is sealed.
-    artifacts = [_artifact(role, path) for role, path in sorted((artifact_paths or {}).items())]
+    artifacts: list[ArtifactProvenance] = []
+    for role, path in sorted((artifact_paths or {}).items()):
+        # A captured input is sealed from what it was read as; anything else - the
+        # cassette - is hashed here, because it was still being written a moment ago.
+        snapshot = (captured or {}).get(role)
+        if snapshot is None:
+            artifacts.append(_artifact(role, path))
+            continue
+        bound, moved = _captured_artifact(snapshot)
+        artifacts.append(bound)
+        if moved is not None:
+            warnings.append(moved)
     if snapshot_dir is not None:
         artifacts += _cassette_snapshots(target, scorer, snapshot_dir)
     git = git_provenance()

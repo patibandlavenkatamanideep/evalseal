@@ -50,6 +50,7 @@ from .drift import analyze_drift
 from .drift import render as render_drift
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
+from .inputs import InputSnapshot, capture_all
 from .ledger import (
     LEDGER_PATH,
     config_fingerprint,
@@ -79,7 +80,7 @@ from .prereg import (
     check_preregistration,
     load_preregistration,
 )
-from .provenance import file_hash, text_hash
+from .provenance import text_hash
 from .report import (
     case_rows,
     failing_cases,
@@ -286,7 +287,8 @@ def _load_suite(path: Path | None) -> dict:
     return suite
 
 
-def _suite_section_hashes(path: Path | None) -> dict[str, str | None]:
+def _suite_section_hashes(path: Path | None,
+                          data: bytes | None = None) -> dict[str, str | None]:
     """Digest the evaluator and target sections separately.
 
     Why separate: the whole-file suite hash cannot go into the evaluator fingerprint,
@@ -301,11 +303,18 @@ def _suite_section_hashes(path: Path | None) -> dict[str, str | None]:
     anything new. See docs/suite-format.md.
     """
     out: dict[str, str | None] = {"evaluator_hash": None, "target_hash": None}
-    if path is None:
-        return out
+    # `data` when the caller has already read the file, so the sections hashed here and
+    # the whole-file digest in the receipt come from one read of it.
+    if data is None:
+        if path is None:
+            return out
+        try:
+            data = path.read_bytes()
+        except OSError:
+            return out
     try:
-        suite = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        suite = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
         return out
     if not isinstance(suite, dict) or suite.get("version") != 2:
         return out          # the flat format has no sections to hash apart
@@ -350,14 +359,21 @@ def _parse_artifacts(pairs: list[str]) -> dict[str, str]:
         if role in out:
             raise typer.BadParameter(f"--artifact role {role!r} given twice")
         out[role] = path
+    return out
 
-    # Fail closed on a malformed agent artifact, for the same reason an `external`
-    # artifact fails closed: a digest over a broken file produces a receipt that
-    # verifies perfectly and describes an environment nobody can reconstruct.
+
+def _check_agent_artifacts(captured: dict[str, InputSnapshot]) -> None:
+    """Fail closed on a malformed agent artifact, judging the bytes that were read.
+
+    Same reason an `external` artifact fails closed: a digest over a broken file
+    produces a receipt that verifies perfectly and describes an environment nobody can
+    reconstruct. The bytes come from the capture rather than from a second read of the
+    file, so the file this validates is the file whose digest is sealed.
+    """
     problems = [
-        (role, problem)
-        for role, path in out.items()
-        for problem in validate_agent_artifact(role, path)
+        (snapshot.role, problem)
+        for snapshot in captured.values()
+        for problem in validate_agent_artifact(snapshot.role, snapshot.path, snapshot.data)
     ]
     if problems:
         listed = "\n".join(f"  {role}: {problem}" for role, problem in problems)
@@ -365,7 +381,6 @@ def _parse_artifacts(pairs: list[str]) -> dict[str, str]:
             f"{len(problems)} problem(s) in the agent artifact(s) you are sealing:\n"
             f"{listed}\nThe schema is in docs/agent-eval-receipts.md. EvalSeal checks "
             "the shape of these files, not whether the agent really made these calls.")
-    return out
 
 
 def _build_target(
@@ -539,7 +554,20 @@ def run(
     junit_xml = junit_xml or (Path(cfg["junit_xml"]) if "junit_xml" in cfg else None)
     sign_key = sign_key or (Path(cfg["sign_key"]) if "sign_key" in cfg else None)
 
-    ds = Dataset.from_jsonl(dataset)
+    # Read every input once, here, and use what was read from here on. An input that
+    # was used at the start and hashed at the end left receipts sealing bytes that
+    # produced no score - and `verify --artifacts` then reported `ok` against the file
+    # nothing ran on. See evalseal/inputs.py.
+    captured = capture_all({
+        "dataset": str(dataset),
+        **({"suite": str(suite)} if suite else {}),
+        **extra_artifacts,
+    })
+    _check_agent_artifacts(captured)
+    ds_bytes = captured["dataset"].data
+    if ds_bytes is None:
+        raise typer.BadParameter(f"cannot read the dataset {dataset}")
+    ds = Dataset.from_bytes(ds_bytes, what=str(dataset))
     # A v2 suite's `cases.only` is a list; --only is a comma-separated string. The flag
     # wins, as it does for every other suite key.
     wanted_ids = ([c.strip() for c in only.split(",") if c.strip()] if only
@@ -593,8 +621,9 @@ def run(
                 concurrency=concurrency,
                 on_unit_done=lambda: progress.advance(task),
                 suite=SuiteProvenance(
-                    name=suite.stem, path=str(suite), hash=file_hash(suite),
-                    **_suite_section_hashes(suite),
+                    name=suite.stem, path=str(suite),
+                    hash=captured["suite"].sha256,
+                    **_suite_section_hashes(suite, captured["suite"].data),
                 ) if suite else None,
                 dataset_path=str(dataset),
                 store_judge_prompt=store_judge_prompt,
@@ -606,6 +635,7 @@ def run(
                     **({"suite": str(suite)} if suite else {}),
                     **extra_artifacts,
                 },
+                captured=captured,
                 session_id=session_id,
                 snapshot_dir=run_dir if snapshot else None,
             )

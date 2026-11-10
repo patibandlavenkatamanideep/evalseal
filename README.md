@@ -892,6 +892,15 @@ tracked target).
   call - and **a replayed run and a live one produced receipts no field could tell apart**.
 - **Two fingerprints over that provenance.** An evaluator fingerprint that decides whether
   two runs are comparable, and a config fingerprint that identifies exactly what ran.
+- **Inputs are hashed as they are read, before they are used.** The dataset, suite and
+  any `--artifact` file is read once; that read is what the cases are parsed from, what
+  an agent artifact is validated against, and what the receipt's digest is of. An input
+  used to be used at the start and hashed at the end, so a file rewritten in between
+  left a receipt sealing bytes that produced no score - and `verify --artifacts` then
+  reported `ok` against the file nothing ran on. A file that changes while a run is in
+  flight is now named in the receipt (`DATASET CHANGED DURING RUN: ...`), the run keeps
+  using the bytes it read, and re-hashing afterwards reports `changed`, because the file
+  as it stands really cannot reproduce the result.
 - **One writer per cassette.** A run that may record takes the cassette's writer lock
   and a second one is refused by name. Both used to be served: each held the whole entry
   table in memory and rewrote the whole file, so the last to finish erased the other's

@@ -193,22 +193,33 @@ def validate_tool_responses(data: object) -> list[str]:
     return problems
 
 
-def validate_agent_artifact(role: str, path: str | Path) -> list[str]:
+def validate_agent_artifact(role: str, path: str | Path,
+                            data: bytes | None = None) -> list[str]:
     """Validate one file against the schema its role implies.
 
     Returns an empty list for a role this module does not claim - `--artifact` stays
     general, and only the documented agent roles are held to a schema.
+
+    `data` validates bytes the caller has already read. `evalseal run` passes the bytes
+    it captured, so the file that is validated and the file that is hashed into the
+    receipt are the same read of the same file rather than two reads that a mid-run
+    edit can separate.
     """
     if role not in AGENT_ROLES:
         return []
-    p = Path(path)
-    try:
-        text = p.read_text(encoding="utf-8")
-    except OSError:
-        # Unreadable is not this module's failure to report: `run` seals it as
-        # `external` with a note, and a pre-registration decides whether that is
-        # acceptable. Saying nothing here keeps one rule in one place.
-        return []
+    if data is not None:
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as e:
+            return [f"not valid UTF-8 ({e.reason} at byte {e.start})"]
+    else:
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+        except OSError:
+            # Unreadable is not this module's failure to report: `run` seals it as
+            # `external` with a note, and a pre-registration decides whether that is
+            # acceptable. Saying nothing here keeps one rule in one place.
+            return []
     try:
         data = json.loads(text)
     except json.JSONDecodeError as e:

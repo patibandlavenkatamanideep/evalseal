@@ -649,7 +649,7 @@ happen. Verify what the page claims with `evalseal verify`.
 
 | command | what it does | exit code |
 |---|---|---|
-| `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `report.json` + `report.md`; `--html` also writes a receipt. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error |
+| `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `runs/<id>/` (report, cassette snapshot) plus `report.json` + `report.md` aliases; `--html` also writes a receipt. `--out-dir` chooses the directory, `--no-snapshot` skips the copy. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error (including a cassette another run is writing) |
 | `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures, `--artifacts` re-hashes the cassette, dataset and suite. | `0` intact · `1` tampered or broken |
 | `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - item by item: comparability, a paired test on the score difference, and which cases started or stopped flipping. `--json` for CI, `--html` to share. | `0` |
 | `evalseal power` | Estimates how many items or repeats it would take to detect a difference you care about. `--from-receipt` uses a real run's per-item rates. | `0` |
@@ -892,9 +892,27 @@ tracked target).
   call - and **a replayed run and a live one produced receipts no field could tell apart**.
 - **Two fingerprints over that provenance.** An evaluator fingerprint that decides whether
   two runs are comparable, and a config fingerprint that identifies exactly what ran.
+- **One writer per cassette.** A run that may record takes the cassette's writer lock
+  and a second one is refused by name. Both used to be served: each held the whole entry
+  table in memory and rewrote the whole file, so the last to finish erased the other's
+  responses - admitted, acknowledged and then silently deleted by a process that never
+  knew the first existed.
+- **An immutable copy of what each receipt used.** At the end of a run the cassette
+  entries that run read or wrote are copied into its output directory and bound into the
+  receipt as `cassette_snapshot`. A later run recording into the same cassette, or
+  re-drawing it from scratch, cannot invalidate the bytes behind an earlier receipt, and
+  the snapshot replays on its own. See
+  [docs/adr/0002-cassette-writer-strategy.md](docs/adr/0002-cassette-writer-strategy.md).
+- **One output directory per run.** `runs/<timestamp>-<session>/` holds that run's
+  `report.json`, `report.md` and cassette snapshot, so two runs in one working directory
+  do not overwrite each other's results. `./report.json` and `./report.md` remain as
+  aliases for the latest run.
 - **Artifact digests that are re-checkable.** The cassette, dataset and suite are sealed
   by digest with an explicit kind, and `verify --artifacts` reports each as ok, changed,
-  missing or unverifiable - never passing a file it could not read.
+  moved, missing or unverifiable - never passing a file it could not read. `moved` is
+  reserved for a file later runs are expected to write to, and is only reported once the
+  receipt's own snapshot confirms every response it used is still there unchanged; a
+  response that was *replaced* is `changed` and still fails.
 - **A declared contract, checked clause by clause.** `gate --prereg` reports each clause
   of a pre-registration by name, passing ones included.
 
@@ -935,8 +953,14 @@ tracked target).
   [docs/external-anchoring.md](docs/external-anchoring.md) sets out what that would add.
 - **It cannot check an artifact nobody kept.** The receipt seals digests of the cassette,
   dataset and suite, and `verify --artifacts` re-hashes them - but a digest can only be
-  matched against a file that still exists. Anyone who may need to prove what a model
-  said must retain the cassette themselves.
+  matched against a file that still exists. The cassette snapshot in a run directory is
+  the copy to keep, and keeping it is the operator's job: delete the run directory and
+  the snapshot is reported `missing`, which is accurate and is not something EvalSeal can
+  undo.
+- **A snapshot is a recording, not a witness.** It is the set of responses a receipt's
+  scores were computed from, as recorded by the process that computed them. It is not
+  evidence that those responses came from the model named, that they were obtained when
+  the run says, or that no other run happened.
 - **It cannot prove that no hidden run happened.** Someone can run a suite five times and
   seal the fifth. A pre-registration makes the interesting moves - dropping the cases
   that failed, halving the repeat count, swapping the judge - visible rather than silent,

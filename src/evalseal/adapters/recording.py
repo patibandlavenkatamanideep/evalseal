@@ -10,7 +10,9 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import IO, Literal
+
+from ..locking import LockBusy, drop_lock, take_lock
 
 #: The format this build writes. Version 3 keys an entry by the *measurement* it
 #: belongs to - case, repeat and role - as well as by the request. Version 2 keyed it
@@ -134,6 +136,39 @@ class CassetteFormatError(RuntimeError):
     """The cassette on disk was written by an incompatible version."""
 
 
+class CassetteBusy(LockBusy):
+    """Another writer owns this cassette.
+
+    A cassette has one writer at a time, enforced rather than assumed: every writer
+    keeps the whole entry table in memory and rewrites the whole file, so two of them
+    each erase the other's responses and the last one wins. Writer A's response was
+    admitted, acknowledged and then silently deleted by a process that never knew A
+    existed - and the receipt A sealed could no longer be replayed. See
+    docs/adr/0002-cassette-writer-strategy.md.
+    """
+
+
+#: Where `finalize` puts a snapshot when the caller names no directory.
+SNAPSHOT_DIR = "snapshots"
+
+
+@dataclass(frozen=True)
+class CassetteSnapshot:
+    """The responses behind one receipt, written somewhere nothing will append to.
+
+    A receipt binds its cassette by digest, but the cassette is a file later runs are
+    free to rewrite. An honest later run that only added repeats turned an earlier
+    receipt's artifact check from `ok` to `changed`; a `fresh` re-draw wrote the same
+    keys with new responses and destroyed the earlier run's evidence outright. A
+    snapshot is the entries that run actually used, in the format they were keyed under,
+    written to a file whose name contains its own digest.
+    """
+    path: Path
+    sha256: str
+    n_entries: int
+    format: int
+
+
 def _resolve_mode(mode: str | None, record: bool | None) -> Mode:
     """One mode from three ways of asking for one, most explicit first."""
     if mode is not None:
@@ -153,6 +188,34 @@ def _resolve_mode(mode: str | None, record: bool | None) -> Mode:
     return "resume" if os.environ.get("EVALSEAL_RECORD", "0") == "1" else "replay"
 
 
+def _serialize(version: int, entries: dict[str, dict]) -> str:
+    """The one on-disk form of a cassette, for the live file and for a snapshot alike."""
+    return json.dumps({"version": version, "entries": entries}, indent=2, sort_keys=True)
+
+
+def _write_atomically(path: Path, text: str) -> None:
+    """Replace `path` with `text`: the file is always the old version or the new one.
+
+    A plain write truncates first and fills second, so an interrupt landing in between
+    left a partial file - and a partial JSON file loses every response in it, not just
+    the latest. Writing a sibling temp file and renaming it over the original closes
+    that window: os.replace is atomic on POSIX and Windows.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Same directory, so the rename never crosses a filesystem boundary.
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        # Leave no stray temp file behind, then let the error surface.
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 class Cassette:
     """JSON-backed record/replay store keyed by (request, repeat).
 
@@ -164,6 +227,13 @@ class Cassette:
     The mode is explicit: `mode="replay" | "resume" | "fresh"`. `EVALSEAL_MODE` sets it
     from the environment; `EVALSEAL_RECORD=1`/`record=True` still mean `resume` and
     `0`/`False` still mean `replay`, because both are published interfaces.
+
+    A cassette that may write **owns its file**: it takes an exclusive advisory lock and
+    a second writer raises `CassetteBusy` rather than erasing the first one's responses.
+    Readers take no lock, because replay never writes and a CI job that only replays
+    must not be blockable by a recording run. Close it - or use it as a context manager -
+    to release; dropping it on the floor also works, since the lock lives in a file
+    descriptor the interpreter closes.
     """
 
     def __init__(
@@ -186,9 +256,57 @@ class Cassette:
         #: Keys re-drawn in this session. `fresh` ignores the file, not itself: asking
         #: twice for one measurement must still give one answer.
         self._drawn: set[str] = set()
+        #: Keys this session read or wrote - the entries a receipt from it depends on,
+        #: and so exactly what `finalize` puts in the snapshot.
+        self._used: set[str] = set()
         self.format = FORMAT_VERSION
-        if self.path.exists():
-            self._entries = self._load()
+        #: The handle holding this cassette's writer lock, or None for a reader.
+        self._owner: IO[bytes] | None = None
+        try:
+            if self.record:
+                # Taken before the file is read, so what this cassette loads is what it
+                # owns, and released again if the load then rejects the format.
+                try:
+                    self._owner = take_lock(self.path, "cassette")
+                except LockBusy as e:
+                    raise CassetteBusy(
+                        f"{e}. A cassette has one writer at a time: both would rewrite "
+                        f"the whole file and the last one would win, silently deleting "
+                        f"responses the other had already recorded. Give this run its "
+                        f"own --cassette path, or wait for the other to finish."
+                    ) from e
+            if self.path.exists():
+                self._entries = self._load()
+        except BaseException:
+            self.close()
+            raise
+
+    # --- ownership ----------------------------------------------------------------
+
+    def close(self) -> None:
+        """Release the writer lock. Idempotent, and a no-op for a reader.
+
+        `getattr` rather than `self._owner`, because this also runs on an object whose
+        `__init__` raised before it got that far - an unknown mode name, for instance -
+        and a half-built cassette must not turn a clear error into an AttributeError
+        from a finalizer.
+        """
+        owner = getattr(self, "_owner", None)
+        self._owner = None
+        if owner is not None:
+            drop_lock(owner)
+
+    def __enter__(self) -> Cassette:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        # Closing the descriptor is what releases an flock, so this happens with or
+        # without this method. Doing it explicitly keeps a ResourceWarning away from
+        # callers who never close the cassette.
+        self.close()
 
     def _load(self) -> dict[str, dict]:
         raw = json.loads(self.path.read_text(encoding="utf-8"))
@@ -308,6 +426,9 @@ class Cassette:
 
     def _outcome(self, payload: dict, response: dict,
                  origin: Literal["live", "replay"], index: int, key: str) -> CallOutcome:
+        # Recorded for every call, replayed or live: the snapshot is the entries this
+        # run's scores came from, which is not the same set as the whole file.
+        self._used.add(key)
         return CallOutcome(
             response=response,
             origin=origin,
@@ -320,31 +441,50 @@ class Cassette:
         )
 
     def _write(self) -> None:
-        """Replace the cassette atomically: the file is always the old version or the new.
-
-        The whole file is rewritten after every recorded response. A plain write_text
-        truncates first and fills second, so an interrupt landing in between left a
-        partial file - and a partial JSON file loses every response in it, not just the
-        latest. That broke the promise that an interrupted run keeps what it recorded,
-        and the window grew with the cassette. Writing a sibling temp file and renaming
-        it over the original closes it: os.replace is atomic on POSIX and Windows.
-        """
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"version": FORMAT_VERSION, "entries": self._entries}
+        """Persist the whole entry table, atomically."""
         # A format-2 file is replay-only, so `_write` is only ever reached for
         # format 3. Asserted rather than assumed: writing format 3 into a file whose
         # keys mean something else is the one outcome `_load` exists to prevent.
         assert self.format == FORMAT_VERSION, self.format
-        text = json.dumps(payload, indent=2, sort_keys=True)
-        # Same directory, so the rename never crosses a filesystem boundary.
-        tmp = self.path.with_name(f".{self.path.name}.{os.getpid()}.tmp")
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                f.write(text)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, self.path)
-        except BaseException:
-            # Leave no stray temp file behind, then let the error surface.
-            tmp.unlink(missing_ok=True)
-            raise
+        _write_atomically(self.path, _serialize(FORMAT_VERSION, self._entries))
+
+    # --- finalization -------------------------------------------------------------
+
+    def used_entries(self) -> dict[str, dict]:
+        """The entries this session read or wrote, in key order."""
+        with self._lock:
+            return {k: self._entries[k] for k in sorted(self._used) if k in self._entries}
+
+    def finalize(self, directory: str | Path | None = None,
+                 *, name: str | None = None) -> CassetteSnapshot:
+        """Write the responses behind this run somewhere nothing will append to.
+
+        The snapshot holds the entries this session actually used, serialized exactly
+        as a cassette is, so it *is* a cassette: `Cassette(snapshot, mode="replay")`
+        reproduces the run it was finalized from even after the live file has been
+        re-drawn. Its name carries its own digest, so a later run with different
+        entries writes a different file and no snapshot is ever overwritten.
+
+        Writing one that already exists is a no-op when the bytes match. When they do
+        not, that is an edited or corrupted snapshot, and it raises rather than
+        replacing a file an earlier receipt is bound to.
+        """
+        entries = self.used_entries()
+        text = _serialize(self.format, entries)
+        raw = text.encode()
+        sha = hashlib.sha256(raw).hexdigest()
+        where = Path(directory) if directory is not None else self.path.parent / SNAPSHOT_DIR
+        target = where / (name or f"{self.path.stem}-{sha[:16]}.json")
+        if target.exists():
+            if target.read_bytes() != raw:
+                raise RuntimeError(
+                    f"{target} already exists and holds different bytes "
+                    f"(sha256:{hashlib.sha256(target.read_bytes()).hexdigest()[:16]} "
+                    f"on disk, sha256:{sha[:16]} here). A snapshot is immutable: an "
+                    f"earlier receipt may be bound to the file that is there. Move it "
+                    f"aside, or finalize into another directory."
+                )
+        else:
+            _write_atomically(target, text)
+        return CassetteSnapshot(path=target, sha256=f"sha256:{sha}",
+                                n_entries=len(entries), format=self.format)

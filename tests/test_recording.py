@@ -115,8 +115,10 @@ def test_an_interrupted_save_leaves_the_previous_cassette_intact(tmp_path, monke
     # The file still holds the complete earlier version, and it parses.
     assert path.read_text(encoding="utf-8") == before
     assert len(json.loads(before)["entries"]) == 1
-    # And no temp file is left lying around to confuse the next run.
-    assert [p.name for p in tmp_path.iterdir()] == ["c.json"]
+    # And no temp file is left lying around to confuse the next run. The cassette's
+    # own writer lock (`c.json.lock`, since C2b) is a legitimate sibling; a half-written
+    # `.c.json.<pid>.tmp` is not.
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["c.json", "c.json.lock"]
 
 
 def test_a_completed_save_replaces_the_file_with_the_new_version(tmp_path):
@@ -130,4 +132,4 @@ def test_a_completed_save_replaces_the_file_with_the_new_version(tmp_path):
         with slot(k):
             cas.call({"q": "same"}, lambda k=k: {"answer": k})
     assert len(json.loads(path.read_text(encoding="utf-8"))["entries"]) == 3
-    assert [p.name for p in tmp_path.iterdir()] == ["c.json"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["c.json", "c.json.lock"]

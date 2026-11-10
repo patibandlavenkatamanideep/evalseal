@@ -7,6 +7,7 @@ import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlparse
 
 from .adapters.dataset import Case, Dataset
@@ -50,6 +51,12 @@ _CANONICAL_HOSTS = {"api.openai.com", "api.anthropic.com",
 _LOCAL_SCHEMES = {"local"}
 
 
+#: Artifacts the next run is expected to write to. Sealing their digest still says
+#: which file this run used, but a later mismatch means the file moved on, not that the
+#: bytes behind this receipt were altered. See docs/adr/0002-cassette-writer-strategy.md.
+_MUTABLE_ROLES = frozenset({"cassette"})
+
+
 def _artifact(role: str, path: str) -> ArtifactProvenance:
     """Bind one file by digest, or record plainly that there was nothing to bind."""
     digest = file_hash(path)
@@ -57,7 +64,46 @@ def _artifact(role: str, path: str) -> ArtifactProvenance:
         return ArtifactProvenance(
             role=role, kind="external", path=str(path),
             note="not readable when the record was sealed; nothing to verify against")
+    if role in _MUTABLE_ROLES:
+        return ArtifactProvenance(
+            role=role, kind="mutable", sha256=digest, path=str(path),
+            note="later runs record into this file, so a digest mismatch here is "
+                 "expected and is not a tamper signal; the immutable copy of what this "
+                 "run used is the cassette_snapshot artifact")
     return ArtifactProvenance(role=role, kind="hashed", sha256=digest, path=str(path))
+
+
+def _cassette_snapshots(
+    target: Target, scorer: Scorer, directory: str | Path,
+) -> list[ArtifactProvenance]:
+    """Finalize every cassette behind this run and bind the snapshots by digest.
+
+    A receipt used to bind only the live cassette, which later runs rewrite: an honest
+    run that added repeats turned an earlier receipt's artifact check red, and a `fresh`
+    re-draw destroyed the responses the earlier receipt's scores came from. The snapshot
+    is those responses, in a file nothing appends to.
+    """
+    bound: list[ArtifactProvenance] = []
+    seen: set[str] = set()
+    for holder in (target, getattr(scorer, "judge", None)):
+        cassette = getattr(holder, "cassette", None)
+        finalize = getattr(cassette, "finalize", None)
+        if finalize is None:
+            continue
+        # One cassette shared by the target and the judge is finalized once: the
+        # snapshot is of the file, not of the role that happened to reach it first.
+        where = str(getattr(cassette, "path", id(cassette)))
+        if where in seen:
+            continue
+        seen.add(where)
+        snap = finalize(directory)
+        role = "cassette_snapshot" if not bound else f"cassette_snapshot_{len(bound) + 1}"
+        bound.append(ArtifactProvenance(
+            role=role, kind="hashed", sha256=snap.sha256, path=str(snap.path),
+            note=f"{snap.n_entries} cassette format-{snap.format} "
+                 f"{'entry' if snap.n_entries == 1 else 'entries'} used by this run, "
+                 f"copied from {where}; replayable on its own"))
+    return bound
 
 
 def _to_provenance(tr: TargetResponse) -> TargetProvenance:
@@ -202,7 +248,7 @@ def _unit_calls(units: list[_Unit]) -> list[CallProvenance]:
 
 
 def _execution_provenance(
-    calls: list[CallProvenance], started_at: str, ended_at: str,
+    calls: list[CallProvenance], started_at: str, ended_at: str, session_id: str,
 ) -> ExecutionProvenance:
     """The summary, derived from the calls so it cannot disagree with them."""
     origins: set[ExecutionOrigin] = {c.origin for c in calls}
@@ -210,7 +256,7 @@ def _execution_provenance(
     # replayed, and calling it either would be the more useful-sounding lie.
     origin: ExecutionOrigin = origins.pop() if len(origins) == 1 else "mixed"
     return ExecutionProvenance(
-        session_id=uuid.uuid4().hex,
+        session_id=session_id,
         origin=origin,
         started_at=started_at,
         ended_at=ended_at,
@@ -268,7 +314,20 @@ def run_eval(
     dataset_path: str | None = None,
     store_judge_prompt: bool = False,
     artifact_paths: dict[str, str] | None = None,
+    session_id: str | None = None,
+    snapshot_dir: str | Path | None = None,
 ) -> RunRecord:
+    """Run `dataset` N times through `target`, score with `scorer`, seal the result.
+
+    `snapshot_dir`, when given, is where each cassette behind the run is finalized: the
+    responses this run used are copied there and bound into the receipt as
+    `cassette_snapshot`, so a later run rewriting the live cassette cannot invalidate
+    the bytes behind this receipt. Without it the receipt binds only the live cassette,
+    and says so by having no snapshot artifact rather than by binding something weaker.
+
+    `session_id` names this run; the caller supplies one when it needs the receipt and
+    its output directory to carry the same name.
+    """
     if not dataset.cases:
         raise ValueError("dataset has no cases")
     if n_repeats < 1:
@@ -276,6 +335,7 @@ def run_eval(
     if concurrency < 1:
         raise ValueError("concurrency must be >= 1")
 
+    session = session_id or uuid.uuid4().hex
     units = [_Unit(case, r) for case in dataset.cases for r in range(n_repeats)]
 
     def execute(unit: _Unit) -> _Unit:
@@ -340,8 +400,12 @@ def run_eval(
     warnings += _cassette_warnings(target, scorer)
 
     # Hashed here, not by the caller: the cassette is still being written while the
-    # units run, so its digest is only meaningful once they have finished.
+    # units run, so its digest is only meaningful once they have finished. For the same
+    # reason the snapshot is taken here - after the last response is recorded, before
+    # the record that binds it is sealed.
     artifacts = [_artifact(role, path) for role, path in sorted((artifact_paths or {}).items())]
+    if snapshot_dir is not None:
+        artifacts += _cassette_snapshots(target, scorer, snapshot_dir)
     git = git_provenance()
     # The template, not an instantiated prompt. Until schema 1.3 this sealed the last
     # judge prompt sent, which embeds the last case's prompt and the target's response:
@@ -376,7 +440,7 @@ def run_eval(
         run_config=RunConfig(n_repeats=n_repeats, concurrency=concurrency),
         suite=suite,
         artifacts=artifacts,
-        execution=_execution_provenance(_unit_calls(units), started_at, ended_at),
+        execution=_execution_provenance(_unit_calls(units), started_at, ended_at, session),
         code=CodeProvenance(commit=git["commit"], dirty=git["dirty"]),
         environment=EnvironmentProvenance(
             **environment_provenance(),

@@ -78,6 +78,16 @@ def test_concurrent_run_matches_serial_run(tmp_path):
     assert parallel.manifest.run_config.concurrency == 8
     assert serial.aggregate.warnings == parallel.aggregate.warnings
 
+    # Per measurement, not only per case: the execution manifest (schema 1.7) binds
+    # each call to its (case, repeat, role), so the two runs can be compared response
+    # by response rather than aggregate by aggregate. A scheduler that served the right
+    # multiset of answers to the wrong measurements would pass the comparison above.
+    def by_measurement(r):
+        return {(c.case_id, c.repeat, c.role): c.response_digest
+                for c in r.manifest.execution.calls}
+    assert by_measurement(serial) == by_measurement(parallel)
+    assert len(by_measurement(parallel)) == 8 * 5
+
 
 def test_progress_callback_fires_once_per_call():
     seen = []

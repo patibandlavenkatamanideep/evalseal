@@ -9,6 +9,73 @@ older version still verifies.
 
 ### Fixed
 
+- **Two writers on one cassette silently deleted each other's responses.** Every
+  `Cassette` kept the whole entry table in memory and rewrote the whole file after each
+  recorded response, so two writers each erased the other's entries and the last one
+  won:
+
+  ```
+  after writer A : 1 entries
+  after writer B : 1 entries
+  A's entry survived: False
+  A replays       : NO -> No cassette entry for repeat 0 of request 7f24486a3603
+  ```
+
+  Writer A's response was admitted, acknowledged, and then deleted by a process that
+  never knew A existed - and the receipt A sealed could no longer be replayed. A
+  cassette that may write now takes an exclusive advisory lock on `<cassette>.lock`, and
+  a second writer is refused with `CassetteBusy`, the holding pid and what to do
+  instead. Readers take no lock, so a CI job that only replays is never blockable by a
+  recording run. `Cassette` is closeable and usable as a context manager. The decision,
+  and the append-journal and SQLite alternatives it was chosen over, are in
+  [docs/adr/0002-cassette-writer-strategy.md](docs/adr/0002-cassette-writer-strategy.md).
+
+- **A receipt was bound to a cassette that later runs were free to rewrite.** Wrong in
+  both directions at once:
+
+  ```
+  run A sealed cassette : sha256:57106b513ae0af6f6 (3 entries)
+  run A mean            : 1.0
+  run A verifies        : ['ok']
+
+  after an honest append of 2 more repeats:
+  run A verifies        : [('cassette', 'changed')]
+
+  after a `fresh` re-draw on the same path:
+  run A verifies        : [('cassette', 'changed')]
+  replaying run A now   : mean 0.0 (run A's receipt says 1.0 )
+  any immutable copy of run A's responses: ['run.json']
+  ```
+
+  An honest later run turned the earlier receipt red - a check that cries wolf on normal
+  use is a check people switch off - and a `fresh` re-draw destroyed the responses behind
+  it with no copy kept anywhere.
+
+  Each run now **finalizes** the cassette entries it read or wrote into its output
+  directory and binds that file into the receipt as the `cassette_snapshot` artifact. A
+  snapshot is content-addressed, never overwritten, and is itself a cassette:
+  `Cassette(snapshot, mode="replay")` reproduces the run it came from even after the
+  live cassette has been re-drawn. The live cassette stays sealed as a new artifact kind,
+  `mutable`, and `verify --artifacts` reports a mismatch on one as **`moved`** rather
+  than `changed` - but only once the receipt's own snapshot confirms that every response
+  it used is still present and byte-identical. A response that was *replaced* is
+  `changed`, names how many, and still exits non-zero; a receipt with no snapshot (every
+  receipt sealed before this release) reports a mismatch as `changed` exactly as before,
+  because unknown belongs on the stronger side of that distinction.
+
+- **`decompose` reported an unusable cassette as a traceback.** Its two cassettes were
+  constructed *before* the `try` that caught `CassetteFormatError`, so the handler
+  written for that error could never run: an incompatible cassette reached the user as
+  an exception instead of the message. Found while wiring the new `CassetteBusy` through
+  the same path.
+
+- **Two runs in one working directory overwrote each other's `report.json`.** `run` now
+  writes `runs/<timestamp>-<session>/report.json`, `report.md` and the cassette snapshot,
+  one directory per run, named after the `session_id` the receipt carries. `--out-dir`
+  chooses the directory and `--no-snapshot` skips the copy. `./report.json` and
+  `./report.md` are still written as aliases for the latest run, so existing workflows
+  are unaffected.
+
 - **A setting a config asked for could be silently dropped.** `_build_target` read the
   keys it knew about with `cfg.get(...)` and ignored everything else:
 

@@ -44,7 +44,7 @@ from .ledger import (
     load_all,
     verify_chain,
 )
-from .models import RunRecord
+from .models import ArtifactProvenance, RunRecord
 from .provenance import environment_provenance
 from .signing import (
     ALGORITHM,
@@ -337,8 +337,69 @@ def write_anchor(anchor: dict, path: Path) -> None:
 class ArtifactCheck:
     """One sealed artifact, re-hashed against the file on disk now."""
     role: str
-    status: str          # ok | changed | missing | unverifiable
+    status: str          # ok | changed | moved | missing | unverifiable
     detail: str
+
+
+def _cassette_entries(path: Path) -> dict[str, str] | None:
+    """One cassette-shaped file's entries, canonicalized for comparison.
+
+    None when the file is not a readable cassette, which a caller must treat as "cannot
+    compare" rather than as "nothing changed".
+    """
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        entries = raw["entries"]
+        if not isinstance(entries, dict):
+            return None
+        return {k: json.dumps(v, sort_keys=True, separators=(",", ":"))
+                for k, v in entries.items()}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _mutable_verdict(
+    record: RunRecord, art: ArtifactProvenance, path: Path, base: Path,
+) -> tuple[str, str]:
+    """Whether a mutable artifact that no longer matches its digest merely moved on.
+
+    The whole-file digest cannot answer this: a later run that appends and a tampered
+    response both change it. The receipt's immutable snapshot can, because it holds the
+    exact entries this run used. Every one of them still present and byte-identical in
+    the live file means the file grew; any of them missing or different means the
+    evidence behind this receipt was replaced, which is reported as `changed` and still
+    fails. With no snapshot to compare against - every receipt sealed before
+    `cassette_snapshot` existed - the answer is unknown, and unknown is reported as the
+    stronger claim, not the weaker one.
+    """
+    snapshot = next((a for a in record.manifest.artifacts
+                     if a.role == f"{art.role}_snapshot"), None)
+    if snapshot is None or snapshot.path is None:
+        return "changed", (
+            f"{path} does not match the digest sealed with this record, and this "
+            f"record binds no {art.role}_snapshot to narrow that down")
+    snap_path = Path(snapshot.path)
+    if not snap_path.is_absolute():
+        snap_path = base / snap_path
+    sealed = _cassette_entries(snap_path)
+    if sealed is None:
+        return "changed", (
+            f"{path} does not match the digest sealed with this record, and its "
+            f"snapshot {snap_path} could not be read to narrow that down")
+    live = _cassette_entries(path)
+    if live is None:
+        return "changed", f"{path} is no longer a readable cassette"
+    gone = [k for k, v in sealed.items() if live.get(k) != v]
+    if gone:
+        return "changed", (
+            f"{len(gone)} of the {len(sealed)} responses this record was sealed against "
+            f"{'is' if len(gone) == 1 else 'are'} no longer in {path}, or no longer "
+            f"{'holds' if len(gone) == 1 else 'hold'} the same bytes: the responses "
+            f"behind this receipt were replaced, not merely added to")
+    return "moved", (
+        f"{path} has {len(live) - len(sealed)} more entries than when this record was "
+        f"sealed, and all {len(sealed)} it used are still there unchanged. Expected of "
+        f"a file later runs record into; not evidence of tampering")
 
 
 def check_artifacts(record: RunRecord, base_dir: Path | None = None) -> list[ArtifactCheck]:
@@ -365,6 +426,14 @@ def check_artifacts(record: RunRecord, base_dir: Path | None = None) -> list[Art
         actual = _sha256_bytes(path.read_bytes())
         if actual == art.sha256:
             checks.append(ArtifactCheck(art.role, "ok", f"{path} matches the sealed digest"))
+        elif art.kind == "mutable":
+            # The file moved on, or its responses were replaced. Reporting both as
+            # `changed` made an honest later run look like tampering, which teaches
+            # people to stop reading the one check that would catch the real thing;
+            # reporting both as `moved` would hide the real thing. The snapshot tells
+            # them apart.
+            status, detail = _mutable_verdict(record, art, path, base)
+            checks.append(ArtifactCheck(art.role, status, detail))
         else:
             checks.append(ArtifactCheck(
                 art.role, "changed",

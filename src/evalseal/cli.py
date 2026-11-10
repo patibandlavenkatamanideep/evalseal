@@ -4,6 +4,8 @@ import contextlib
 import json
 import os
 import sys
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -14,7 +16,7 @@ from rich.markup import escape as rich_escape
 from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
 from .adapters.dataset import Dataset
-from .adapters.recording import Cassette, CassetteFormatError
+from .adapters.recording import Cassette, CassetteBusy, CassetteFormatError
 from .adapters.scorer import (
     AnswerMatchScorer,
     ExactMatchScorer,
@@ -494,6 +496,19 @@ def run(
         False, "--store-judge-prompt",
         help="Seal the judge prompt verbatim, not only its hash. It embeds case text.",
     ),
+    out_dir: Path | None = typer.Option(
+        None, "--out-dir",
+        help="This run's output directory. Defaults to runs/<timestamp>-<session>, one "
+             "per run, so two runs cannot overwrite each other's report. report.json "
+             "and report.md in the working directory are also written, as aliases for "
+             "the latest run.",
+    ),
+    snapshot: bool = typer.Option(
+        True, "--snapshot/--no-snapshot",
+        help="Copy the cassette entries this run used into the output directory and "
+             "bind them into the receipt, so a later run recording into the same "
+             "cassette cannot invalidate the bytes behind this receipt.",
+    ),
     artifact: list[str] = typer.Option(
         [], "--artifact", metavar="ROLE=PATH",
         help="Bind another file into the receipt by digest, as `tool_acl=tools.json`. "
@@ -535,8 +550,19 @@ def run(
         if missing:
             raise typer.BadParameter(f"case id(s) not in {dataset}: {', '.join(missing)}")
         ds = Dataset([c for c in ds.cases if c.case_id in wanted], ds.hash)
+    # Named before the run, because the receipt binds files that go in here and the
+    # receipt is sealed before anything is written out.
+    session_id = uuid.uuid4().hex
+    run_dir = out_dir or Path("runs") / (
+        f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{session_id[:8]}")
     try:
         cass = Cassette(cassette, mode=cassette_mode)
+    except CassetteBusy as e:
+        # Two runs sharing a cassette path used to lose data silently: each holds the
+        # whole table in memory and rewrites the whole file, so the last one to finish
+        # erased the other's responses. See docs/adr/0002-cassette-writer-strategy.md.
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1) from e
     except CassetteFormatError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=1) from e
@@ -580,6 +606,8 @@ def run(
                     **({"suite": str(suite)} if suite else {}),
                     **extra_artifacts,
                 },
+                session_id=session_id,
+                snapshot_dir=run_dir if snapshot else None,
             )
     except RuntimeError as e:
         console.print(f"[red]{e}[/red]")
@@ -600,6 +628,12 @@ def run(
             )
         raise typer.Exit(code=1) from e
     record = seal_and_append(record, ledger, relink=True)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    write_json(record, run_dir / "report.json")
+    write_markdown(record, run_dir / "report.md")
+    # The working-directory copies are aliases for the latest run, kept because every
+    # existing README, workflow and script reads `report.json` from here. They are
+    # overwritten by the next run - the per-run directory is the one to archive.
     write_json(record)
     write_markdown(record)
     if junit_xml is not None:
@@ -613,6 +647,10 @@ def run(
             f"-> {signatures_path(ledger)}[/green]"
         )
     console.print(Markdown(to_markdown(record)))
+    console.print(
+        f"[dim]This run: {run_dir}/ (report.json, report.md"
+        f"{', cassette snapshot' if snapshot else ''}). "
+        f"./report.json and ./report.md are aliases for the latest run.[/dim]")
     if show_cases:
         console.print(Markdown(to_case_table(record, unstable_only=unstable_only)))
 
@@ -683,8 +721,8 @@ def verify(
             console.print("[yellow]No artifacts are sealed in this record.[/yellow] "
                           "Records sealed before schema 1.4 bind none.")
         for r in results:
-            colour = {"ok": "green", "changed": "red", "missing": "yellow",
-                      "unverifiable": "yellow"}[r.status]
+            colour = {"ok": "green", "changed": "red", "moved": "yellow",
+                      "missing": "yellow", "unverifiable": "yellow"}[r.status]
             console.print(
                 f"[{colour}]{r.status:<12}[/{colour}] {rich_escape(r.role)}: "
                 f"{rich_escape(r.detail)}")
@@ -1369,13 +1407,20 @@ def decompose(
     # Separate cassettes: one shared file would let the arms collide whenever the
     # target's first response equals a later one, coupling the two measurements.
     arms = {}
-    for arm in ("judge_only", "full"):
-        path = base.with_name(f"{base.stem}.{arm}{base.suffix}")
-        cas = Cassette(path, record=os.environ.get("EVALSEAL_RECORD") == "1")
-        arms[arm] = (
-            _build_target(target_cfg, cas, max_retries, timeout),
-            _build_scorer(scorer_cfg, cas, max_retries, timeout),
-        )
+    # Inside the try: a cassette rejects an incompatible format, or an owner it cannot
+    # take the lock from, while it is being *constructed*. The handler used to sit
+    # around `run_decompose` alone, so both of those reached the user as a traceback.
+    try:
+        for arm in ("judge_only", "full"):
+            path = base.with_name(f"{base.stem}.{arm}{base.suffix}")
+            cas = Cassette(path, record=os.environ.get("EVALSEAL_RECORD") == "1")
+            arms[arm] = (
+                _build_target(target_cfg, cas, max_retries, timeout),
+                _build_scorer(scorer_cfg, cas, max_retries, timeout),
+            )
+    except (CassetteBusy, CassetteFormatError) as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1) from None
 
     try:
         result = run_decompose(
@@ -1387,7 +1432,7 @@ def decompose(
             n_repeats=n,
             concurrency=concurrency,
         )
-    except CassetteFormatError as e:
+    except (CassetteBusy, CassetteFormatError) as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=1) from None
 

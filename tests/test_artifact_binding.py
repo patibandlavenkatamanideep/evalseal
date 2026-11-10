@@ -57,7 +57,10 @@ def test_the_cassette_dataset_and_scorer_inputs_are_sealed(recorded):
     roles = _roles(record)
 
     assert set(roles) >= {"cassette", "dataset"}
-    assert roles["cassette"].kind == "hashed"
+    # `mutable` since C2b: the digest is still sealed, but later runs record into this
+    # file, so a mismatch is not by itself a tamper signal. `dataset` stays `hashed`.
+    assert roles["cassette"].kind == "mutable"
+    assert roles["dataset"].kind == "hashed"
     assert roles["cassette"].sha256 is not None
     # The digest is of the cassette as it stood when the record was sealed, which is
     # after recording finished.
@@ -83,7 +86,13 @@ def test_editing_the_cassette_is_detected(recorded):
 
     results = {c.role: c for c in check_artifacts(load_all(ledger)[-1])}
     assert results["cassette"].status == "changed"
-    assert "does not match the digest" in results["cassette"].detail
+    # Since C2b the message says *what* changed, because the receipt's snapshot holds
+    # the entries it used: one of this record's own responses was replaced, which is a
+    # different claim from "the file has more in it than it used to".
+    assert "no longer in" in results["cassette"].detail
+    assert "replaced, not merely added to" in results["cassette"].detail
+    # And the snapshot itself is untouched, so it still verifies.
+    assert results["cassette_snapshot"].status == "ok"
 
 
 def test_a_missing_artifact_is_missing_never_passed(recorded):

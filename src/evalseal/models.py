@@ -165,7 +165,7 @@ class EnvironmentProvenance(BaseModel):
     ci: CIProvenance | None = None         # None means: no CI markers in the environment
 
 
-ArtifactKind = Literal["hashed", "embedded", "external"]
+ArtifactKind = Literal["hashed", "embedded", "external", "mutable"]
 
 
 class ArtifactProvenance(BaseModel):
@@ -177,6 +177,12 @@ class ArtifactProvenance(BaseModel):
       embedded - the content itself is in the receipt, because someone asked for it.
       external - the file was named but not readable when the record was sealed, so
                  there is nothing to check it against.
+      mutable  - hashed, but the file is one later runs append to or re-draw. A
+                 mismatch here says the file moved on, which is not the same claim as
+                 "the bytes behind this receipt were altered" and must not be reported
+                 as one. The live cassette is the case this exists for: its immutable
+                 copy is the `cassette_snapshot` artifact, and a mismatch *there* is a
+                 tamper signal. See docs/adr/0002-cassette-writer-strategy.md.
     """
     role: str                              # cassette | dataset | suite | ...
     kind: ArtifactKind = "hashed"

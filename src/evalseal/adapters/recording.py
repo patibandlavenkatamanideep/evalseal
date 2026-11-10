@@ -474,7 +474,9 @@ class Cassette:
         raw = text.encode()
         sha = hashlib.sha256(raw).hexdigest()
         where = Path(directory) if directory is not None else self.path.parent / SNAPSHOT_DIR
-        target = where / (name or f"{self.path.stem}-{sha[:16]}.json")
+        # Named so a run directory reads at a glance, and content-addressed so a later
+        # run with different entries cannot land on the same name.
+        target = where / (name or f"{self.path.stem}.snapshot-{sha[:16]}.json")
         if target.exists():
             if target.read_bytes() != raw:
                 raise RuntimeError(

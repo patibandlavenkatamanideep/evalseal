@@ -647,22 +647,28 @@ happen. Verify what the page claims with `evalseal verify`.
 
 ## Commands
 
+Every number these commands print has a row in
+**[docs/metrics.md](docs/metrics.md)** giving its unit, its denominator, what happens to
+ties and to missing observations, the question it answers, and whether higher or lower is
+better. If you are about to act on one, that is the page to read first.
+
 | command | what it does | exit code |
 |---|---|---|
 | `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `runs/<id>/` (report, cassette snapshot) plus `report.json` + `report.md` aliases; `--html` also writes a receipt. `--out-dir` chooses the directory, `--no-snapshot` skips the copy. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error (including a cassette another run is writing) |
 | `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures, `--artifacts` re-hashes the cassette, dataset and suite. | `0` intact · `1` tampered or broken |
 | `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - item by item: comparability, a paired test on the score difference, and which cases started or stopped flipping. `--json` for CI, `--html` to share. | `0` |
-| `evalseal power` | Estimates how many items or repeats it would take to detect a difference you care about. `--from-receipt` uses a real run's per-item rates. | `0` |
-| `evalseal decompose` | For `llm_judge` suites: splits flips into the judge's share and the target's, by judging one fixed response N times versus sampling the target N times. | `0` |
+| `evalseal power` | Estimates how many items or repeats it would take to detect a difference you care about **in the paired majority-verdict test** - not in the mean score, which is a different claim with a different power curve. `--from-receipt` uses a real run's per-item rates, and refuses a continuous-scored receipt rather than reporting a figure for a test `diff` would not run on it. | `0` · `2` continuous-scored receipt |
+| `evalseal evidence` | How precisely the repeats you already have pin down each case: the flip-rate interval, its half-width, a label saying whether a magnitude may be quoted at all, and how many more repeats a target margin would take. Retrospective, where `power` is prospective. See [docs/uncertainty.md](docs/uncertainty.md). | `0` · `2` unknown case |
+| `evalseal decompose` | For `llm_judge` suites: measures the flip rate with the target's response held fixed against the flip rate with both varying, by judging one fixed response N times versus sampling the target N times. It reports the two rates and their ratio; it does not apportion variance between them, because the design cannot. | `0` |
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
-| `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
+| `evalseal report` | The mean, the case and repeat counts, how many repeats went ungraded, where the numbers came from, how many independent draws are behind them, the per-case verdict distribution and the run's warnings. Takes a receipt path or ledger index; `--html` writes a shareable page, `--json` adds the uncertainty and independence blocks. | `0` |
 | `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--prereg` also checks it against a pre-registration. `--expect-evaluator` pins the grading setup, `--expect-config` the whole configuration. `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy or contract |
 | `evalseal preregister` | Declares an evaluation before it runs: suite, dataset, case-id set, repeat count, required artifacts, optionally an embedded policy and a pinned evaluator fingerprint. See [docs/pre-registration.md](docs/pre-registration.md). | `0` |
 | `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp. `--with rfc3161 --tsa URL` adds a timestamp-authority proof; `anchor-verify --tsa-ca issuer.pem` then checks its signature. See [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
 | `evalseal --version` | The version, the `harness_version` it seals into receipts, and the record schema. | `0` |
 | `evalseal anchor-verify` | Re-checks every claim in an anchor, reporting what it could not check as not checked. | `0` verified · `1` failed |
-| `evalseal drift A B` | Did the judge behave the same way when the suite was re-run? Labels the cause: evaluator drift, judge variance, target variance or a target change. `--json` for CI. | `0` |
+| `evalseal drift A B` | Did the judge behave the same way when the suite was re-run? Labels the cause - evaluator drift, judge variance, target variance, a target change, or `cannot_isolate` when the receipts admit more than one explanation - and reports the grounds the label rests on, so it can be checked rather than taken. `--json` for CI. | `0` |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
 HTTP 429/408/5xx and connection errors, honouring `Retry-After`), `--timeout`, and

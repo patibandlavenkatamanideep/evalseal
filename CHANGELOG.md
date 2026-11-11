@@ -7,7 +7,116 @@ older version still verifies.
 
 ## [Unreleased]
 
+### Added
+
+- **[docs/metrics.md](docs/metrics.md): what every number means.** One row per
+  user-facing metric and verdict, with its unit, denominator, treatment of ties and
+  missing observations, the question it answers and whether higher or lower is better -
+  binary, continuous and unscorable alike. It was written before any of the arithmetic
+  below was changed, and used to review both the implementation and PR #12 rather than
+  assuming either was right. Seven rows disagreed with the code.
+
+- **`evalseal evidence`**: how precisely the repeats you already have pin down each
+  case's behaviour, with the interval, a label saying whether a magnitude may be quoted
+  at all, and how many more repeats a target margin would take. Ported from PR #12 by
+  behaviour - see [docs/pr-12-disposition.md](docs/pr-12-disposition.md) - with three of
+  its defects fixed first. `docs/uncertainty.md` answers the questions it raises.
+
+- **Ungraded observations are counted and gateable.** `results[].unscorable_count`,
+  `aggregate.n_unscorable` and `aggregate.n_observations` (schema 1.8), with
+  `run.max_unscorable`, `run.max_unscorable_fraction` and
+  `run.require_every_case_scored`. All default to off.
+
+- **How many independent draws are behind a number.** `execution.calls[].source_key`
+  (schema 1.8) names the cassette entry that served each call, which is the only
+  evidence that separates two independently recorded draws that happened to agree from
+  one recorded draw counted twice. `evalseal report --json` carries the audit and
+  `run.require_independent_repeats` gates on it; a receipt that cannot answer the
+  question reports `unknown` and fails that rule rather than being assumed independent.
+
+- **`drift.regression_budget_policy`**: `require_evidence_within_budget` passes only
+  when the interval rules out a drop larger than the budget, so an inconclusive
+  comparison fails. The default, `fail_on_evidence_of_regression`, is the old behaviour.
+
+- **`cannot_isolate`**, a first-class `drift` label for when the receipts admit more
+  than one explanation, and `drift.grounds`, which states what the label rests on.
+
 ### Fixed
+
+- **A grader that could not read a reply graded it anyway.** `extract_answer` ended with
+  "otherwise, the last number anywhere in the reply", so a refusal that restated the
+  problem scored a PASS:
+
+  ```
+  genuine answer 30      -> extracted '30'  score 1.0
+  refusal, no answer     -> extracted '30'  score 1.0
+  genuine wrong answer   -> extracted '28'  score 0.0
+  ```
+
+  The supported answer format is now declared (`####`, `\boxed{}`, an "answer is"
+  phrase, or the answer alone on the final line, whichever appears **last** in the
+  reply), and anything outside it is unscorable rather than scored on a guess. A reply
+  truncated at the token limit is unscorable too, and `parse_verdict` returns `None`
+  instead of mapping an empty reply, an apology and `ERROR: 503` all to a graded FAIL.
+
+  Precedence by position rather than by marker class **changes the frozen Gemma/Flash
+  comparison**: 49 of its 1500 recorded replies are read differently, and six of gemma's
+  nine "unstable" items were the grader reading a different number out of a reply the
+  model had not changed. `examples/gsm8k_compare/RESULTS.md` carries both readings. The
+  recordings are byte-identical; the pre-registered verdict is still inconclusive.
+
+- **`exact_mcnemar(1000, 1000)` raised `OverflowError: int too large to convert to
+  float`** instead of returning 1.0, taking the gate down with it on any suite with a
+  large number of discordant items each way.
+
+- **Every confidence interval was labelled "95% CI"** whatever `alpha` was in force, so
+  `alpha=0.20` printed an 80% interval as a 95% one.
+
+- **A 0.600 drop against a 0.050 budget passed the gate.** Five items cannot reach
+  significance - the six-item floor - and the rule needed both over-budget *and*
+  significance to fail, so the only state it could distinguish was "evidence of a
+  regression". The three states are now named in the detail, and the strict policy above
+  asks the other question.
+
+- **`judge_variance` was returned whenever the target model *name* matched.** Two runs
+  of one model at temperature 0.0 and 1.0 read as "the target model is unchanged, yet
+  ... came back with a different verdict". A changed sampling parameter, endpoint, API
+  version or system prompt now gives `cannot_isolate`.
+
+- **A continuous scorer's drift was invisible.** `verdict_changed` compared `pass_count`
+  with `fail_count`, both 0 when there are no verdicts, so a run whose mean moved from
+  0.10 to 0.90 reported `stable` - "No drift".
+
+- **`decompose` called a clipped ratio a share of variance.** A judge_only flip rate of
+  0.4 against a full rate of 0.2 was clipped from 2.0 to 1.0 and rendered as "The judge
+  alone reproduces 100% of the suite's mean flip rate", so the one case where the arms
+  contradict the apportioning model was reported as a perfect fit. With the judge
+  flipping on every case and the full arm on none, it printed "Neither arm flipped, so
+  there is no variance here to apportion" - false about the data on its own page.
+
+- **`power` reported a figure for a test `diff` would not run.** It simulated the exact
+  McNemar test over any receipt, including continuous-scored ones that `diff` tests with
+  a paired permutation, and nothing said which metric the power was for.
+
+- **A receipt with no hash was reported as "TAMPER DETECTED".** `RunRecord.hash` is
+  empty until the ledger seals it, so that was a false accusation about a file nobody
+  altered. There is an `unsealed` status now; it still fails, under its own name.
+
+- **The cross-schema drift note said "sealed before schema 1.4"** when the evaluator
+  fingerprint has needed 1.6 since scheme 3, so a pair sealed under 1.5 and 1.5 was told
+  one of them predated 1.4.
+
+- **`target seed` was missing from the config field table** while `config_fingerprint`
+  hashed it, so a changed target seed showed up in `diff` only as "something changed
+  that this summary does not list" and in `drift` not at all - and `drift` decides a
+  cause from exactly those names.
+
+- **`evalseal report` printed the per-case table and nothing else**, so a run whose
+  grader failed on a third of its repeats looked like any other. It now leads with the
+  mean, the counts, the ungraded share, the origin and the draw count, and prints the
+  run's warnings.
+
+#### Earlier in this unreleased cycle
 
 - **An input was used at the start of a run and hashed at the end.** Anything that
   rewrote the file in between - a `git checkout`, an editor save, another job
@@ -378,12 +487,12 @@ older version still verifies.
   and a rewritten ledger each fail closed with their own message. A requirement the gate
   could not evaluate fails rather than skips.
 
-### Added
+#### Earlier in this unreleased cycle
 
 - **`evalseal preregister --require-signature` and `--trusted-key`**, and
   `gate --trusted-key`. The requirement had no CLI surface at all.
 
-### Added
+#### Earlier still
 
 - **RFC 3161 signature validation.** `evalseal anchor-verify --tsa-ca issuer.pem` now
   checks a timestamp token's signature over the re-tagged `signedAttrs`, the

@@ -148,13 +148,30 @@ def classify_stability(successes: int, n_runs: int, flip_count: int = 0) -> str:
     return "BORDERLINE" if flip_count else "STABLE"
 
 
-def analyze_case(scores: list[float], *, binary: bool) -> CaseStats:
-    """Turn N per-run scores into a CaseStats. If binary, scores must be 0/1."""
+def analyze_case(
+    scores: list[float], *, binary: bool, unscorable: list[bool] | None = None,
+) -> CaseStats:
+    """Turn N per-run scores into a CaseStats. If binary, scores must be 0/1.
+
+    `unscorable` marks the repeats the grader could not reach a verdict on. Those
+    repeats keep their 0.0 in the **mean**, so a case cannot score better by becoming
+    less legible, and are left out of the **flip rate, interval and stability class**,
+    because a repeat with no verdict cannot agree or disagree with a majority. A case
+    with no scorable repeat at all has no interval and is `UNSTABLE`. See
+    docs/metrics.md §2, §4 and §8.
+    """
     if not scores:
         raise ValueError("analyze_case requires at least one score")
     mean = sum(scores) / len(scores)
+    skip = unscorable or [False] * len(scores)
+    if len(skip) != len(scores):
+        raise ValueError("unscorable must carry one flag per score")
     if binary:
-        verdicts = [int(s) for s in scores]
+        verdicts = [int(s) for s, bad in zip(scores, skip, strict=True) if not bad]
+        if not verdicts:
+            return CaseStats(
+                mean, 0.0, 0.0, 0.0, "UNSTABLE", None,
+                flip_count=0, stability_label="insufficient_runs")
         lo, hi = wilson_ci(sum(verdicts), len(verdicts))
         rate, majority = flip_rate(verdicts)
         flips = len(verdicts) - Counter(verdicts).most_common(1)[0][1]

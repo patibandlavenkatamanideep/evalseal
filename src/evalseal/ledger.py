@@ -20,7 +20,9 @@ GENESIS = "GENESIS"
 # verify an old record we hash it as the version that sealed it would have: strip every
 # field added after that version, then hash.
 #
-# "results[]" applies the named keys to each case result.
+# A path segment ending in "[]" maps the rest of the path over the list at that key:
+# "results[]" applies the named key to each case result, and
+# ("manifest", "execution", "calls[]", "source_key") to each call in the manifest.
 _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
     "1.1": [
         ("manifest", "run_config", "concurrency"),
@@ -40,6 +42,13 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
     ],
     "1.7": [
         ("manifest", "execution"),
+    ],
+    "1.8": [
+        ("manifest", "execution", "calls[]", "source_key"),
+        ("results[]", "unscorable_count"),
+        ("results[]", "unscorable_reason"),
+        ("aggregate", "n_unscorable"),
+        ("aggregate", "n_observations"),
     ],
     "1.6": [
         ("manifest", "scorer", "impl_hash"),
@@ -72,7 +81,7 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
 #: today's. A version outside this tuple is rejected rather than guessed at: see
 #: `schema_is_supported` for why guessing is unsafe in both directions.
 SUPPORTED_SCHEMAS: tuple[str, ...] = (
-    "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7")
+    "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8")
 
 
 def _schema_tuple(version: str) -> tuple[int, ...] | None:
@@ -126,11 +135,16 @@ def unsealed_paths(sealed_under: str | None) -> tuple[tuple[str, ...], ...]:
 
 
 def _value_at(payload: dict, path: tuple[str, ...]) -> object:
-    """The value at a dotted path; `results[]` collects the value across every case."""
-    if path[0] == "results[]":
-        return [case.get(path[1]) for case in payload.get("results", [])]
+    """The value at a dotted path; a `key[]` segment collects across that list."""
     node: object = payload
-    for key in path:
+    for i, key in enumerate(path):
+        if key.endswith("[]"):
+            items = node.get(key[:-2]) if isinstance(node, dict) else None
+            if not isinstance(items, list):
+                return None
+            rest = path[i + 1:]
+            return [_value_at(item, rest) if isinstance(item, dict) else None
+                    for item in items]
         if not isinstance(node, dict):
             return None
         node = node.get(key)
@@ -172,13 +186,15 @@ def quarantine_unsealed(record: RunRecord) -> tuple[RunRecord, tuple[str, ...]]:
 
 
 def _drop(payload: dict, path: tuple[str, ...]) -> None:
-    """Remove one field, following a dotted path; `results[]` maps over every case."""
-    if path[0] == "results[]":
-        for case in payload.get("results", []):
-            case.pop(path[1], None)
-        return
+    """Remove one field, following a dotted path; a `key[]` segment maps over that list."""
     node: object = payload
-    for key in path[:-1]:
+    for i, key in enumerate(path[:-1]):
+        if key.endswith("[]"):
+            items = node.get(key[:-2]) if isinstance(node, dict) else None
+            for item in items or ():
+                if isinstance(item, dict):
+                    _drop(item, path[i + 1:])
+            return
         if not isinstance(node, dict):
             return
         node = node.get(key)

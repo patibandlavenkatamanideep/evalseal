@@ -244,6 +244,38 @@ def _cassette_warnings(target: Target, scorer: Scorer) -> list[str]:
     return seen
 
 
+def _unscorable_warnings(
+    results: list[CaseResult], n_unscorable: int, n_observations: int,
+) -> list[str]:
+    """Say how many observations the grader could not read, and out of how many.
+
+    A count with no denominator cannot be acted on, and a run whose grader failed on
+    the hard cases used to look like a run that graded them wrong. Named loudly when
+    every repeat of some case failed, because that case contributes a 0.0 to the suite
+    mean without a single verdict behind it.
+    """
+    if not n_unscorable:
+        return []
+    share = n_unscorable / n_observations if n_observations else 0.0
+    out = [
+        f"UNSCORABLE OBSERVATIONS: {n_unscorable} of {n_observations} repeat(s) "
+        f"({share:.1%}) could not be graded. They score 0.0 and are excluded from flip "
+        f"rates and stability, so they are a measurement failure rather than a model "
+        f"result. First reason: "
+        + next((r.unscorable_reason for r in results if r.unscorable_reason), "unknown")
+    ]
+    blind = sorted(r.case_id for r in results
+                   if r.scores and r.unscorable_count == len(r.scores))
+    if blind:
+        out.append(
+            f"CASES WITH NO VERDICT AT ALL: {', '.join(blind[:10])}"
+            + (f" and {len(blind) - 10} more" if len(blind) > 10 else "")
+            + ". Each contributes 0.0 to the mean score with nothing graded behind it; "
+            "a floor on the mean cannot distinguish that from a case that failed."
+        )
+    return out
+
+
 def _dedupe(items: list[str]) -> list[str]:
     return list(dict.fromkeys(items))
 
@@ -278,6 +310,7 @@ def _call_provenance(
         reported_fingerprint=response.system_fingerprint,
         status=_call_status(response),
         attempts=response.attempts,
+        source_key=response.source_key,
     )
 
 
@@ -318,7 +351,8 @@ def _execution_provenance(
 class _Unit:
     """One (case, repeat) measurement: generate once, score once."""
 
-    __slots__ = ("case", "repeat", "score", "binary", "target_resp", "judge_resp", "seconds")
+    __slots__ = ("case", "repeat", "score", "binary", "target_resp", "judge_resp",
+                 "seconds", "unscorable", "reason")
 
     def __init__(self, case: Case, repeat: int):
         self.case = case
@@ -328,6 +362,10 @@ class _Unit:
         self.target_resp: TargetResponse | None = None
         self.judge_resp: TargetResponse | None = None
         self.seconds: float = 0.0
+        #: The grader reached no verdict on this repeat. Not a FAIL: see
+        #: docs/metrics.md §8.
+        self.unscorable: bool = False
+        self.reason: str | None = None
 
     def run(self, target: Target, scorer: Scorer) -> _Unit:
         # Each call is pinned to this measurement - case, repeat and role - so replays
@@ -345,6 +383,17 @@ class _Unit:
         self.judge_resp = sr.judge_response
         self.score = sr.score
         self.binary = sr.binary
+        self.unscorable = sr.unscorable
+        self.reason = sr.reason
+        if tr.truncated:
+            # A reply cut off at the token limit has not given a wrong answer; it has
+            # not given one. Scored as a FAIL it turns a max_tokens mistake into a
+            # finding about the model. The score is forced to 0.0 so a truncated reply
+            # that matched by luck cannot lift a mean either.
+            self.score = 0.0
+            self.unscorable = True
+            self.reason = ("the target reply hit the token limit, so its answer is "
+                           "absent rather than wrong")
         return self
 
 
@@ -413,12 +462,17 @@ def run_eval(
         case_units = units[i * n_repeats:(i + 1) * n_repeats]
         scores = [u.score for u in case_units]
         binary = all(u.binary for u in case_units)
-        stats = analyze_case(scores, binary=binary)
+        unscorable = [u.unscorable for u in case_units]
+        stats = analyze_case(scores, binary=binary, unscorable=unscorable)
         seconds = sum(u.seconds for u in case_units)
-        verdicts = [int(s) for s in scores] if binary else []
+        # Only the repeats that got a verdict. An unscorable repeat is not a FAIL, so
+        # it is neither a pass nor a fail and cannot flip against a majority.
+        verdicts = ([int(u.score) for u in case_units if not u.unscorable]
+                    if binary else [])
         passes = sum(1 for v in verdicts if v == 1)
         fails = sum(1 for v in verdicts if v == 0)
         others = len(scores) - len(verdicts)
+        reason = next((u.reason for u in case_units if u.unscorable and u.reason), None)
         results.append(CaseResult(
             case_id=case.case_id,
             scores=scores,
@@ -434,6 +488,8 @@ def run_eval(
             fail_count=fails,
             other_count=others,
             flip_count=stats.flip_count,
+            unscorable_count=sum(unscorable),
+            unscorable_reason=reason,
         ))
 
     target_resps = [u.target_resp for u in units if u.target_resp is not None]
@@ -510,6 +566,9 @@ def run_eval(
             ci=CIProvenance.model_validate(ci) if (ci := ci_provenance()) else None,
         ),
     )
+    n_unscorable = sum(r.unscorable_count for r in results)
+    n_observations = sum(len(r.scores) for r in results)
+    warnings += _unscorable_warnings(results, n_unscorable, n_observations)
     agg = Aggregate(
         n_cases=len(results),
         mean_score=sum(r.mean for r in results) / len(results),
@@ -517,5 +576,7 @@ def run_eval(
         n_borderline=sum(r.stability == "BORDERLINE" for r in results),
         n_unstable=sum(r.stability == "UNSTABLE" for r in results),
         warnings=_dedupe(warnings),
+        n_unscorable=n_unscorable,
+        n_observations=n_observations,
     )
     return RunRecord(manifest=manifest, results=results, aggregate=agg, prev_hash=prev_hash)

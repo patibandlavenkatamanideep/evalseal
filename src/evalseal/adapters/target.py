@@ -55,6 +55,11 @@ class TargetResponse:
     provider_request_id: str | None = None
     # How many HTTP attempts this call took. 1 means it succeeded first time.
     attempts: int = 1
+    # The cassette entry that served this call, or that it was recorded into. None when
+    # no cassette was involved. Two calls that returned identical text are two draws
+    # when their keys differ and one draw counted twice when they do not, which is a
+    # distinction the text alone cannot carry. See docs/metrics.md §12.
+    source_key: str | None = None
 
 
 @runtime_checkable
@@ -272,6 +277,7 @@ class OpenAICompatibleTarget:
             origin=outcome.origin,
             request_digest=outcome.request_digest,
             response_digest=outcome.response_digest,
+            source_key=outcome.entry_key,
             provider_request_id=_request_id(raw),
             attempts=attempts,
         )
@@ -378,6 +384,7 @@ class AnthropicTarget:
             origin=outcome.origin,
             request_digest=outcome.request_digest,
             response_digest=outcome.response_digest,
+            source_key=outcome.entry_key,
             provider_request_id=_request_id(raw),
             attempts=attempts,
         )

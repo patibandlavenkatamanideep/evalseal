@@ -1,17 +1,17 @@
 {
   "allow_external_artifacts": [],
   "baseline": null,
-  "created_at": "2026-11-09T18:44:46+00:00",
+  "created_at": "2026-11-11T03:11:21+00:00",
   "dataset": {
     "case_set_hash": "sha256:833a1d779ce1be74220407db7efe3f7d71e128039f6075cc7f1a53d34def1dc2",
     "n_cases": 40,
     "path": "examples/gsm8k/dataset.jsonl",
     "sha256": "sha256:c9623577a124d8688bd81ba6758b3a9f82cf14d04e754c264ab33948fbeeeeb0"
   },
-  "evaluator_fingerprint": "evalseal-fp/3:sha256:8191ca03a8b49da5b5f872f106c07a0d1aad2fae2180aaad6ba6eb93f89f4c29",
+  "evaluator_fingerprint": "evalseal-fp/3:sha256:6b30ea62a6e900c0439c9ccd700a9ff59bdef216574101a618dc20de772a84c0",
   "git_branch": "phase-a-verification",
-  "git_commit": "4ede16515e91f644c162cc87bec1d25f834af5ca",
-  "note": "Example contract for the GSM8K replay suite. See docs/pre-registration.md.",
+  "git_commit": null,
+  "note": "Example contract for the GSM8K replay suite. See docs/pre-registration.md. Re-declared for the 2.3 answer_match grader: the 2.2.0 pin stopped matching the moment the extraction algorithm changed, which is the pre-registration doing its job rather than a defect in it.",
   "policy": null,
   "require_anchor": false,
   "require_ci_claim": false,

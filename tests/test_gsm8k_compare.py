@@ -58,16 +58,33 @@ def test_both_arms_replay_with_no_key(replayed):
 def test_the_published_accuracies(replayed):
     flash, gemma = replayed
     assert flash.aggregate.mean_score == pytest.approx(0.9760, abs=5e-5)
-    assert gemma.aggregate.mean_score == pytest.approx(0.9613, abs=5e-5)
+    assert gemma.aggregate.mean_score == pytest.approx(0.9733, abs=5e-5)
 
 
 def test_the_published_stability_difference(replayed):
-    """The finding the accuracy test could not reach: gemma flips 9 items to flash's 1."""
+    """Gemma flips 3 items to flash's 1, under the 2.3 grader.
+
+    It was 9 to 1 under the September grader, and six of those nine were the grader
+    reading a different number out of a reply gemma had not changed. The table in
+    RESULTS.md carries both readings; `test_results_md_keeps_both_gradings` pins them.
+    """
     flash, gemma = replayed
     assert flash.aggregate.n_unstable == 1
-    assert gemma.aggregate.n_unstable == 9
+    assert gemma.aggregate.n_unstable == 3
     assert mean_flip_rate(flash) == pytest.approx(0.0027, abs=5e-5)
-    assert mean_flip_rate(gemma) == pytest.approx(0.0200, abs=5e-5)
+    assert mean_flip_rate(gemma) == pytest.approx(0.0067, abs=5e-5)
+
+
+def test_no_recorded_reply_is_unscorable(replayed):
+    """Every one of the 1500 replies gives an answer in the declared format.
+
+    Which is why re-grading them is a fair comparison: the correction changed which
+    answer was read, never whether one was found. A replay that started reporting
+    unscorable replies here would mean the format had been narrowed too far.
+    """
+    for record in replayed:
+        assert record.aggregate.n_unscorable == 0
+        assert record.aggregate.n_observations == 750
 
 
 def test_the_arms_are_comparable(replayed):
@@ -82,8 +99,10 @@ def test_the_pre_registered_verdict_is_inconclusive(replayed):
     flash, gemma = replayed
     paired = diff_records(flash, gemma).paired
     assert paired.n_items == 150
-    assert paired.delta == pytest.approx(-0.0147, abs=5e-5)
-    assert (paired.discordant_regressed, paired.discordant_improved) == (1, 1)
+    assert paired.delta == pytest.approx(-0.0027, abs=5e-5)
+    # One discordant item, gemma's way. It was (1, 1) under the September grader; the
+    # p-value is 1 either way, so the pre-registered verdict did not move.
+    assert (paired.discordant_regressed, paired.discordant_improved) == (0, 1)
     assert paired.p_value == 1.0
     assert paired.verdict == "inconclusive"
 
@@ -98,7 +117,7 @@ def test_the_analysis_script_runs_and_reports_the_verdict(replayed, tmp_path):
         capture_output=True, text=True, timeout=300)
     assert proc.returncode == 0, proc.stderr
     assert "verdict:         inconclusive" in proc.stdout
-    assert "items whose majority verdict differs (2)" in proc.stdout
+    assert "items whose majority verdict differs (1)" in proc.stdout
 
 
 def test_results_md_quotes_the_numbers_the_replay_produces(replayed):
@@ -106,5 +125,17 @@ def test_results_md_quotes_the_numbers_the_replay_produces(replayed):
     text = (REPO / "examples" / "gsm8k_compare" / "RESULTS.md").read_text(encoding="utf-8")
     flash, gemma = replayed
     for value in (f"{flash.aggregate.mean_score:.4f}", f"{gemma.aggregate.mean_score:.4f}",
-                  "9 of 150", "1 of 150", "exact McNemar p: 1"):
+                  "3 of 150", "1 of 150", "exact McNemar p: 1"):
         assert value in text, f"RESULTS.md does not mention {value!r}"
+
+
+def test_results_md_keeps_both_gradings(replayed):
+    """The September numbers stay on the page beside the current ones.
+
+    Deleting them would make the correction invisible, and the correction is the most
+    useful thing this example now shows: a model reported as 7.4 times less
+    reproducible than its competitor, two thirds of which was answer extraction.
+    """
+    text = (REPO / "examples" / "gsm8k_compare" / "RESULTS.md").read_text(encoding="utf-8")
+    for value in ("0.9613", "9 of 150", "September grading", "37 of 750"):
+        assert value in text, f"RESULTS.md no longer records {value!r}"

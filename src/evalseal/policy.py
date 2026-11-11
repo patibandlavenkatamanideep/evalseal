@@ -45,6 +45,16 @@ class RunRules(_Strict):
     min_score: float | None = Field(default=None, ge=0.0, le=1.0)
     max_flip_rate: float | None = Field(default=None, ge=0.0, le=1.0)
     max_unstable_cases: int | None = Field(default=None, ge=0)
+    #: Observations the grader could not read. A score floor cannot see these: an
+    #: ungraded repeat scores 0.0, so a grader failing on the hard cases looks exactly
+    #: like a model getting them wrong, and a *case* whose every repeat went ungraded
+    #: contributes a 0.0 with nothing measured behind it. Both forms default to off,
+    #: so a policy written before 2.3 behaves as it did.
+    max_unscorable: int | None = Field(default=None, ge=0)
+    max_unscorable_fraction: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: Fail when any case has no verdict at all. Sharper than the two above: one such
+    #: case is a hole in the measurement whatever the suite-wide fraction says.
+    require_every_case_scored: bool = False
     fail_on: FailOn | None = None
     verify_ledger: bool = True
     expect_evaluator: str | None = None
@@ -178,9 +188,42 @@ def _run_checks(rules: RunRules, record: RunRecord, ledger: Path | None) -> list
 
     if rules.min_score is not None:
         ok = agg.mean_score >= rules.min_score
+        # The denominator is named here on purpose. A mean over 40 cases of which 6
+        # were never graded is a different quantity from a mean over 40 graded cases,
+        # and a reader comparing two gate logs has no other way to see the difference.
+        detail = f"mean score {agg.mean_score:.3f} vs floor {rules.min_score:.3f}"
+        if agg.n_observations:
+            detail += f" over {agg.n_cases} case(s), {agg.n_observations} repeat(s)"
+        if agg.n_unscorable:
+            detail += (f"; {agg.n_unscorable} repeat(s) were not gradeable and scored "
+                       "0.0, so this floor is being applied to a partly ungraded run")
+        checks.append(Check("run.min_score", ok, detail))
+
+    if rules.max_unscorable is not None:
+        ok = agg.n_unscorable <= rules.max_unscorable
         checks.append(Check(
-            "run.min_score", ok,
-            f"mean score {agg.mean_score:.3f} vs floor {rules.min_score:.3f}"))
+            "run.max_unscorable", ok,
+            f"{agg.n_unscorable} ungraded repeat(s) of {agg.n_observations} "
+            f"vs limit {rules.max_unscorable}"))
+
+    if rules.max_unscorable_fraction is not None:
+        share = agg.n_unscorable / agg.n_observations if agg.n_observations else 0.0
+        ok = share <= rules.max_unscorable_fraction
+        checks.append(Check(
+            "run.max_unscorable_fraction", ok,
+            f"{share:.1%} of {agg.n_observations} repeat(s) ungraded vs limit "
+            f"{rules.max_unscorable_fraction:.1%}"))
+
+    if rules.require_every_case_scored:
+        blind = sorted(c.case_id for c in record.results
+                       if c.scores and c.unscorable_count == len(c.scores))
+        checks.append(Check(
+            "run.require_every_case_scored", not blind,
+            f"{len(blind)} case(s) have no verdict at all"
+            + (f": {', '.join(blind[:8])}" if blind else "")
+            + ("" if not blind else
+               ". Each scores 0.0 with nothing graded behind it, which no score floor "
+               "can distinguish from a case that failed.")))
 
     if rules.max_flip_rate is not None:
         over = [c for c in record.results if c.flip_rate > rules.max_flip_rate]

@@ -55,7 +55,16 @@ FailOn = Literal["none", "unstable", "borderline"]
 # require that a receipt came from CI rather than from someone's laptop. It is a claim
 # and is named as one; see CIProvenance. It also records the evaluator and target
 # section digests of a version-2 suite file.
-SCHEMA_VERSION = "1.7"
+# 1.8 adds what Phase D needs to report honestly. `results[].unscorable_count` and
+# `aggregate.n_unscorable` separate "the grader judged this wrong" from "the grader
+# could not judge it": until 1.8 an empty judge reply, a provider error string and a
+# reply with no answer in it all arrived as a graded FAIL, so a rate-limited judge
+# looked like a model that failed every case. `execution.calls[].source_key` names the
+# cassette entry that served a call, which is the only evidence that distinguishes two
+# independently recorded draws that happened to agree from one recorded draw counted
+# twice. It changes no fingerprint: it describes what was measured and how well, not
+# how the grading was configured.
+SCHEMA_VERSION = "1.8"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
 
@@ -230,6 +239,15 @@ class CallProvenance(BaseModel):
     #: HTTP attempts this call took. 0 means none was made - it was replayed, or served
     #: by an in-process callable. 1 means it succeeded first time.
     attempts: int = 0
+    #: The cassette entry this call was served by or recorded into. From 1.8.
+    #:
+    #: It is the only field that can tell two independent draws which happened to
+    #: return identical text from one recorded draw reused twice: the texts are equal
+    #: either way, the entries are not. None means no cassette was involved (an
+    #: in-process callable) or the receipt predates 1.8 - in which case independence is
+    #: **unknown**, and is reported as unknown rather than assumed. See
+    #: docs/metrics.md §12.
+    source_key: str | None = None
 
 
 class ExecutionProvenance(BaseModel):
@@ -301,6 +319,13 @@ class CaseResult(BaseModel):
     fail_count: int = 0
     other_count: int = 0                   # non-binary or unparseable outcomes
     flip_count: int = 0                    # verdicts disagreeing with the majority
+    #: Repeats the grader could not reach a verdict on. From 1.8. They keep their 0.0
+    #: in `mean` - a run must not score better by becoming less legible - and are left
+    #: out of `flip_rate`, `ci95` and `stability`, because a repeat with no verdict
+    #: cannot disagree with a majority. See docs/metrics.md §8.
+    unscorable_count: int = 0
+    #: Why, for the first unscorable repeat. One sentence, no response text.
+    unscorable_reason: str | None = None
 
     @property
     def n_runs(self) -> int:
@@ -314,6 +339,12 @@ class Aggregate(BaseModel):
     n_borderline: int
     n_unstable: int
     warnings: list[str] = []
+    #: Repeats across the whole run that could not be graded, and the total number of
+    #: repeats they are out of. From 1.8. Both, because a count with no denominator
+    #: cannot be read: 12 unscorable is a detail at 10,000 repeats and the whole story
+    #: at 20.
+    n_unscorable: int = 0
+    n_observations: int = 0
 
 
 class RunRecord(BaseModel):

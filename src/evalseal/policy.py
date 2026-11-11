@@ -24,6 +24,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .diffing import DiffResult, diff_records, load_receipt
+from .independence import INDEPENDENT, audit_independence
 from .ledger import (
     config_fingerprint,
     evaluator_fingerprint,
@@ -56,6 +57,12 @@ class RunRules(_Strict):
     #: Fail when any case has no verdict at all. Sharper than the two above: one such
     #: case is a hole in the measurement whatever the suite-wide fraction says.
     require_every_case_scored: bool = False
+    #: Fail when a case's repeats were not separate draws - when one recorded response
+    #: was served to several of them, so an interval over N repeats is backed by fewer
+    #: than N observations. A receipt that cannot answer the question (anything sealed
+    #: before schema 1.8) fails this rule too: a rule that skipped on "unknown" would
+    #: report a pass for a check that did not happen. Default off.
+    require_independent_repeats: bool = False
     fail_on: FailOn | None = None
     verify_ledger: bool = True
     expect_evaluator: str | None = None
@@ -263,6 +270,12 @@ def _run_checks(rules: RunRules, record: RunRecord, ledger: Path | None) -> list
         checks.append(Check(
             "run.max_unstable_cases", ok,
             f"{agg.n_unstable} unstable vs limit {rules.max_unstable_cases}"))
+
+    if rules.require_independent_repeats:
+        audit = audit_independence(record)
+        checks.append(Check(
+            "run.require_independent_repeats",
+            audit.verdict == INDEPENDENT, audit.summary()))
 
     if rules.fail_on is not None:
         failed = failing_cases(record, rules.fail_on)

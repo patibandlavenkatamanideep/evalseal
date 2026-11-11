@@ -59,6 +59,16 @@ _ORIGIN_NOTE = {
 }
 
 
+def independence_line(record: RunRecord) -> str:
+    """One line saying how many independent draws are behind the numbers.
+
+    Beside the origin line, because the two answer adjacent questions: where the
+    responses came from, and how many separate times the model was asked.
+    """
+    from .independence import audit_independence
+    return f"- Observations: {audit_independence(record).summary()}"
+
+
 def origin_line(record: RunRecord) -> str | None:
     """One line saying where the numbers came from, or None for a pre-1.7 receipt.
 
@@ -98,6 +108,7 @@ def to_markdown(record: RunRecord) -> str:
     ]
     if (origin := origin_line(record)) is not None:
         lines.append(origin)
+        lines.append(independence_line(record))
     lines.append("")
     lines.append(
         f"**Aggregate:** {a.n_cases} cases · mean {a.mean_score:.2f} · "

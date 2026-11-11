@@ -50,6 +50,7 @@ from .drift import analyze_drift
 from .drift import render as render_drift
 from .executor import run_eval
 from .htmlreport import write_diff_html, write_html
+from .independence import audit_independence
 from .inputs import InputSnapshot, capture_all
 from .ledger import (
     LEDGER_PATH,
@@ -976,6 +977,11 @@ def report(
                 "stability": c.stability,
                 "stability_label": c.stability_label,
                 "ci95": list(c.ci95),
+                # How many of those repeats could not be graded. A 0.0 mean over five
+                # ungraded repeats and one over five graded failures are the same
+                # number and not the same result. docs/metrics.md §8.
+                "unscorable_count": c.unscorable_count,
+                "unscorable_reason": c.unscorable_reason,
             }
             for c in case_rows(record, unstable_only)
         ]
@@ -987,8 +993,13 @@ def report(
                 "n_cases": record.aggregate.n_cases,
                 "n_stable": record.aggregate.n_stable,
                 "n_unstable": record.aggregate.n_unstable,
+                "n_unscorable": record.aggregate.n_unscorable,
+                "n_observations": record.aggregate.n_observations,
                 "sealed_hash": record.hash,
             },
+            # How many independent draws are behind the numbers above. `unknown` for a
+            # receipt that cannot say, which is every receipt sealed before 1.8.
+            "independence": audit_independence(record).to_dict(),
             "provenance": {
                 # Both, so a pin can be copied from here: the evaluator fingerprint for
                 # "comparable to this", the config fingerprint for "exactly this".

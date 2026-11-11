@@ -54,7 +54,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .diffing import EVALUATOR_FIELDS, FieldChange, _config_fields
-from .ledger import evaluator_fingerprint, records_share_fingerprint_inputs
+from .ledger import (
+    FINGERPRINT_INPUTS_FROM,
+    evaluator_fingerprint,
+    records_share_fingerprint_inputs,
+)
 from .models import CaseResult, RunRecord
 from .report import verdict_sequence
 
@@ -333,8 +337,12 @@ def analyze_drift(before: RunRecord, after: RunRecord) -> DriftReport:
         if b != a and name in EVALUATOR_FIELDS
     ]
     schema_note = "" if records_share_fingerprint_inputs(before, after) else (
-        "One of these runs was sealed before schema 1.4, which records fields the other "
-        "has. A fingerprint difference may be an artefact of that rather than a change."
+        f"One of these runs was sealed before schema "
+        f"{'.'.join(str(n) for n in FINGERPRINT_INPUTS_FROM)}, which is the first "
+        "version to record every field the current evaluator fingerprint hashes. A "
+        "fingerprint difference may be an artefact of that rather than a change. "
+        f"(Sealed under {before.manifest.schema_version} and "
+        f"{after.manifest.schema_version}.)"
     )
 
     before_fields, after_fields = _config_fields(before), _config_fields(after)

@@ -328,6 +328,11 @@ def _config_fields(record: RunRecord) -> dict[str, str | None]:
         "target system prompt": m.target.system_prompt_hash,
         "target temperature": str(tp.temperature),
         "target top_p": str(tp.top_p),
+        # The seed was missing from this table while `config_fingerprint` hashed it, so
+        # a run that changed the target's seed showed "something changed that this
+        # summary does not list" in `diff` and nothing at all in `drift`, where the
+        # cause of a moved verdict is decided from exactly these names.
+        "target seed": str(tp.seed),
         "target max_tokens": str(tp.max_tokens),
         "target unset params": _unset_summary(tp),
         "suite": m.suite.hash if m.suite else None,

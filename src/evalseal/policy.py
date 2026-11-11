@@ -23,7 +23,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .diffing import diff_records, load_receipt
+from .diffing import DiffResult, diff_records, load_receipt
 from .ledger import (
     config_fingerprint,
     evaluator_fingerprint,
@@ -31,6 +31,7 @@ from .ledger import (
     verify_chain,
 )
 from .models import FailOn, RunRecord
+from .paired import REGRESSION, PairedComparison
 from .report import failing_cases
 from .validation import InvalidInput, strict_json_loads
 
@@ -67,11 +68,35 @@ class CaseRules(_Strict):
     min_score: dict[str, float] = Field(default_factory=dict)
 
 
+#: What a regression budget is being asked for.
+#:
+#:   fail_on_evidence_of_regression - fail only when the paired test supports a
+#:       regression *and* the drop exceeds the budget. Permissive by construction: an
+#:       inconclusive comparison passes, because nothing was established either way.
+#:       The default, and what every policy written before 2.3 means.
+#:   require_evidence_within_budget - pass only when the interval rules out a drop
+#:       larger than the budget. An inconclusive comparison **fails**: the policy asked
+#:       for evidence the run is within budget and there is none.
+#:
+#: The two are not opposites of one another, and the reason there are two is that
+#: "no evidence of a regression" and "evidence of no regression" are different claims
+#: about the same experiment. A gate that offers only the first reads as the second.
+BudgetPolicy = Literal["fail_on_evidence_of_regression", "require_evidence_within_budget"]
+
+#: The three states a regression budget can be in. Reported by name, so a green tick
+#: cannot stand for two of them.
+EVIDENCE_OF_REGRESSION = "evidence_of_regression"
+EVIDENCE_WITHIN_BUDGET = "evidence_within_budget"
+INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+
+
 class DriftRules(_Strict):
     """What has to hold against a baseline run."""
     baseline: str
     require_comparable: bool = True
     max_score_regression: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: Which question `max_score_regression` is asking. See `BudgetPolicy`.
+    regression_budget_policy: BudgetPolicy = "fail_on_evidence_of_regression"
     allow_new_unstable: bool = True
     allow_removed_cases: bool = True
 
@@ -289,6 +314,84 @@ def _case_checks(rules: CaseRules, record: RunRecord) -> list[Check]:
     return checks
 
 
+def budget_state(paired: PairedComparison | None, delta: float, budget: float) -> str:
+    """Which of the three states a regression budget is in. See `BudgetPolicy`.
+
+    `evidence_of_regression` needs the paired comparison to support a regression *and*
+    the observed drop to exceed the budget.
+
+    `evidence_within_budget` needs the interval's lower bound to sit above `-budget`:
+    the data rule out a drop that large. This is a non-inferiority question, and it is
+    not answered by failing to find a regression - a tiny, uninformative experiment
+    fails to find one every time.
+
+    Anything else is `insufficient_evidence`, which is the usual answer at N=5 and the
+    one a gate must not print as a green tick without saying so.
+    """
+    if paired is None:
+        return INSUFFICIENT_EVIDENCE
+    if paired.verdict == REGRESSION and -delta > budget:
+        return EVIDENCE_OF_REGRESSION
+    if paired.n_items and paired.ci[0] > -budget:
+        return EVIDENCE_WITHIN_BUDGET
+    return INSUFFICIENT_EVIDENCE
+
+
+def _budget_check(rules: DriftRules, result: DiffResult) -> Check:
+    """Apply `max_score_regression` under the policy that was asked for.
+
+    Before 2.0 the allowance was the budget plus a per-case half-width, which at N=5 is
+    0.217 - larger than most real regressions, so the rule passed almost anything.
+    Requiring significance replaced that, and is right for the question "is there
+    evidence of a regression" and wrong for "is this run within budget": a 0.600 drop
+    against a 0.050 budget over five items passed, because five items cannot reach
+    significance at all and the rule needed both conditions to fail a build. Both
+    questions are now askable and the detail always names which was asked and what the
+    evidence supports.
+    """
+    budget = rules.max_score_regression
+    assert budget is not None       # only called when the rule is set
+    paired = result.paired
+    state = budget_state(paired, result.score_delta, budget)
+    detail = (
+        f"[{state}] score moved {result.score_delta:+.4f} against a budget of "
+        f"{budget:.3f}"
+    )
+    if paired is not None:
+        detail += (
+            f"; paired test says {paired.verdict} over {paired.n_items} item(s) "
+            f"(p={paired.p_value:.4g}, {paired.ci_label} "
+            f"[{paired.ci[0]:+.4f}, {paired.ci[1]:+.4f}])"
+        )
+    else:
+        detail += "; no paired comparison was possible, so nothing was established"
+
+    if rules.regression_budget_policy == "require_evidence_within_budget":
+        passed = state == EVIDENCE_WITHIN_BUDGET
+        if not passed and state == INSUFFICIENT_EVIDENCE:
+            detail += (
+                ". This policy asks for evidence that the run is within budget, and "
+                "the interval does not rule out a larger drop. Failing to find a "
+                "regression is not the same as finding there is none."
+            )
+    else:
+        passed = state != EVIDENCE_OF_REGRESSION
+        if state == INSUFFICIENT_EVIDENCE:
+            detail += (
+                ". Passing here means no regression was established, not that the run "
+                "is within budget - this experiment could not tell. Set "
+                "regression_budget_policy: require_evidence_within_budget to make that "
+                "the question."
+            )
+    if paired is not None and paired.mean_moved_without_majorities:
+        detail += (
+            f" The interval excludes zero while only {paired.n_discordant} item(s) "
+            "changed majority verdict, so the shift is within items rather than across "
+            "them."
+        )
+    return Check("drift.max_score_regression", passed, detail)
+
+
 def _drift_checks(rules: DriftRules, record: RunRecord, baseline: RunRecord) -> list[Check]:
     result = diff_records(baseline, record)
     checks: list[Check] = []
@@ -301,28 +404,7 @@ def _drift_checks(rules: DriftRules, record: RunRecord, baseline: RunRecord) -> 
             else "same grading setup on both sides"))
 
     if rules.max_score_regression is not None:
-        # Two conditions, and both have to hold to fail a build. The paired test must
-        # actually support a regression, and the drop must exceed the stated budget.
-        # Before 2.0 the allowance was the budget plus a per-case half-width, which at
-        # N=5 is 0.217 - larger than most real regressions, so the rule passed almost
-        # anything. Requiring significance is both stricter where it matters and honest
-        # where the experiment cannot tell.
-        paired = result.paired
-        drop = -result.score_delta
-        over_budget = drop > rules.max_score_regression
-        supported = paired is not None and paired.verdict == "regression"
-        detail = (
-            f"score moved {result.score_delta:+.4f} against a budget of "
-            f"{rules.max_score_regression:.3f}"
-        )
-        if paired is not None:
-            detail += (
-                f"; paired test says {paired.verdict} "
-                f"(p={paired.p_value:.4g}, 95% CI "
-                f"[{paired.ci95[0]:+.4f}, {paired.ci95[1]:+.4f}])"
-            )
-        checks.append(Check(
-            "drift.max_score_regression", not (over_budget and supported), detail))
+        checks.append(_budget_check(rules, result))
 
     if not rules.allow_new_unstable:
         new = result.newly_unstable

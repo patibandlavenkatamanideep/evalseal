@@ -18,6 +18,20 @@ exclude zero, which is very slightly stricter, so these numbers are a mild upper
 on what `diff` will declare. Running a 10,000-resample bootstrap inside every trial
 would cost far more than that distinction is worth.
 
+## Which metric this is the power for
+
+**The paired test over majority verdicts, and nothing else.** It is the power to detect
+that more items crossed the pass/fail line in one direction than the other
+(docs/metrics.md §7). It is *not* the power to detect a change in mean score (§6), and
+the two differ in the direction that matters: a shift that lowers every item's pass rate
+without flipping a majority has high power under §6 and almost none here, and extra
+repeats make it worse rather than better.
+
+So this module refuses a continuous-scored receipt rather than reporting a number for a
+test that would never be run on it. `evalseal diff` uses a paired permutation test on
+per-item mean differences there, which has a different power curve, and quoting a
+McNemar simulation as its sensitivity would be a claim about the wrong experiment.
+
 ## The item model matters more than the arithmetic
 
 Power here is driven almost entirely by how the suite's items behave, so the model is an
@@ -50,7 +64,12 @@ import random
 from dataclasses import dataclass
 
 from .models import RunRecord
-from .paired import DEFAULT_ALPHA, exact_mcnemar
+from .paired import DEFAULT_ALPHA, exact_mcnemar, is_binary
+
+
+class NotBinary(ValueError):
+    """The receipt's scores are not 0/1, so the test this module simulates does not apply."""
+
 
 DEFAULT_TRIALS = 2000
 _SEED = 12345
@@ -59,6 +78,11 @@ _SEED = 12345
 _STALL_STEPS = 3
 DETERMINISTIC = "deterministic"
 BERNOULLI = "bernoulli"
+
+
+#: The quantity every estimate in this module is the power for. Carried in the output
+#: so a reader cannot take it for the other one.
+METRIC = "paired majority-verdict change (exact McNemar)"
 
 
 @dataclass(frozen=True)
@@ -78,6 +102,10 @@ class PowerEstimate:
             "n_repeats": self.n_repeats, "mdd": self.mdd,
             "baseline": self.baseline, "alpha": self.alpha,
             "model": self.model, "trials": self.trials,
+            "metric": METRIC,
+            "not_the_power_for": "change in mean score across repeats "
+                                 "(docs/metrics.md §6), which `diff` reports with a "
+                                 "cluster-bootstrap interval",
         }
 
 
@@ -205,6 +233,20 @@ def estimate_from_record(
     whether you expect a change to make items unreliable or to make them wrong, and
     those are different failures with different remedies.
     """
+    if not is_binary(record):
+        # Every number this module produces comes from simulating the exact McNemar
+        # test on majority verdicts. A continuous-scored suite has no majority verdict,
+        # `diff` tests it with a paired permutation on mean differences instead, and
+        # reporting this simulation as that test's sensitivity would be a claim about a
+        # different experiment. See the "Which metric" section above.
+        raise NotBinary(
+            "this receipt carries continuous scores, and `power` simulates the exact "
+            "McNemar test on majority verdicts, which `diff` does not apply to a "
+            "continuous scorer. There is no majority verdict for an item to cross, so "
+            "a power figure here would describe a test that will not be run. Compare "
+            "the runs with `evalseal diff`, which uses a paired permutation test on "
+            "the per-item mean differences, and read its interval for the precision "
+            "you have.")
     probs = [sum(c.scores) / len(c.scores) for c in record.results if c.scores]
     if not probs:
         raise ValueError("record has no scored cases")

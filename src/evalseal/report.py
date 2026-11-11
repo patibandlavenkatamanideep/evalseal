@@ -248,15 +248,34 @@ def render_diff(result: DiffResult) -> str:
         lines.append("| quantity | value |")
         lines.append("|---|---|")
         lines.append(f"| difference in mean score | {p.delta:+.4f} |")
-        lines.append(f"| 95% CI (cluster bootstrap over items) "
-                     f"| [{p.ci95[0]:+.4f}, {p.ci95[1]:+.4f}] |")
+        lines.append(f"| {p.ci_label} (cluster bootstrap over items) "
+                     f"| [{p.ci[0]:+.4f}, {p.ci[1]:+.4f}] |")
         lines.append(f"| p-value ({p.test.replace('_', ' ')}) | {p.p_value:.4g} |")
         if p.test == "exact_mcnemar":
             lines.append(
-                f"| discordant items | {p.n_discordant} "
+                f"| items whose majority verdict moved | {p.n_discordant} "
                 f"({p.discordant_regressed} regressed, {p.discordant_improved} improved) |"
             )
         lines.append(f"| verdict | **{p.verdict}** |")
+        lines.append("")
+        # Which of the two quantities the verdict is about. They are different claims
+        # (docs/metrics.md §6 and §7) and a reader deciding a deployment on this line
+        # needs to know which one the p-value came from.
+        if p.test == "exact_mcnemar":
+            lines.append(
+                "The p-value is about **how many items changed which way they mostly "
+                "go**; the interval is about **how far the mean score moved**. A shift "
+                "that lowers every item's pass rate a little moves the second and not "
+                "the first, and more repeats make the first harder to see rather than "
+                "easier. The verdict above is driven by the p-value and the interval "
+                "together, so it never out-claims either."
+            )
+        else:
+            lines.append(
+                "Both the p-value and the interval are about **how far the mean score "
+                "moved**: a continuous scorer has no majority verdict to change, so "
+                "the item-counting test does not apply and is not reported."
+            )
         lines.append("")
         if p.verdict == "inconclusive":
             lines.append(

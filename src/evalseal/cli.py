@@ -66,6 +66,8 @@ from .policy import Check, PolicyError, evaluate, load_policy
 from .power import (
     BERNOULLI,
     DETERMINISTIC,
+    METRIC,
+    NotBinary,
     analytic_deterministic_items,
     estimate,
     estimate_from_record,
@@ -1318,8 +1320,14 @@ def power(
     """
     if from_receipt is not None:
         record = _resolve_record(from_receipt, ledger)
-        est = estimate_from_record(
-            record, mdd, n_repeats=repeats, alpha=alpha, trials=trials)
+        try:
+            est = estimate_from_record(
+                record, mdd, n_repeats=repeats, alpha=alpha, trials=trials)
+        except NotBinary as e:
+            # An actionable diagnostic and a documented exit code, not a traceback and
+            # not a number for a test that would never be run on this receipt.
+            console.print(f"[red]{rich_escape(str(e))}[/red]")
+            raise typer.Exit(code=EXIT_BAD_INPUT) from None
     else:
         if model not in (DETERMINISTIC, BERNOULLI):
             raise typer.BadParameter(
@@ -1351,6 +1359,12 @@ def power(
         f"[bold]Power {est.power:.1%}[/bold] to detect a {mdd:.3f} drop "
         f"from {est.baseline:.3f}, with {est.n_items} item(s) at N={est.n_repeats} "
         f"(model: {est.model}, {est.trials} simulated experiments, alpha {alpha})."
+    )
+    console.print(
+        f"[dim]Power for: {METRIC}. Not the power to detect a change in mean score "
+        "across repeats - a shift that lowers every item's pass rate without flipping "
+        "a majority is near-invisible to this test and plainly visible in `diff`'s "
+        "interval.[/dim]"
     )
     console.print(
         f"\nA paired test needs at least [bold]{floor}[/bold] items to change verdict "

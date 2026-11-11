@@ -95,6 +95,8 @@ from .provenance import text_hash
 from .report import (
     case_rows,
     failing_cases,
+    independence_line,
+    origin_line,
     render_diff,
     to_case_table,
     to_markdown,
@@ -1077,7 +1079,26 @@ def report(
         console.print_json(json.dumps(payload))
         raise typer.Exit(code=0)
 
+    # The table alone left out the three things that decide what it means: what the
+    # suite scored, how many of its observations were gradeable, and where the numbers
+    # came from. A reviewer running this command should not have to also open
+    # report.md to find out that a third of the repeats were never graded.
+    agg = record.aggregate
+    header = (f"**{agg.n_cases} case(s)** · mean **{agg.mean_score:.2f}** · "
+              f"{agg.n_stable} stable / {agg.n_borderline} borderline / "
+              f"{agg.n_unstable} unstable")
+    if agg.n_observations:
+        header += f" · {agg.n_observations} repeat(s)"
+    if agg.n_unscorable:
+        header += (f" · **{agg.n_unscorable} ungraded** "
+                   f"({agg.n_unscorable / agg.n_observations:.1%})")
+    console.print(Markdown(header))
+    if (origin := origin_line(record)) is not None:
+        console.print(Markdown(origin))
+        console.print(Markdown(independence_line(record)))
     console.print(Markdown(to_case_table(record, unstable_only=unstable_only)))
+    for warning in agg.warnings:
+        console.print(f"[yellow]{rich_escape(warning)}[/yellow]")
     raise typer.Exit(code=0)
 
 
@@ -1309,6 +1330,10 @@ def gate(
         console.print_json(json.dumps({
             "passed": not failures,
             "checks": [c.to_dict() for c in policy_checks],
+            # The failing subset, so a consumer does not have to filter `checks`
+            # itself. `failures` is the flat list of fingerprint-pin messages, which
+            # are not policy checks and have no rule name.
+            "violations": [c.to_dict() for c in policy_checks if not c.passed],
             "failures": failures,
             "mean_score": record.aggregate.mean_score,
             "sealed_hash": record.hash,

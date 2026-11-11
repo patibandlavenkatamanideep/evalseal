@@ -172,6 +172,10 @@ class PairedComparison:
             "test": self.test,
             "verdict": self.verdict,
             "alpha": self.alpha,
+            # The sentence the human output prints, so the JSON and the text cannot
+            # say different things about the same comparison.
+            "summary": self.summary(),
+            "mean_moved_without_majorities": self.mean_moved_without_majorities,
             "significant": self.significant,
             "n_discordant": self.n_discordant,
             "discordant_regressed": self.discordant_regressed,

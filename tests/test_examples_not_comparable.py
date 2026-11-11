@@ -97,3 +97,37 @@ def test_the_readme_explains_why_the_target_is_excluded():
     assert "target_change" in text
     for value in ("0.600", "1.000", "+0.400", "2 of 5"):
         assert value in text, f"the README no longer quotes {value!r}"
+
+
+def test_both_receipts_verify_under_the_schema_that_sealed_them():
+    """Sealed under 1.5, re-hashed by a 1.8 build. Invariant 4, concretely.
+
+    They arrived from PR #12 with `hash: ""` - never sealed - which `check_record_hash`
+    reported as `tampered`, i.e. "content does not match its stored hash", about files
+    nobody had altered. They are sealed now, and a record with no hash reports
+    `unsealed` under its own name.
+    """
+    from evalseal.ledger import check_record_hash
+
+    for record in _pair():
+        assert record.manifest.schema_version == "1.5"
+        assert check_record_hash(record) == ("legacy", "1.5")
+
+
+def test_a_record_with_no_hash_is_unsealed_rather_than_tampered():
+    from evalseal.ledger import check_record_hash, verify_chain
+
+    record = _pair()[0].model_copy(deep=True)
+    record.hash = ""
+    assert check_record_hash(record) == ("unsealed", "1.5")
+
+    import pathlib
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        path = pathlib.Path(d) / "l.jsonl"
+        path.write_text(record.model_dump_json() + "\n", encoding="utf-8")
+        ok, message = verify_chain(path)
+    assert not ok                        # it still fails: nothing can check it
+    assert "never sealed" in message
+    assert "TAMPER" not in message
+    assert "not tampering" in message

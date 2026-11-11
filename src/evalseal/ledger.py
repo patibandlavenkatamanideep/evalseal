@@ -300,11 +300,19 @@ def check_record_hash(record: RunRecord) -> tuple[str, str | None]:
     """Does a record's stored hash match its content? One definition for every caller.
 
     Returns (status, schema): "unsupported_schema" when the version it claims is not
-    one this build can verify; "ok" under today's schema; "legacy" when it matches only
-    under the older schema it was sealed with; "unknown_schema" when the hash matches
-    nothing and the version is one the strip table has no entry for, which is the
-    likeliest explanation; "tampered" otherwise. `verify` and `anchor` both ask this
-    question, and two answers to it would eventually disagree.
+    one this build can verify; "unsealed" when it carries no hash at all; "ok" under
+    today's schema; "legacy" when it matches only under the older schema it was sealed
+    with; "unknown_schema" when the hash matches nothing and the version is one the
+    strip table has no entry for, which is the likeliest explanation; "tampered"
+    otherwise. `verify` and `anchor` both ask this question, and two answers to it
+    would eventually disagree.
+
+    **"unsealed" is separate from "tampered" on purpose.** `RunRecord.hash` is empty
+    until the ledger seals it, so a record that was written out before sealing - a
+    hand-built fixture, a receipt saved by a caller that skipped `seal_and_append` -
+    has no hash. Reporting that as "TAMPER DETECTED: content hash does not match" is a
+    false accusation about a file nobody altered. It still fails, because a record with
+    no hash is a record nothing can be checked against; it fails under its own name.
 
     Support is checked **first**, before any hash is compared. It used to be a
     fallback, reached only when no hash matched, which meant a record claiming a
@@ -316,6 +324,8 @@ def check_record_hash(record: RunRecord) -> tuple[str, str | None]:
     sealed_under = record.manifest.schema_version
     if not schema_is_supported(sealed_under):
         return ("unsupported_schema", sealed_under)
+    if not record.hash:
+        return ("unsealed", sealed_under)
     if _content_hash(record) == record.hash:
         return ("ok", SCHEMA_VERSION)
     if sealed_under != SCHEMA_VERSION and _content_hash(record, sealed_under) == record.hash:
@@ -363,6 +373,12 @@ def verify_chain(path: Path = LEDGER_PATH) -> tuple[bool, str]:
             return (False, (
                 f"Record {i} was sealed under schema {sealed_under}, which this build does "
                 f"not know how to re-hash. Verify it with the version that wrote it."
+            ))
+        elif status == "unsealed":
+            return (False, (
+                f"Record {i} carries no hash: it was never sealed, so there is nothing "
+                "to check its content against. That is not tampering - it is a record "
+                "that skipped `seal_and_append`."
             ))
         elif status == "tampered":
             return (False, f"TAMPER DETECTED at record {i}: content hash does not match.")

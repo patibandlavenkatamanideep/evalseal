@@ -645,6 +645,9 @@ def load_verified(ledger: Path | str) -> VerifiedLedger:
             "ok": f"verified under schema {sealed_under}",
             "legacy": f"verified under the schema that sealed it ({sealed_under})",
             "tampered": "content does not match its stored hash",
+            "unsealed": "carries no hash at all, so there is nothing to check its "
+                        "content against - it was never sealed, which is not the same "
+                        "as having been altered",
             "unknown_schema": f"sealed under schema {sealed_under}, which this build "
                               "cannot re-hash",
             "unsupported_schema": f"claims schema version {sealed_under!r}, which this "

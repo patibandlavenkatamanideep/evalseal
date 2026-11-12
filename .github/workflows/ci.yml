@@ -35,6 +35,14 @@ jobs:
           cat deps.txt
           pip-audit --strict --progress-spinner off -r deps.txt
 
+  # Three lanes, deliberately separate.
+  #
+  #   test   - behaviour, from the source tree with `pythonpath = ["src"]`
+  #   wheel  - packaging, from the built artifact outside the repository
+  #   minimum-deps - the lower bounds in pyproject, so they are claims and not guesses
+  #
+  # The first cannot catch a module missing from the wheel, `py.typed` not shipped or a
+  # console script that does not resolve; the second cannot sensibly re-run 1300 tests.
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -105,3 +113,55 @@ jobs:
             report.md
             report.json
           if-no-files-found: ignore
+
+  # Packaging, on every platform users run on. Nothing here imports from `src/`: the
+  # script asserts that `import evalseal` resolves outside the repository, which is the
+  # one check that makes the rest of it mean anything.
+  wheel:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install build
+      - name: The built wheel works from a clean environment
+        run: python scripts/wheel_smoke.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: wheel-${{ matrix.os }}
+          path: dist/
+          if-no-files-found: ignore
+
+  # The lower bounds in pyproject are a promise to anyone who installs alongside other
+  # packages. Resolving the newest of everything never tests them, so this lane pins
+  # each dependency to exactly its declared minimum and runs the suite against it. When
+  # it fails, either the bound is wrong or the code uses something newer than it claims.
+  minimum-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: "3.11", cache: pip }
+      - name: Pin every declared dependency to its lower bound
+        run: |
+          python - <<'EOF' > constraints.txt
+          import re, tomllib
+          project = tomllib.load(open("pyproject.toml", "rb"))["project"]
+          declared = project["dependencies"] + project["optional-dependencies"]["dev"]
+          for spec in declared:
+              name, _, bound = spec.partition(">=")
+              bound = bound.split(";")[0].split("#")[0].strip()
+              if bound:
+                  print(f"{name.strip()}=={bound}")
+          EOF
+          cat constraints.txt
+      - run: pip install -e ".[dev,yaml]" -c constraints.txt
+      - name: The versions actually installed
+        run: pip list
+      - name: Tests against the declared minimums
+        run: pytest -q

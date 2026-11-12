@@ -137,32 +137,31 @@ def test_recovery_keeps_the_complete_records_and_moves_the_tail_aside(tmp_path):
     assert ok, message
 
 
+@pytest.mark.skipif(os.name == "nt",
+                    reason="a read-only file is still writable by its owner on Windows")
 def test_the_sidecar_is_written_before_the_ledger_is_touched(tmp_path):
-    """Write, fsync, truncate - so a failure cannot lose the bytes it moved."""
+    """Write, fsync, truncate - so a failure cannot lose the bytes it moved.
+
+    The ledger is made read-only rather than mocked: the point is what happens when
+    the real write fails, and patching `Path.open` tests the patch as much as the code.
+    """
+    import stat
+
     path = _ledger(tmp_path, 2)
-    _truncate_last_record(path)
+    partial = _truncate_last_record(path)
     original = path.read_text(encoding="utf-8")
+    path.chmod(stat.S_IRUSR)
+    try:
+        with pytest.raises(OSError):
+            recover_incomplete_tail(path)
+    finally:
+        path.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
-    import unittest.mock
-    with (
-        unittest.mock.patch("pathlib.Path.open", side_effect=_fail_on_write(path)),
-        pytest.raises(OSError),
-    ):
-        recover_incomplete_tail(path)
-    # The ledger is untouched, and the sidecar either does not exist or holds the tail.
+    # The ledger is untouched, and the bytes that were moved are already safe.
     assert path.read_text(encoding="utf-8") == original
-
-
-def _fail_on_write(ledger):
-    """Let the sidecar be written, then fail when the ledger is opened for writing."""
-    real = type(ledger).open
-
-    def guard(self, mode="r", *a, **kw):
-        if self == ledger and "w" in mode:
-            raise OSError("disk full")
-        return real(self, mode, *a, **kw)
-
-    return guard
+    sidecars = list(tmp_path.glob("l.jsonl.incomplete-*"))
+    assert len(sidecars) == 1
+    assert sidecars[0].read_text(encoding="utf-8") == partial
 
 
 def test_recovering_a_healthy_ledger_is_refused_rather_than_silently_truncating(tmp_path):

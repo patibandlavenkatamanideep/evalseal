@@ -111,7 +111,7 @@ EvalSeal coordinates processes on **one machine, one local filesystem**.
 
 | it does | it does not |
 |---|---|
-| serialise ledger appends and signature appends with `fcntl.flock` (POSIX) or `msvcrt.locking` (Windows) on a `.lock` sibling | work across NFS, SMB, or any networked filesystem — advisory locks there are weaker or absent, and EvalSeal attempts no distributed consensus |
+| serialise ledger appends and signature appends with `fcntl.flock` (POSIX) or `msvcrt.locking` (Windows) on a `.lock` sibling. Both contend for one fixed byte: `msvcrt.locking` locks from the current file position, so two processes only conflict if they lock the same place | work across NFS, SMB, or any networked filesystem — advisory locks there are weaker or absent, and EvalSeal attempts no distributed consensus |
 | hold a cassette exclusively for the life of a run, refusing a second writer by name | coordinate two machines writing one shared directory |
 | write the ledger, signatures and snapshots with one `write` per line and an `fsync` inside the lock | survive a filesystem that reorders or discards an fsynced write |
 | rename a temp file over the cassette, so a crash leaves the previous version whole | protect against another process editing a file it does not hold the lock for |

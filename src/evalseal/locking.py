@@ -31,14 +31,41 @@ else:
     import fcntl
 
 
+#: The byte every lock contends for. `fcntl.flock` locks the whole file and ignores
+#: offsets; `msvcrt.locking` locks `nbytes` **from the current file position**, so two
+#: processes only contend if they lock the same place. They did not: the handle was
+#: opened in append mode, so the position was end-of-file, and the second writer locked
+#: a byte past the first writer's pid and was granted it. A second `evalseal run` on one
+#: cassette was served instead of refused, on Windows only.
+_LOCK_BYTE = 0
+#: The holder's pid lives after the locked byte, fixed width so it can be overwritten
+#: without truncating. Truncating a file whose byte 0 another process holds raises
+#: PermissionError on Windows, where the lock is mandatory rather than advisory.
+_PID_OFFSET = 1
+_PID_WIDTH = 16
+
+
 def lock_path_for(ledger: str | Path) -> Path:
     """`<ledger>.lock`, alongside the ledger it guards."""
     ledger = Path(ledger)
     return ledger.with_name(ledger.name + ".lock")
 
 
+def _open_lock_file(path: Path) -> IO[bytes]:
+    """Open `<target>.lock` for reading and writing, creating it if absent.
+
+    Not `path.open("ab+")`: in append mode every write goes to end-of-file whatever
+    the position is, so the pid could only be written by truncating first - which is
+    the operation Windows refuses while another process holds the file.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    return os.fdopen(fd, "rb+")
+
+
 def _acquire(handle: IO[bytes]) -> None:
     if sys.platform == "win32":  # pragma: no cover - Windows path
+        handle.seek(_LOCK_BYTE)
         msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
     else:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
@@ -46,7 +73,7 @@ def _acquire(handle: IO[bytes]) -> None:
 
 def _release(handle: IO[bytes]) -> None:
     if sys.platform == "win32":  # pragma: no cover - Windows path
-        handle.seek(0)
+        handle.seek(_LOCK_BYTE)
         msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
     else:
         fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
@@ -62,8 +89,7 @@ def ledger_lock(ledger: str | Path) -> Iterator[Path]:
     prefer flock over a hand-rolled lock-file protocol.
     """
     path = lock_path_for(ledger)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("ab+") as handle:
+    with _open_lock_file(path) as handle:
         _acquire(handle)
         try:
             yield path
@@ -76,8 +102,13 @@ class LockBusy(RuntimeError):
 
 
 def _acquire_nowait(handle: IO[bytes]) -> None:
-    """Take the lock or raise OSError at once. Never waits."""
+    """Take the lock or raise OSError at once. Never waits.
+
+    The seek is what makes this work on Windows: `msvcrt.locking` locks from the
+    current position, so both contenders have to be at the same byte.
+    """
     if sys.platform == "win32":  # pragma: no cover - Windows path
+        handle.seek(_LOCK_BYTE)
         msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
     else:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -90,7 +121,9 @@ def _holder(path: Path) -> str:
     stale. It goes into an error message as a hint, never into a decision.
     """
     try:
-        text = path.read_text(encoding="utf-8").strip()
+        with path.open("rb") as handle:
+            handle.seek(_PID_OFFSET)
+            text = handle.read(_PID_WIDTH).decode("utf-8", "replace").strip()
     except OSError:
         return ""
     return f" (held by pid {text})" if text.isdigit() else ""
@@ -105,8 +138,7 @@ def take_lock(target: str | Path, what: str = "file") -> IO[bytes]:
     rather than queue behind a run that may take hours.
     """
     path = lock_path_for(target)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle = path.open("ab+")
+    handle = _open_lock_file(path)
     try:
         _acquire_nowait(handle)
     except OSError as e:
@@ -117,10 +149,10 @@ def take_lock(target: str | Path, what: str = "file") -> IO[bytes]:
             f"process{hint}"
         ) from e
     # A pid for the next caller's error message. Not a lock - the flock is the lock.
+    # Written after the locked byte, at a fixed width, so nothing has to truncate.
     try:
-        handle.seek(0)
-        handle.truncate()
-        handle.write(str(os.getpid()).encode())
+        handle.seek(_PID_OFFSET)
+        handle.write(str(os.getpid()).encode().ljust(_PID_WIDTH)[:_PID_WIDTH])
         handle.flush()
     except OSError:  # pragma: no cover - the lock is held either way
         pass

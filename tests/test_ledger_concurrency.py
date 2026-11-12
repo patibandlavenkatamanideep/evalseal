@@ -6,6 +6,7 @@ only thing under test is the ledger's locking.
 from __future__ import annotations
 
 import json
+import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -99,3 +100,60 @@ def test_verify_detects_hand_made_siblings(tmp_path):
     ok, message = verify_chain(ledger)
     assert not ok
     assert "Sibling records detected" in message
+
+
+# --- the lock has to contend for one fixed place -------------------------------------
+
+def test_the_pid_hint_lives_outside_the_locked_byte(tmp_path):
+    """Why: `msvcrt.locking` locks from the current file position, and truncating a
+    file another process holds raises PermissionError on Windows.
+
+    So the holder's pid is written at a fixed offset *after* the contended byte, at a
+    fixed width, and nothing truncates. On Windows the old code locked whatever byte
+    the append-mode position happened to be at - past the first writer's pid - so a
+    second `evalseal run` on one cassette was granted the lock and served, with the
+    Phase C invariant failing on that platform only.
+    """
+    from evalseal.locking import _LOCK_BYTE, _PID_OFFSET, _PID_WIDTH, drop_lock, take_lock
+
+    assert _PID_OFFSET > _LOCK_BYTE, "the pid must not sit on the contended byte"
+    target = tmp_path / "c.json"
+    handle = take_lock(target, "cassette")
+    try:
+        raw = (tmp_path / "c.json.lock").read_bytes()
+        assert len(raw) == _PID_OFFSET + _PID_WIDTH
+        assert raw[_PID_OFFSET:].strip() == str(os.getpid()).encode()
+    finally:
+        drop_lock(handle)
+
+
+def test_the_refusal_still_names_the_holder_after_a_rewrite(tmp_path):
+    """The pid is read back from its fixed offset, not from the whole file."""
+    from evalseal.locking import LockBusy, drop_lock, take_lock
+
+    target = tmp_path / "c.json"
+    first = take_lock(target, "cassette")
+    try:
+        with pytest.raises(LockBusy) as caught:
+            take_lock(target, "cassette")
+        assert f"held by pid {os.getpid()}" in str(caught.value)
+    finally:
+        drop_lock(first)
+    # And once released, the next writer gets it.
+    second = take_lock(target, "cassette")
+    drop_lock(second)
+
+
+def test_a_second_lock_is_refused_however_long_the_lock_file_is(tmp_path):
+    """A pid of a different width must not move where the contention happens."""
+    from evalseal.locking import LockBusy, drop_lock, take_lock
+
+    target = tmp_path / "c.json"
+    lock_file = tmp_path / "c.json.lock"
+    lock_file.write_bytes(b"\x00" + b"999999999999    ")
+    first = take_lock(target, "cassette")
+    try:
+        with pytest.raises(LockBusy):
+            take_lock(target, "cassette")
+    finally:
+        drop_lock(first)

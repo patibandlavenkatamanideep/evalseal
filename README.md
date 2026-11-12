@@ -658,6 +658,7 @@ anything this prints:
 | [docs/operations.md](docs/operations.md) | enforced limits, measured costs, filesystem guarantees, key rotation, recovery, retention and troubleshooting |
 | [docs/compatibility.md](docs/compatibility.md) | the package, schema, fingerprint and cassette-format matrix, and what upgrading to 2.3 changes |
 | [docs/importers/promptfoo.md](docs/importers/promptfoo.md) | reading a promptfoo export into a receipt: the field mapping, and a column for what each field does not support |
+| [docs/readiness.md](docs/readiness.md) | what to depend on and what not to, one row per capability, with what would move each one |
 
 | command | what it does | exit code |
 |---|---|---|

@@ -298,3 +298,75 @@ def test_security_md_describes_the_key_handling_the_code_does():
     assert "O_CREAT|O_EXCL|O_NOFOLLOW" in security
     assert f"`{PRIVATE_KEY_MODE:o}`".replace("600", "0600") in security
     assert "--overwrite-public" in security
+
+
+# --- the delivery documents ----------------------------------------------------------
+
+READINESS = DOCS / "readiness.md"
+RELEASE_NOTES = DOCS / "release-notes-2.3.0-draft.md"
+REVIEWER = DOCS / "reviewer-checklist.md"
+
+
+@pytest.mark.parametrize("path", [READINESS, RELEASE_NOTES, REVIEWER])
+def test_the_delivery_document_exists_and_links_resolve(path):
+    import re
+
+    assert path.is_file(), path
+    text = path.read_text(encoding="utf-8")
+    assert len(text) > 1500, f"{path.name} is too short to be the page it claims"
+    for target in re.findall(r"\]\(([^)#:]+\.md)(?:#[^)]*)?\)", text):
+        assert (path.parent / target).resolve().is_file(), f"{path.name} -> {target}"
+
+
+def test_the_readiness_matrix_covers_every_command():
+    """A capability with no row is a capability nobody decided about."""
+
+    from evalseal.cli import app
+
+    text = READINESS.read_text(encoding="utf-8")
+    commands = {c.name or c.callback.__name__ for c in app.registered_commands}
+    # The ones whose readiness is a judgement rather than a given.
+    for name in ("import", "diff", "drift", "power", "evidence", "decompose",
+                 "recover", "verify", "anchor", "sign"):
+        assert name in commands
+        assert name in text, f"readiness.md says nothing about `{name}`"
+
+
+def test_the_readiness_matrix_does_not_claim_adoption():
+    text = READINESS.read_text(encoding="utf-8")
+    assert "Nobody outside this repository has used it" in text
+    assert "the maintainer's demo is not adoption" in text
+
+
+def test_the_readiness_matrix_keeps_the_open_items_open():
+    """Each is a known gap documented elsewhere; none may quietly disappear."""
+    text = READINESS.read_text(encoding="utf-8")
+    for gap in ("Overlapping alternation is not", "NFS or SMB",
+                "passes on `insufficient_evidence`", "reports `unknown`",
+                "TSA signature NOT verified by EvalSeal"):
+        assert gap in text, gap
+
+
+def test_the_release_notes_are_marked_as_a_draft_and_the_version_is_unchanged():
+    import tomllib
+
+    text = RELEASE_NOTES.read_text(encoding="utf-8")
+    assert "Nothing is tagged, built or published" in text
+    project = tomllib.loads(
+        (DOCS.parent / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert project["version"] == "2.2.0"
+    assert "still reports `2.2.0`" in text
+
+
+def test_the_release_notes_lead_with_the_two_upgrade_consequences():
+    text = " ".join(RELEASE_NOTES.read_text(encoding="utf-8").split())
+    assert "scores from `answer_match` may change" in text
+    assert "evaluator pin on such a suite will fail" in text
+    assert "49 are read differently" in text
+    assert "No independent adoption" in text
+
+
+def test_the_reviewer_checklist_is_short_enough_to_finish():
+    text = REVIEWER.read_text(encoding="utf-8")
+    assert len(text.splitlines()) < 100, "a checklist nobody finishes is unused"
+    assert text.count("- [ ]") <= 6

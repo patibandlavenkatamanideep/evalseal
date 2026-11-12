@@ -7,7 +7,18 @@ older version still verifies.
 
 ## [Unreleased]
 
+> A draft of the release notes this would ship with is in
+> [docs/release-notes-2.3.0-draft.md](docs/release-notes-2.3.0-draft.md), and what to
+> depend on afterwards is in [docs/readiness.md](docs/readiness.md). Nothing is tagged,
+> built or published; the package still reports `2.2.0`.
+
 ### Added
+
+- **Delivery documents**: [readiness](docs/readiness.md) (one row per capability, with
+  what would move it), a [release-note draft](docs/release-notes-2.3.0-draft.md) and a
+  [reviewer checklist](docs/reviewer-checklist.md).
+
+#### Earlier in this unreleased cycle
 
 - **`evalseal import`**: reads another tool's export into a sealed receipt. One
   adapter, promptfoo, written against a real export from **0.125.1**
@@ -89,6 +100,37 @@ older version still verifies.
   than one explanation, and `drift.grounds`, which states what the label rests on.
 
 ### Fixed
+
+- **The cassette lock never worked on Windows.** `fcntl.flock` locks the whole file;
+  `msvcrt.locking` locks from the **current file position**, and the lock file was
+  opened in append mode — so the second writer locked a byte past the first writer's
+  pid, was granted it, and was served. A second `evalseal run` on one cassette was
+  never refused on that platform, which is the invariant exclusive ownership exists to
+  hold. Both contenders seek to byte 0 now, and the pid hint moved out of the contended
+  byte so nothing has to truncate a file another process holds.
+
+- **`write_private_key` leaked a file descriptor** when `os.fdopen` failed. `fdopen`
+  takes ownership only on success, and on Windows an open file cannot be deleted — so
+  the cleanup that stops a half-written key from surviving failed, and a zero-length key
+  was left behind.
+
+- **Every `cassette_snapshot` artifact reported `changed` on Windows.** A snapshot's
+  digest is taken from the string before it is written, and text-mode writes translate
+  `\n` to `\r\n` there, so the bytes on disk were never the bytes that were hashed.
+
+- **`python -m evalseal.cli`** — offered by the troubleshooting table to anyone whose
+  console script is not on `PATH` — defined `app`, never called it, printed nothing and
+  exited 0. Both it and `python -m evalseal` work now.
+
+- **`typer>=0.12` was declared and never worked.** Typer before 0.19 raises
+  `RuntimeError: Type not yet supported` on this CLI's `Literal` option types, so
+  `pip install evalseal` resolving there produced a package whose commands could not be
+  constructed.
+
+- **A case with no graded repeat rendered as `FFF`** in all three places that render a
+  verdict strip, including the Markdown report that gets pasted into a pull request.
+
+#### Earlier in this unreleased cycle
 
 - **A case with no graded repeat rendered as `FFF`.** The verdict strip fell back to
   the scores when a case had no verdicts, so three rows the provider errored on read as

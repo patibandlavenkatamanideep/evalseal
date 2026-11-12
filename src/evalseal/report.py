@@ -144,7 +144,7 @@ def to_markdown(record: RunRecord) -> str:
     lines.append("| case | verdicts | mean | 95% CI | flip rate | stability |")
     lines.append("|---|---|---|---|---|---|")
     for r in record.results:
-        verdicts = "".join("P" if s >= 0.5 else "F" for s in r.scores)
+        verdicts = verdict_sequence(r)
         lines.append(
             f"| {r.case_id} | `{verdicts}` | {r.mean:.2f} | [{r.ci95[0]:.2f}, {r.ci95[1]:.2f}] "
             f"| {r.flip_rate:.0%} | {r.stability} |"
@@ -193,7 +193,7 @@ def to_junit(record: RunRecord, fail_on: str = "unstable") -> str:
         SubElement(props, "property", {"name": key, "value": value})
 
     for r in record.results:
-        verdicts = "".join("P" if s >= 0.5 else "F" for s in r.scores)
+        verdicts = verdict_sequence(r)
         case = SubElement(suite, "testcase", {
             "classname": "evalseal.reproducibility",
             "name": r.case_id,

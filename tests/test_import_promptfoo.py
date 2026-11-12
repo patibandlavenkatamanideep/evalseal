@@ -570,3 +570,26 @@ def test_the_documented_limits_match_the_adapter():
     text = QUICKSTART.read_text(encoding="utf-8")
     assert f"`results.version: {SUPPORTED_EXPORT_SCHEMAS[0]}`" in text
     assert "0.125.1" in text
+
+
+def test_every_rendering_of_the_verdict_strip_agrees():
+    """The Markdown report and the JUnit XML rebuilt the strip inline.
+
+    Fixing `verdict_sequence` fixed neither - and the Markdown report is the file
+    that gets pasted into a pull request, so it was the one still saying `FFF` about
+    three repeats nothing had graded.
+    """
+    from evalseal.report import to_junit, to_markdown, verdict_sequence
+
+    record = import_export(EXPORT)
+    errored = next(c for c in record.results
+                   if c.case_id == "a case the provider errors on")
+    assert verdict_sequence(errored) == "---"
+
+    markdown = to_markdown(record)
+    row = next(line for line in markdown.splitlines() if errored.case_id in line)
+    assert "`---`" in row and "FFF" not in row
+
+    junit = to_junit(record, fail_on="none")
+    errored_case = junit[junit.index(errored.case_id):]
+    assert "verdicts ---" in errored_case

@@ -120,9 +120,14 @@ def test_the_pid_hint_lives_outside_the_locked_byte(tmp_path):
     target = tmp_path / "c.json"
     handle = take_lock(target, "cassette")
     try:
-        raw = (tmp_path / "c.json.lock").read_bytes()
-        assert len(raw) == _PID_OFFSET + _PID_WIDTH
-        assert raw[_PID_OFFSET:].strip() == str(os.getpid()).encode()
+        # Read from the pid's own offset, never byte 0. On Windows `msvcrt.locking`
+        # is mandatory rather than advisory, so reading the locked byte - even to
+        # look at the pid beside it - is refused while another handle holds it. That
+        # is exactly why the pid does not live there.
+        assert (tmp_path / "c.json.lock").stat().st_size == _PID_OFFSET + _PID_WIDTH
+        with (tmp_path / "c.json.lock").open("rb") as f:
+            f.seek(_PID_OFFSET)
+            assert f.read(_PID_WIDTH).strip() == str(os.getpid()).encode()
     finally:
         drop_lock(handle)
 

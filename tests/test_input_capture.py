@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import threading
 
 import pytest
@@ -51,8 +52,14 @@ def _sha256(data: bytes) -> str:
 
 @pytest.fixture
 def dataset_file(tmp_path):
+    """A dataset whose bytes are exactly `_ORIGINAL`, on every platform.
+
+    `write_text` translates `\n` to `\r\n` on Windows, which makes a CRLF dataset -
+    a legitimate thing, and the subject of `test_a_crlf_dataset_keeps_the_hash_it_has_always_had`
+    rather than of these tests. Writing bytes keeps the two cases apart.
+    """
     path = tmp_path / "ds.jsonl"
-    path.write_text(_ORIGINAL, encoding="utf-8")
+    path.write_bytes(_ORIGINAL.encode("utf-8"))
     return path
 
 
@@ -226,7 +233,10 @@ def test_a_dataset_error_still_names_its_source(tmp_path):
     path = tmp_path / "dupes.jsonl"
     body = ('{"case_id": "c0", "prompt": "a"}\n' * 2)
     path.write_bytes(body.encode())
-    with pytest.raises(ValueError, match=rf"{path}:2: duplicate case_id 'c0'"):
+    # `re.escape`, because a Windows path is not a regex: `C:\Users\...` carries an
+    # `\U` escape and pytest refuses the pattern before the assertion is reached.
+    expected = re.escape(f"{path}:2: duplicate case_id 'c0'")
+    with pytest.raises(ValueError, match=expected):
         Dataset.from_bytes(path.read_bytes(), what=str(path))
 
 
@@ -388,3 +398,25 @@ def test_an_agent_artifact_is_judged_by_the_bytes_that_get_sealed(tmp_path):
         _check_agent_artifacts(captured)
     # And the corrected file passes, so the check is not simply always failing.
     assert _check_agent_artifacts(capture_all({"tool_acl": str(path)})) is None
+
+
+def test_a_crlf_dataset_seals_two_different_digests_on_purpose(tmp_path):
+    """The case that made the Windows job fail, pinned on every platform.
+
+    `manifest.dataset.hash` is over normalized text, so a CRLF file keeps the digest
+    it had when datasets were read with `read_text`. The `dataset` **artifact** digest
+    is over the bytes on disk. For a CRLF dataset those are different numbers, and
+    both are right: one identifies the cases, the other identifies the file.
+
+    They are only equal for an LF file, which is why
+    `test_the_two_digests_of_one_file_in_a_receipt_agree` writes its fixture as bytes.
+    """
+    path = tmp_path / "crlf.jsonl"
+    path.write_bytes(_ORIGINAL.replace("\n", "\r\n").encode())
+    snapshot = capture("dataset", path)
+    parsed = Dataset.from_bytes(snapshot.data, what=str(path))
+
+    assert snapshot.sha256 != parsed.hash
+    # The case hash is the LF one; the artifact digest is of what is on disk.
+    assert parsed.hash == Dataset.from_bytes(_ORIGINAL.encode()).hash
+    assert snapshot.sha256 == _sha256(path.read_bytes())

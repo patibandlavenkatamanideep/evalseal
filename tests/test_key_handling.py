@@ -147,6 +147,35 @@ def test_a_failed_write_leaves_no_half_written_key(tmp_path):
     assert not path.exists()
 
 
+def test_a_failed_write_does_not_leak_the_descriptor(tmp_path):
+    """`fdopen` takes ownership only on success; on failure the fd is still ours.
+
+    Leaking it also made the cleanup fail on Windows, where an open file cannot be
+    deleted - so a failed write left a zero-length key behind, which is the one
+    outcome `write_private_key` exists to prevent. Counted rather than asserted
+    structurally, because the count is the thing that runs out.
+    """
+    import unittest.mock
+
+    def open_descriptors() -> int:
+        import pathlib as _pathlib
+
+        probe = _pathlib.Path("/dev/fd")
+        if not probe.is_dir():                   # pragma: no cover - not POSIX
+            pytest.skip("no /dev/fd to count")
+        return len(list(probe.iterdir()))
+
+    before = open_descriptors()
+    for i in range(50):
+        with (
+            unittest.mock.patch("os.fdopen", side_effect=OSError("disk full")),
+            pytest.raises(OSError),
+        ):
+            write_private_key(tmp_path / f"k{i}.key", b"pem")
+    assert open_descriptors() <= before + 2, "descriptors leaked on the failure path"
+    assert not list(tmp_path.glob("k*.key"))
+
+
 def test_the_key_still_signs_and_verifies(tmp_path):
     """The hardening must not change what the key is."""
     from conftest import make_dataset

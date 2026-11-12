@@ -73,7 +73,18 @@ def write_private_key(path: Path, pem: bytes) -> None:
             "process creates itself, not an existing file and not a symbolic link."
         ) from None
     try:
-        with os.fdopen(fd, "wb") as handle:
+        handle = os.fdopen(fd, "wb")
+    except BaseException:
+        # `fdopen` took ownership only on success; on failure the raw descriptor is
+        # still ours and still open. Leaking it also made the cleanup below fail on
+        # Windows, where an open file cannot be deleted - so a failed write left a
+        # zero-length key behind, which is the one outcome this function exists to
+        # prevent.
+        os.close(fd)
+        path.unlink(missing_ok=True)
+        raise
+    try:
+        with handle:
             handle.write(pem)
     except BaseException:
         # A half-written key is worse than none: it would be loaded and fail to parse

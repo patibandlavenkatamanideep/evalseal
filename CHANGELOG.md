@@ -9,6 +9,27 @@ older version still verifies.
 
 ### Added
 
+- **`evalseal import`**: reads another tool's export into a sealed receipt. One
+  adapter, promptfoo, written against a real export from **0.125.1**
+  (`results.version: 3`) rather than an invented shape. The receipt binds the export's
+  digest, so `verify --artifacts` can show the retained file still matches what was
+  sealed - and nothing more than that. See
+  [the quickstart](examples/integrations/promptfoo/README.md) and
+  [the field mapping](docs/importers/promptfoo.md), which has a column for what each
+  field does **not** support.
+
+  What it refuses to invent: `origin` is `imported` on every call; `served_model` stays
+  null because promptfoo does not record it; sampling parameters are `unsupported`
+  rather than `inherited`; the export's timestamps are kept as claims. `scorer.impl_hash`
+  stays null, so **an imported receipt is never comparable** - the grading code belongs
+  to another tool. Two imports missing that same field are not thereby comparable, and
+  `diff` refuses explicitly rather than letting two absences hash to one fingerprint.
+
+  Schema 1.9 adds `manifest.imported`, whose `gaps` list names every field the export
+  could not fill.
+
+#### Earlier in this unreleased cycle
+
 - **Four contract documents**, each one a page a reviewer is told to act on:
   [docs/statistical-contract.md](docs/statistical-contract.md) (estimands, assumptions,
   coverage, decision rules), [docs/verification-policy.md](docs/verification-policy.md)
@@ -68,6 +89,22 @@ older version still verifies.
   than one explanation, and `drift.grounds`, which states what the label rests on.
 
 ### Fixed
+
+- **A case with no graded repeat rendered as `FFF`.** The verdict strip fell back to
+  the scores when a case had no verdicts, so three rows the provider errored on read as
+  three graded failures - the opposite of what happened. An ungraded repeat is `-` now.
+
+- **An imported receipt claimed independent draws.** The independence audit counted
+  distinct rows, and promptfoo caches by default without marking per row which were
+  served from cache, so a row count is not a draw count. It reports `unknown` for any
+  import, on the same page that warns caching was on.
+
+- **`evalseal diff` printed that two runs were not comparable without printing why.**
+  The reason was in `--json` only; the human output showed a table of changed hashes.
+  For an import that meant a changed suite digest was shown while the actual answer -
+  the grading code is another tool's and cannot be fingerprinted - went unsaid.
+
+#### Earlier in this unreleased cycle
 
 - **An unbounded response body.** Against a loopback server returning 200 MB of JSON,
   and the same body gzipped to about 200 KB on the wire:

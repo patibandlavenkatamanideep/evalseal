@@ -657,6 +657,7 @@ anything this prints:
 | [docs/verification-policy.md](docs/verification-policy.md) | the five assurance levels, who must be trusted for each claim, and what every check does when it cannot run |
 | [docs/operations.md](docs/operations.md) | enforced limits, measured costs, filesystem guarantees, key rotation, recovery, retention and troubleshooting |
 | [docs/compatibility.md](docs/compatibility.md) | the package, schema, fingerprint and cassette-format matrix, and what upgrading to 2.3 changes |
+| [docs/importers/promptfoo.md](docs/importers/promptfoo.md) | reading a promptfoo export into a receipt: the field mapping, and a column for what each field does not support |
 
 | command | what it does | exit code |
 |---|---|---|
@@ -664,6 +665,8 @@ anything this prints:
 | `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures, `--artifacts` re-hashes the cassette, dataset and suite. | `0` intact · `1` tampered or broken |
 | `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - item by item: comparability, a paired test on the score difference, and which cases started or stopped flipping. `--json` for CI, `--html` to share. | `0` |
 | `evalseal power` | Estimates how many items or repeats it would take to detect a difference you care about **in the paired majority-verdict test** - not in the mean score, which is a different claim with a different power curve. `--from-receipt` uses a real run's per-item rates, and refuses a continuous-scored receipt rather than reporting a figure for a test `diff` would not run on it. | `0` · `2` continuous-scored receipt |
+| `evalseal import` | Reads another tool's export into a sealed receipt, binding the export's digest and naming every field it could not fill. One adapter: `--tool promptfoo`. The receipt says what that tool reported and which file it came from, and nothing about how the file came to exist. [Quickstart](examples/integrations/promptfoo/README.md). | `0` · `2` the export was refused, with the field named |
+| `evalseal recover` | Moves an interrupted append aside and keeps the complete history. Asks first unless given `--yes`. | `0` recovered and the chain verifies · `1` nothing to recover, or damage it cannot fix · `2` no such ledger |
 | `evalseal evidence` | How precisely the repeats you already have pin down each case: the flip-rate interval, its half-width, a label saying whether a magnitude may be quoted at all, and how many more repeats a target margin would take. Retrospective, where `power` is prospective. See [docs/uncertainty.md](docs/uncertainty.md). | `0` · `2` unknown case |
 | `evalseal decompose` | For `llm_judge` suites: measures the flip rate with the target's response held fixed against the flip rate with both varying, by judging one fixed response N times versus sampling the target N times. It reports the two rates and their ratio; it does not apportion variance between them, because the design cannot. | `0` |
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |

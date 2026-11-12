@@ -359,15 +359,24 @@ def test_a_policy_that_does_not_ask_about_gradeability_still_passes(tmp_path,
 
 
 def test_independence_is_unknown_for_an_imported_receipt():
-    """Not `independent`: promptfoo cached by default and the export does not say."""
+    """Not `independent`. The report said "15 repeat(s) came from 15 separate draw(s)"
+    on the same page as a warning that caching was on.
+
+    The rows are distinct; that is not the question. promptfoo caches by default and
+    does not mark per row which were served from cache, so a row count is not a draw
+    count - and no call in an imported receipt carries a `source_key`, because that
+    field means "the cassette entry that served this call".
+    """
     from evalseal.independence import audit_independence
 
     record = import_export(EXPORT)
     audit = audit_independence(record)
-    # `source_key` is the row's own id, so the rows are distinct - but the receipt's
-    # own gap list is where the cache caveat lives, and the warning says it.
+    assert audit.verdict == "unknown"
+    assert audit.known is False
+    assert "does not record whether a repeat was a fresh draw" in audit.reason
+    assert "No effective sample size is derived" in audit.summary()
+    assert all(c.source_key is None for c in record.manifest.execution.calls)
     assert any("CACHING WAS ENABLED" in w for w in record.aggregate.warnings)
-    assert audit.known is True and audit.n_draws == 15
 
 
 # --- refusals --------------------------------------------------------------------------
@@ -447,3 +456,113 @@ def test_the_policy_surface_is_unchanged_for_an_import():
     policy = Policy.model_validate(
         {"run": {"min_score": 0.5, "verify_ledger": False}})
     assert evaluate(policy, record).passed
+
+
+def test_a_case_with_no_graded_repeat_does_not_render_as_three_failures():
+    """It showed `FFF`, which reads as three graded failures. Nothing was graded."""
+    from evalseal.report import verdict_sequence
+
+    record = import_export(EXPORT)
+    errored = next(c for c in record.results
+                   if c.case_id == "a case the provider errors on")
+    failed = next(c for c in record.results
+                  if c.case_id == "a question the provider answers wrongly")
+    assert verdict_sequence(errored) == "---"
+    assert verdict_sequence(failed) == "FFF"
+
+
+def test_a_partly_graded_case_marks_the_ungraded_repeats_without_placing_them():
+    from evalseal.models import CaseResult
+    from evalseal.report import verdict_sequence
+
+    case = CaseResult(
+        case_id="x", scores=[1.0, 1.0, 0.0], mean=2 / 3, ci95=(0.0, 1.0),
+        flip_rate=0.0, stability="UNSTABLE", majority_verdict=1,
+        verdicts=[1, 1], pass_count=2, fail_count=0, unscorable_count=1)
+    # Two passes and one ungraded repeat. The receipt does not record which position
+    # the ungraded one was in, so it is appended and the docstring says so.
+    assert verdict_sequence(case) == "PP-"
+
+
+def test_the_human_diff_says_why_not_only_that(tmp_path, monkeypatch):
+    """It printed "evaluator configuration changed" and a table of hashes. For an
+    import the real answer - the grading code is another tool's - was only in --json."""
+    from evalseal.report import render_diff
+
+    text = render_diff(diff_records(import_export(EXPORT), import_export(STRICT)))
+    assert "Not directly comparable" in text
+    assert "imported from promptfoo 0.125.1" in text
+    assert "scorer.impl_hash" in text
+    assert "docs/importers/promptfoo.md" in text
+
+
+# --- the quickstart's numbers --------------------------------------------------------
+
+QUICKSTART = (Path(__file__).resolve().parent.parent / "examples" / "integrations"
+              / "promptfoo" / "README.md")
+
+
+def _prose(path: Path) -> str:
+    """The text with its line wrapping and blockquote markers collapsed.
+
+    A claim that spans a line break is still the claim; asserting on the raw file
+    would make these tests fail when someone rewraps a paragraph. The leading `>` of a
+    continued blockquote line goes too, or it lands in the middle of a sentence.
+    """
+    lines = [line.lstrip().removeprefix(">").strip()
+             for line in path.read_text(encoding="utf-8").splitlines()]
+    return " ".join(" ".join(lines).split())
+
+
+def test_the_quickstart_quotes_the_numbers_the_commands_produce():
+    """Prose that has drifted from the tool teaches the wrong thing confidently."""
+    text = QUICKSTART.read_text(encoding="utf-8")
+    record = import_export(EXPORT)
+
+    assert f"{record.aggregate.n_cases} case(s), " \
+           f"{record.aggregate.n_observations} observation(s), mean " \
+           f"{record.aggregate.mean_score:.3f}" in text
+    assert record.manifest.imported.source_sha256[:27] in text
+    assert str(record.manifest.imported.source_bytes) in text
+    assert f"{len(record.manifest.imported.gaps)} field(s) this export could not " \
+           "fill" in text
+    strict = import_export(STRICT)
+    assert f"{strict.aggregate.mean_score:.3f}" in text
+
+
+def test_the_quickstart_states_the_trust_boundary_in_those_words():
+    text = _prose(QUICKSTART)
+    assert "Verification can show that the retained export matches the sealed bytes" \
+        in text
+    assert "cannot prove that promptfoo executed the run as reported, or that " \
+           "unpublished runs do not exist" in text
+
+
+def test_the_quickstart_does_not_count_the_demo_as_adoption():
+    text = _prose(QUICKSTART)
+    assert "The maintainer's demo is not adoption" in text
+    assert "No one outside this repository has used it" in text
+
+
+def test_the_quickstart_has_a_pilot_checklist_someone_can_follow():
+    text = QUICKSTART.read_text(encoding="utf-8")
+    assert "A pilot checklist" in text
+    assert text.count("- [ ]") >= 8
+    assert "your own sanitized export" in text
+    # The checklist has to tell someone what counts as a useful outcome, including
+    # the outcome where nothing happens.
+    assert "What would make this worth continuing" in text
+
+
+def test_the_quickstart_links_resolve():
+    import re
+
+    for target in re.findall(r"\]\(([^)#]+\.(?:md|json))(?:#[^)]*)?\)",
+                             QUICKSTART.read_text(encoding="utf-8")):
+        assert (QUICKSTART.parent / target).resolve().is_file(), target
+
+
+def test_the_documented_limits_match_the_adapter():
+    text = QUICKSTART.read_text(encoding="utf-8")
+    assert f"`results.version: {SUPPORTED_EXPORT_SCHEMAS[0]}`" in text
+    assert "0.125.1" in text

@@ -194,6 +194,17 @@ class IndependenceAudit:
 
 def audit_independence(record: RunRecord) -> IndependenceAudit:
     """Count the independent draws behind each case, or say the receipt cannot say."""
+    if record.manifest.imported is not None:
+        # An import knows nothing about how the other tool obtained its rows. promptfoo
+        # caches by default and does not mark per row which were served from cache, so
+        # a row count is not a draw count. Saying `independent` here because the rows
+        # are distinct would be the exact mistake this module exists to prevent.
+        tool = record.manifest.imported.tool
+        return IndependenceAudit(
+            known=False,
+            reason=f"these numbers were imported from {tool}, which does not record "
+                   "whether a repeat was a fresh draw or a cached one being served "
+                   "again.")
     execution = record.manifest.execution
     if execution is None:
         return IndependenceAudit(

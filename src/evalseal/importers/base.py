@@ -176,7 +176,12 @@ def build_record(
             # exists to catch an alias resolving somewhere else.
             served_model=None,
             attempts=0,
-            source_key=item.source_row_id,
+            # Deliberately not the export's row id. `source_key` means "the cassette
+            # entry that served this call", and the independence audit reads it as
+            # evidence that two calls were separate draws. A promptfoo row id is
+            # per-row whether or not the row came from promptfoo's cache, so using it
+            # here would turn "we do not know" into "fifteen separate draws".
+            source_key=None,
         )
         for item in sorted(observations, key=lambda o: (o.case_id, o.repeat))
     ]

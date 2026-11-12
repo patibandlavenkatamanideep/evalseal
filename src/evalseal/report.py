@@ -18,9 +18,22 @@ def write_json(record: RunRecord, path: str | Path = "report.json") -> None:
 
 
 def verdict_sequence(case: CaseResult) -> str:
-    """`PPFP` — the observed verdicts in run order, so a reader sees when it flipped."""
+    """`PPFP` - the graded verdicts in run order, so a reader sees when it flipped.
+
+    A repeat the grader could not read has no verdict and is shown as `-`, never as an
+    `F`. Falling back to the scores rendered a case whose every repeat errored as
+    `FFF`, which reads as three graded failures and is the opposite of what happened -
+    nothing was graded at all.
+
+    **The `-`s are appended, not placed.** The receipt records how many repeats went
+    ungraded, not which ones, so `PP-` means two passes and one ungraded repeat
+    somewhere among the three.
+    """
     if case.verdicts:
-        return "".join("P" if v else "F" for v in case.verdicts)
+        graded = "".join("P" if v else "F" for v in case.verdicts)
+        return graded + "-" * case.unscorable_count
+    if case.unscorable_count:
+        return "-" * case.unscorable_count
     return "".join("P" if s >= 0.5 else "F" for s in case.scores)
 
 
@@ -224,7 +237,14 @@ def render_diff(result: DiffResult) -> str:
         lines.append("**Comparable:** yes. Same grading setup, so the scores mean the "
                      "same thing.")
     else:
-        lines.append("**Not directly comparable: evaluator configuration changed.**")
+        lines.append("**Not directly comparable.**")
+        if result.reason:
+            # The reason names the field at fault. Without it the table below is all a
+            # reader gets, and for an imported receipt the table shows a changed suite
+            # hash while the actual answer - that the grading code belongs to another
+            # tool and cannot be fingerprinted - goes unsaid.
+            lines.append("")
+            lines.append(result.reason)
         lines.append("")
         lines.append("| what changed | before | after |")
         lines.append("|---|---|---|")

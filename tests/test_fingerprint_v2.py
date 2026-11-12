@@ -5,7 +5,7 @@ how a response scores moves, and must not move when the model under test changes
 """
 from __future__ import annotations
 
-from conftest import make_dataset
+from conftest import fake_http, make_dataset
 
 from evalseal.adapters.dataset import Case, Dataset
 from evalseal.adapters.recording import Cassette
@@ -132,7 +132,7 @@ def test_max_tokens_reaches_the_receipt_from_the_anthropic_adapter(tmp_path, mon
     import httpx
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, request=httpx.Request("POST", url),
         json={"model": "m", "content": [{"type": "text", "text": "yes"}],
               "stop_reason": "end_turn"}))
@@ -149,7 +149,7 @@ def test_max_tokens_reaches_the_receipt_from_the_anthropic_adapter(tmp_path, mon
 def test_the_fingerprint_carries_its_scheme():
     value = _fp(_scored(RegexScorer("yes")))
     assert value.startswith(f"{FINGERPRINT_PREFIX}:sha256:")
-    assert fingerprint_scheme(value) == 2
+    assert fingerprint_scheme(value) == 3
     assert fingerprint_scheme("sha256:" + "0" * 64) is None
 
 

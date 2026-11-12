@@ -264,12 +264,25 @@ def test_requiring_an_anchor_fails_when_none_was_supplied():
 
 
 def test_requiring_an_external_proof_fails_on_a_local_anchor():
+    """An anchor with no external proof at all: the `missing` state."""
+    from evalseal.verification import verify_external_evidence
+
     checks = _by_rule(check_preregistration(
         _contract(require_anchor=True, require_external_anchor=True), _record(),
-        anchor=AnchorState(present=True, verified=True, has_external_proof=False)))
+        anchor=AnchorState(present=True, verified=True),
+        external=verify_external_evidence({"external_proofs": []})))
     assert checks["prereg.require_anchor"].passed
     assert not checks["prereg.require_external_anchor"].passed
     assert "this machine's clock" in checks["prereg.require_external_anchor"].detail
+
+
+def test_requiring_an_external_proof_fails_when_none_was_evaluated():
+    """No evidence state supplied at all must fail, not skip - the policy.py rule."""
+    checks = _by_rule(check_preregistration(
+        _contract(require_anchor=True, require_external_anchor=True), _record(),
+        anchor=AnchorState(present=True, verified=True)))
+    assert not checks["prereg.require_external_anchor"].passed
+    assert "not checked" in checks["prereg.require_external_anchor"].detail
 
 
 # --- the file itself ---------------------------------------------------------------------

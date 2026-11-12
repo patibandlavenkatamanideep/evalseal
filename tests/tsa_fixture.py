@@ -34,6 +34,10 @@ ID_SIGNED_DATA = "1.2.840.113549.1.7.2"
 ID_CT_TST_INFO = "1.2.840.113549.1.9.16.1.4"
 ATTR_CONTENT_TYPE = "1.2.840.113549.1.9.3"
 ATTR_MESSAGE_DIGEST = "1.2.840.113549.1.9.4"
+# RFC 5035. A real authority sends one of these - the recorded freetsa token carries
+# the v1 form - and `openssl ts -verify` refuses a token without it.
+ATTR_SIGNING_CERTIFICATE = "1.2.840.113549.1.9.16.2.12"
+ATTR_SIGNING_CERTIFICATE_V2 = "1.2.840.113549.1.9.16.2.47"
 OID_SHA256 = "2.16.840.1.101.3.4.2.1"
 OID_SHA512 = "2.16.840.1.101.3.4.2.3"
 OID_SHA256_RSA = "1.2.840.113549.1.1.11"
@@ -80,6 +84,27 @@ def _generalized_time(when: datetime) -> bytes:
 
 def _attribute(oid: str, value: bytes) -> bytes:
     return _sequence(_oid(oid), _set_of(value))
+
+
+def _signing_certificate_attribute(
+    certificate_der: bytes, *, version: str = "v1", wrong_hash: bool = False,
+) -> bytes:
+    """The ESS attribute that binds the signature to one certificate.
+
+        SigningCertificate ::= SEQUENCE { certs SEQUENCE OF ESSCertID, ... }
+        ESSCertID          ::= SEQUENCE { certHash OCTET STRING, ... }
+
+    v1 hashes with SHA-1; v2 defaults to SHA-256 and the algorithm may be omitted when
+    it is the default, which is what this builds.
+    """
+    algorithm = "sha1" if version == "v1" else "sha256"
+    digest = hashlib.new(algorithm, certificate_der).digest()
+    if wrong_hash:
+        digest = bytes(b ^ 0xFF for b in digest)
+    ess_cert_id = _sequence(_der(0x04, digest))
+    value = _sequence(_sequence(ess_cert_id))
+    oid = ATTR_SIGNING_CERTIFICATE if version == "v1" else ATTR_SIGNING_CERTIFICATE_V2
+    return _attribute(oid, value)
 
 
 @dataclass
@@ -147,16 +172,43 @@ def build_tsa(
     return TestTsa(ca_certificate=ca, tsa_certificate=tsa, tsa_key=tsa_key)
 
 
+def nonce_of_request(der: bytes) -> int | None:
+    """The nonce in a DER TimeStampReq, so a fake authority can echo it.
+
+    Parsing it back also exercises the request encoder: a nonce that was encoded as a
+    negative integer comes back as a different number here, which is what made about
+    half of all real requests malformed.
+    """
+    from evalseal.rfc3161 import _tlvs
+
+    top = next((t for t in _tlvs(der) if t[0] == 0x30), None)
+    if top is None:
+        return None
+    integers = [(b, e) for t, b, e in _tlvs(der, top[1], top[2]) if t == 0x02]
+    if len(integers) < 2:                       # [0] is version, [1] is the nonce
+        return None
+    b, e = integers[1]
+    return int.from_bytes(der[b:e], "big", signed=True)
+
+
 def build_tst_info(
     digest: str, *, gen_time: datetime | None = None, serial: int = 4242,
     policy: str = "1.2.3.4.1",
+    imprint_oid: str | None = None,
+    nonce: int | None = None,
 ) -> bytes:
-    """A TSTInfo over `digest`, as the authority would sign it."""
+    """A TSTInfo over `digest`, as the authority would sign it.
+
+    `imprint_oid` declares a digest algorithm other than the one the bytes actually
+    are, which is how a token can claim to be about a value it is not about.
+    """
     raw = bytes.fromhex(digest.split(":", 1)[1])
-    imprint = _sequence(_algorithm(OID_SHA256), _der(0x04, raw))
-    return _sequence(
-        _integer(1), _oid(policy), imprint, _integer(serial),
-        _generalized_time(gen_time or GEN_TIME))
+    imprint = _sequence(_algorithm(imprint_oid or OID_SHA256), _der(0x04, raw))
+    parts = [_integer(1), _oid(policy), imprint, _integer(serial),
+             _generalized_time(gen_time or GEN_TIME)]
+    if nonce is not None:
+        parts.append(_integer(nonce))
+    return _sequence(*parts)
 
 
 def build_token(
@@ -174,6 +226,17 @@ def build_token(
     sign_with: rsa.RSAPrivateKey | None = None,
     status: int = 0,
     tst_info: bytes | None = None,
+    imprint_oid: str | None = None,
+    nonce: int | None = None,
+    signed_content_type: str | None = None,
+    duplicate_attribute: str | None = None,
+    omit_content_type: bool = False,
+    extra_certificates: tuple[x509.Certificate, ...] = (),
+    signer_first: bool = True,
+    omit_signer_certificate: bool = False,
+    signing_certificate_attribute: str | None = "v1",
+    wrong_signing_certificate_hash: bool = False,
+    trailing: bytes = b"",
 ) -> bytes:
     """A complete DER `TimeStampResp`, signed, with one knob per failure mode.
 
@@ -181,14 +244,31 @@ def build_token(
     one thing wrong, so a failing test names a single cause.
     """
     info = (tst_info if tst_info is not None
-            else build_tst_info(digest, gen_time=gen_time, serial=serial))
+            else build_tst_info(digest, gen_time=gen_time, serial=serial,
+                                imprint_oid=imprint_oid, nonce=nonce))
 
     content = b"not the content" if wrong_message_digest else info
     digest_for_attr = hashlib.new(digest_algorithm, content).digest()
-    signed_attrs_content = (
-        _attribute(ATTR_CONTENT_TYPE, _oid(econtent_type))
-        + _attribute(ATTR_MESSAGE_DIGEST, _der(0x04, digest_for_attr))
-    )
+    signed_attrs_content = b""
+    if not omit_content_type:
+        signed_attrs_content += _attribute(
+            ATTR_CONTENT_TYPE, _oid(signed_content_type or econtent_type))
+    signed_attrs_content += _attribute(ATTR_MESSAGE_DIGEST, _der(0x04, digest_for_attr))
+    if signing_certificate_attribute is not None:
+        signed_attrs_content += _signing_certificate_attribute(
+            tsa.tsa_certificate.public_bytes(serialization.Encoding.DER),
+            version=signing_certificate_attribute,
+            wrong_hash=wrong_signing_certificate_hash)
+    if duplicate_attribute == "content_type":
+        signed_attrs_content += _attribute(
+            ATTR_CONTENT_TYPE, _oid(signed_content_type or econtent_type))
+    elif duplicate_attribute == "message_digest":
+        signed_attrs_content += _attribute(ATTR_MESSAGE_DIGEST, _der(0x04, digest_for_attr))
+    elif duplicate_attribute == "two_values":
+        # One attribute carrying two values, rather than two attributes.
+        signed_attrs_content += _sequence(
+            _oid(ATTR_MESSAGE_DIGEST),
+            _set_of(_der(0x04, digest_for_attr), _der(0x04, digest_for_attr)))
     # RFC 5652: the signature covers signedAttrs re-encoded as a SET OF (0x31), not the
     # [0] IMPLICIT tag (0xA0) the structure carries. Getting this wrong is the classic
     # way a CMS verifier fails on every real token.
@@ -215,8 +295,11 @@ def build_token(
 
     certificates = b""
     if include_certificate:
-        certificates = _implicit_set(
-            0, tsa.tsa_certificate.public_bytes(serialization.Encoding.DER))
+        encoded = ([] if omit_signer_certificate
+                   else [tsa.tsa_certificate.public_bytes(serialization.Encoding.DER)])
+        extra = [c.public_bytes(serialization.Encoding.DER) for c in extra_certificates]
+        ordered = [*encoded, *extra] if signer_first else [*extra, *encoded]
+        certificates = _implicit_set(0, b"".join(ordered))
 
     signed_data = _sequence(
         _integer(3),
@@ -226,4 +309,4 @@ def build_token(
         _set_of(signer_info),
     )
     token = _sequence(_oid(ID_SIGNED_DATA), _explicit(0, signed_data))
-    return _sequence(_sequence(_integer(status)), token)
+    return _sequence(_sequence(_integer(status)), token) + trailing

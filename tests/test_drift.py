@@ -26,6 +26,7 @@ from evalseal.drift import (
 )
 from evalseal.executor import run_eval
 from evalseal.ledger import seal_and_append
+from evalseal.models import SCHEMA_VERSION
 
 runner = CliRunner()
 
@@ -153,9 +154,16 @@ def test_cases_present_in_only_one_run_are_listed_not_compared():
 
 
 def test_a_cross_schema_comparison_is_flagged():
+    """The note names the version the fingerprint needs, and the two it has.
+
+    It said "before schema 1.4" while the threshold had moved to 1.6, so a pair sealed
+    under 1.5 and 1.5 was told one of them predated 1.4.
+    """
     before, after = _regex(["yes"]), _regex(["yes"])
     before.manifest.schema_version = "1.3"
-    assert "sealed before schema 1.4" in analyze_drift(before, after).schema_note
+    note = analyze_drift(before, after).schema_note
+    assert "sealed before schema 1.6" in note
+    assert f"(Sealed under 1.3 and {SCHEMA_VERSION}.)" in note
 
 
 def test_render_leads_with_the_cause_not_with_a_number():

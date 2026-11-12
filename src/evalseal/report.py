@@ -18,9 +18,22 @@ def write_json(record: RunRecord, path: str | Path = "report.json") -> None:
 
 
 def verdict_sequence(case: CaseResult) -> str:
-    """`PPFP` — the observed verdicts in run order, so a reader sees when it flipped."""
+    """`PPFP` - the graded verdicts in run order, so a reader sees when it flipped.
+
+    A repeat the grader could not read has no verdict and is shown as `-`, never as an
+    `F`. Falling back to the scores rendered a case whose every repeat errored as
+    `FFF`, which reads as three graded failures and is the opposite of what happened -
+    nothing was graded at all.
+
+    **The `-`s are appended, not placed.** The receipt records how many repeats went
+    ungraded, not which ones, so `PP-` means two passes and one ungraded repeat
+    somewhere among the three.
+    """
     if case.verdicts:
-        return "".join("P" if v else "F" for v in case.verdicts)
+        graded = "".join("P" if v else "F" for v in case.verdicts)
+        return graded + "-" * case.unscorable_count
+    if case.unscorable_count:
+        return "-" * case.unscorable_count
     return "".join("P" if s >= 0.5 else "F" for s in case.scores)
 
 
@@ -49,6 +62,45 @@ def to_case_table(record: RunRecord, unstable_only: bool = False) -> str:
     return "\n".join(lines)
 
 
+#: How each origin reads to someone who has to decide whether to trust the number.
+_ORIGIN_NOTE = {
+    "live": "live provider calls",
+    "replay": "**replayed from a cassette - no provider was called**",
+    "local": "an in-process callable - no provider was called",
+    "mixed": "**partly replayed from a cassette**",
+    "unknown": "**an unknown origin: the target did not say**",
+}
+
+
+def independence_line(record: RunRecord) -> str:
+    """One line saying how many independent draws are behind the numbers.
+
+    Beside the origin line, because the two answer adjacent questions: where the
+    responses came from, and how many separate times the model was asked.
+    """
+    from .independence import audit_independence
+    return f"- Observations: {audit_independence(record).summary()}"
+
+
+def origin_line(record: RunRecord) -> str | None:
+    """One line saying where the numbers came from, or None for a pre-1.7 receipt.
+
+    Near the top, because it is the first thing that decides what the rest means. A
+    replayed run is a perfectly good regression check and a useless claim about a
+    model's current behaviour, and the difference used to be invisible.
+    """
+    execution = record.manifest.execution
+    if execution is None:
+        return None
+    note = _ORIGIN_NOTE.get(execution.origin, execution.origin)
+    detail = f"{execution.n_calls} call(s)"
+    if execution.n_replayed and execution.n_live:
+        detail += f": {execution.n_live} live, {execution.n_replayed} replayed"
+    if execution.attempts > execution.n_live:
+        detail += f", {execution.attempts} HTTP attempt(s)"
+    return f"- Origin: {note} ({detail})"
+
+
 def to_markdown(record: RunRecord) -> str:
     a = record.aggregate
     t = record.manifest.target
@@ -65,10 +117,25 @@ def to_markdown(record: RunRecord) -> str:
         f"- N repeats: {record.manifest.run_config.n_repeats}",
         f"- Dataset: `{record.manifest.dataset.hash[:20]}...` "
         f"({record.manifest.dataset.n_cases} cases)",
-        f"- Sealed hash: `{record.hash[:20]}...`\n",
-        f"**Aggregate:** {a.n_cases} cases · mean {a.mean_score:.2f} · "
-        f"{a.n_stable} stable / {a.n_borderline} borderline / {a.n_unstable} unstable\n",
+        f"- Sealed hash: `{record.hash[:20]}...`",
     ]
+    if (provenance := record.manifest.imported) is not None:
+        lines.append(
+            f"- Source: **imported from {provenance.tool}"
+            + (f" {provenance.tool_version}" if provenance.tool_version else "")
+            + "**, not measured here")
+        lines.append(f"- Export digest: `{provenance.source_sha256[:27]}...` "
+                     f"({provenance.source_bytes} bytes)")
+        if provenance.gaps:
+            lines.append(f"- Fields this export could not fill: "
+                         f"{len(provenance.gaps)} (listed below)")
+    if (origin := origin_line(record)) is not None:
+        lines.append(origin)
+        lines.append(independence_line(record))
+    lines.append("")
+    lines.append(
+        f"**Aggregate:** {a.n_cases} cases · mean {a.mean_score:.2f} · "
+        f"{a.n_stable} stable / {a.n_borderline} borderline / {a.n_unstable} unstable\n")
     if a.warnings:
         lines.append("## ⚠ Provenance warnings")
         lines += [f"- {w}" for w in a.warnings]
@@ -77,7 +144,7 @@ def to_markdown(record: RunRecord) -> str:
     lines.append("| case | verdicts | mean | 95% CI | flip rate | stability |")
     lines.append("|---|---|---|---|---|---|")
     for r in record.results:
-        verdicts = "".join("P" if s >= 0.5 else "F" for s in r.scores)
+        verdicts = verdict_sequence(r)
         lines.append(
             f"| {r.case_id} | `{verdicts}` | {r.mean:.2f} | [{r.ci95[0]:.2f}, {r.ci95[1]:.2f}] "
             f"| {r.flip_rate:.0%} | {r.stability} |"
@@ -126,7 +193,7 @@ def to_junit(record: RunRecord, fail_on: str = "unstable") -> str:
         SubElement(props, "property", {"name": key, "value": value})
 
     for r in record.results:
-        verdicts = "".join("P" if s >= 0.5 else "F" for s in r.scores)
+        verdicts = verdict_sequence(r)
         case = SubElement(suite, "testcase", {
             "classname": "evalseal.reproducibility",
             "name": r.case_id,
@@ -170,7 +237,14 @@ def render_diff(result: DiffResult) -> str:
         lines.append("**Comparable:** yes. Same grading setup, so the scores mean the "
                      "same thing.")
     else:
-        lines.append("**Not directly comparable: evaluator configuration changed.**")
+        lines.append("**Not directly comparable.**")
+        if result.reason:
+            # The reason names the field at fault. Without it the table below is all a
+            # reader gets, and for an imported receipt the table shows a changed suite
+            # hash while the actual answer - that the grading code belongs to another
+            # tool and cannot be fingerprinted - goes unsaid.
+            lines.append("")
+            lines.append(result.reason)
         lines.append("")
         lines.append("| what changed | before | after |")
         lines.append("|---|---|---|")
@@ -215,15 +289,34 @@ def render_diff(result: DiffResult) -> str:
         lines.append("| quantity | value |")
         lines.append("|---|---|")
         lines.append(f"| difference in mean score | {p.delta:+.4f} |")
-        lines.append(f"| 95% CI (cluster bootstrap over items) "
-                     f"| [{p.ci95[0]:+.4f}, {p.ci95[1]:+.4f}] |")
+        lines.append(f"| {p.ci_label} (cluster bootstrap over items) "
+                     f"| [{p.ci[0]:+.4f}, {p.ci[1]:+.4f}] |")
         lines.append(f"| p-value ({p.test.replace('_', ' ')}) | {p.p_value:.4g} |")
         if p.test == "exact_mcnemar":
             lines.append(
-                f"| discordant items | {p.n_discordant} "
+                f"| items whose majority verdict moved | {p.n_discordant} "
                 f"({p.discordant_regressed} regressed, {p.discordant_improved} improved) |"
             )
         lines.append(f"| verdict | **{p.verdict}** |")
+        lines.append("")
+        # Which of the two quantities the verdict is about. They are different claims
+        # (docs/metrics.md §6 and §7) and a reader deciding a deployment on this line
+        # needs to know which one the p-value came from.
+        if p.test == "exact_mcnemar":
+            lines.append(
+                "The p-value is about **how many items changed which way they mostly "
+                "go**; the interval is about **how far the mean score moved**. A shift "
+                "that lowers every item's pass rate a little moves the second and not "
+                "the first, and more repeats make the first harder to see rather than "
+                "easier. The verdict above is driven by the p-value and the interval "
+                "together, so it never out-claims either."
+            )
+        else:
+            lines.append(
+                "Both the p-value and the interval are about **how far the mean score "
+                "moved**: a continuous scorer has no majority verdict to change, so "
+                "the item-counting test does not apply and is not reported."
+            )
         lines.append("")
         if p.verdict == "inconclusive":
             lines.append(

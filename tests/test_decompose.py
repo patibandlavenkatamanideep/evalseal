@@ -9,6 +9,7 @@ import itertools
 import json
 
 import pytest
+from conftest import fake_http
 from typer.testing import CliRunner
 
 from evalseal.adapters.dataset import Case, Dataset
@@ -51,7 +52,8 @@ def test_a_flaky_judge_on_a_fixed_response_shows_up_in_the_judge_only_arm():
     assert case.judge_only_flip_rate == pytest.approx(0.2)
     # The full arm sees the same judge cycle over an unchanging response, so it matches.
     assert case.full_flip_rate == pytest.approx(0.2)
-    assert case.judge_share == pytest.approx(1.0)
+    assert case.judge_only_over_full == pytest.approx(1.0)
+    assert case.comparison == "both arms flipped, the fixed-response arm less"
 
 
 def test_a_stable_judge_leaves_the_judge_only_arm_flat():
@@ -61,7 +63,8 @@ def test_a_stable_judge_leaves_the_judge_only_arm_flat():
 
     assert result.cases[0].judge_only_flip_rate == 0.0
     assert result.cases[0].full_flip_rate == 0.0
-    assert result.overall_judge_share is None      # nothing to apportion
+    assert result.overall_judge_only_over_full is None   # 0/0, so there is no ratio
+    assert result.cases[0].comparison == "neither arm flipped"
 
 
 def test_variance_that_only_appears_when_the_target_varies_is_attributed_to_the_target():
@@ -88,17 +91,30 @@ def test_variance_that_only_appears_when_the_target_varies_is_attributed_to_the_
     case = result.cases[0]
     assert case.judge_only_flip_rate == 0.0        # judge is stable on a fixed response
     assert case.full_flip_rate == pytest.approx(0.4)   # PFPFP -> 2 of 5 disagree
-    assert case.judge_share == 0.0                 # none of it is the judge's
+    assert case.judge_only_over_full == 0.0
+    assert case.comparison.startswith("only the full arm flipped")
 
 
-def test_judge_share_is_capped_at_one():
-    """The arms are separate experiments, so the judge arm can exceed the full arm."""
+def test_only_the_fixed_response_arm_flipping_is_reported_as_exactly_that():
+    """D2-3. The arms are separate experiments, so the judge arm can exceed the full one.
+
+    On 2.2.0 this rendered as "Neither arm flipped, so there is no variance here to
+    apportion", which was false about the data on the page: the judge had flipped on
+    every case. The ratio's denominator was zero and None was being read as "nothing
+    happened".
+    """
     (jt, js), (ft, fs) = _arms(["x"], ["PASS", "FAIL"])
     ft = _cycling(["x"])
     fs = LLMJudgeScorer(judge=_cycling(["PASS"]), rubric=RUBRIC)
     result = decompose(_dataset("a"), jt, js, ft, fs, n_repeats=5)
     assert result.cases[0].full_flip_rate == 0.0
-    assert result.cases[0].judge_share is None     # no denominator, so no share
+    assert result.cases[0].judge_only_flip_rate > 0
+    assert result.cases[0].judge_only_over_full is None     # no denominator, no ratio
+    assert result.cases[0].comparison.startswith("only the fixed-response arm flipped")
+    text = render(result)
+    assert "Only the fixed-response arm flipped" in text
+    assert "Neither arm flipped" not in text
+    assert "apportion" in text          # and it says apportioning is what it cannot do
 
 
 def test_aggregates_average_over_cases():
@@ -118,17 +134,40 @@ def test_one_repeat_cannot_show_a_flip_and_is_rejected():
         decompose(_dataset("a"), jt, js, ft, fs, n_repeats=1)
 
 
-def test_render_states_the_lower_bound_caveat():
+def test_render_claims_a_comparison_and_not_a_share_of_variance():
+    """D2-4. It called the clipped ratio a "lower bound on the judge's contribution",
+    which is a claim about a variance decomposition this design does not perform."""
     (jt, js), (ft, fs) = _arms(["same"], ["PASS", "PASS", "FAIL", "PASS", "PASS"])
     text = render(decompose(_dataset("a", "b"), jt, js, ft, fs, n_repeats=5))
     assert "judge_only" in text and "target_and_judge" in text
-    assert "lower bound on the judge's contribution" in text
+    assert "lower bound" not in text
+    assert "share of the variance" in text
+    assert "at one particular response" in text
+    assert "does not support apportioning variance" in text
 
 
-def test_render_says_so_when_there_is_nothing_to_apportion():
+def test_a_ratio_above_one_is_reported_as_a_contradiction_not_clipped_to_a_share():
+    """D2-4, the arithmetic. 0.4 against 0.2 is 2.0, and used to render as "100%"."""
+    from evalseal.decompose import CaseDecomposition, Decomposition
+
+    result = Decomposition(n_repeats=5, cases=[CaseDecomposition(
+        "a", judge_only_verdicts=[1, 0, 0, 1, 1], full_verdicts=[1, 1, 1, 1, 0])])
+    case = result.cases[0]
+    assert (case.judge_only_flip_rate, case.full_flip_rate) == (0.4, 0.2)
+    assert case.judge_only_over_full == 2.0
+    assert case.comparison.startswith("the fixed-response arm flipped more")
+    assert result.n_judge_only_above_full == 1
+    text = render(result)
+    assert "flipped more than the full run" in text
+    assert "cannot be apportioned" in text
+    assert "100%" not in text
+
+
+def test_render_says_so_when_neither_arm_flipped():
     (jt, js), (ft, fs) = _arms(["x"], ["PASS"])
     text = render(decompose(_dataset("a"), jt, js, ft, fs, n_repeats=5))
-    assert "no variance here to apportion" in text
+    assert "Neither arm flipped, so there is nothing here to compare" in text
+    assert "a statement about this suite at this N" in text
 
 
 # --- the CLI ----------------------------------------------------------------------
@@ -160,7 +199,7 @@ def test_cli_gives_each_arm_its_own_cassette(tmp_path, monkeypatch):
     answers = itertools.cycle(["yes", "PASS", "no", "FAIL"])
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, request=httpx.Request("POST", url),
         json={"model": "m", "choices": [{"message": {"content": next(answers)}}]}))
 

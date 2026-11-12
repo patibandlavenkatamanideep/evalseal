@@ -187,6 +187,22 @@ To re-record with your own key, copy `.env.example` to `.env`, add a free
 `EVALSEAL_RECORD=1`. If the free tier rate-limits you, run the same command again later;
 responses already recorded are kept.
 
+There are three modes, and `--cassette-mode` names them explicitly:
+
+| mode | provider calls | what it is for |
+|---|---|---|
+| `replay` | none; a missing entry fails the run | CI. The default. |
+| `resume` | for whatever is not recorded yet | finishing a run a rate limit interrupted. `EVALSEAL_RECORD=1` means this. |
+| `fresh` | for everything, ignoring what is recorded | a new experiment, which must not inherit another run's draws. |
+
+A cassette entry is keyed by the measurement it belongs to - case, repeat and role - as
+well as by the request. It used to be keyed by `(request, repeat)` alone, so **two
+different cases that happened to ask the same question shared one entry**: one provider
+draw served both, and their scores agreed by construction. An eval whose purpose is to
+measure disagreement between repeated draws was measuring one draw twice. Cassettes
+recorded by an older build (format 2) still replay, and a run that uses one says so in
+the receipt, because that caveat changes what the numbers mean.
+
 ## A benchmark, objectively graded
 
 The suite above is graded by an LLM judge. This one is graded by arithmetic: 40 problems
@@ -408,16 +424,24 @@ Every sealed record carries two fingerprints, and they are not interchangeable:
 
 The **evaluator fingerprint** (scheme 2) hashes everything that decides how a response
 scores: the scorer type **and its own settings** (a regex pattern, a numeric tolerance),
-the judge's provider, endpoint, model and sampling parameters (temperature, top_p,
-max_tokens, seed), the rubric hash, the prompt template hash, the dataset hash, and the
-exact set of case ids that ran. Change any of them and two runs stop being comparable.
+**the grading code itself**, the judge's provider, endpoint, model, API version, system
+prompt and sampling parameters (temperature, top_p, max_tokens, seed, and which of them
+were inherited rather than set), the rubric hash, the prompt template hash, the dataset
+hash, and the exact set of case ids that ran. Change any of them and two runs stop being
+comparable.
 
-Scheme 1 missed three of those, and each omission was a way to be misled: `regex "^yes$"`
-and `regex "^no$"` fingerprinted identically, the same judge model reached through a
-different endpoint looked like the same grader, and `max_tokens` was not sealed at all, so
-a receipt could not explain a truncated verdict. Fingerprints now carry their scheme
-(`evalseal-fp/2:sha256:…`), so a pin made under an older one fails with an explanation
-rather than an unexplained mismatch.
+Each earlier scheme was superseded because something that moved a score did not move the
+fingerprint. Scheme 1 missed the scorer's own settings, so `regex "^yes$"` and
+`regex "^no$"` fingerprinted identically; it missed the endpoint, so the same judge model
+reached through a proxy looked like the same grader; and it did not seal `max_tokens` at
+all, so a receipt could not explain a truncated verdict. Scheme 2 missed the grading
+*algorithm*: editing how an answer is extracted from a reply took a benchmark from 1.00 to
+0.00 while `--expect-evaluator` kept passing and `diff` called the runs comparable.
+
+Fingerprints carry their scheme (`evalseal-fp/3:sha256:…`), so a pin made under an older
+one fails with an explanation rather than an unexplained mismatch - and fails rather than
+passing. Re-pinning is a deliberate two-step workflow, not something EvalSeal does for
+you: see [docs/fingerprint-schemes.md](docs/fingerprint-schemes.md).
 
 It deliberately **excludes the target model and its parameters**. Comparing target model A
 with target model B is the entire point of a benchmark, so a different target must not make
@@ -549,7 +573,7 @@ not drift: 0 of 40 shared case(s) returned a different verdict. Use evalseal dif
 for the paired test.
 
                        before                       after
- evaluator fingerprint  evalseal-fp/2:sha256:10555…  evalseal-fp/2:sha256:10555…
+ evaluator fingerprint  evalseal-fp/3:sha256:8191c…  evalseal-fp/3:sha256:8191c…
  comparable             yes
  mean flip rate         0.0%                         0.0%
  cases with a changed   0 of 40
@@ -623,22 +647,38 @@ happen. Verify what the page claims with `evalseal verify`.
 
 ## Commands
 
+Four pages carry the contracts, and they are the ones to read before acting on
+anything this prints:
+
+| | |
+|---|---|
+| [docs/metrics.md](docs/metrics.md) | every number's unit, denominator, treatment of ties and missing observations, the question it answers, and whether higher or lower is better |
+| [docs/statistical-contract.md](docs/statistical-contract.md) | what each test estimates, what it assumes, what its interval covers, and which decision it may drive |
+| [docs/verification-policy.md](docs/verification-policy.md) | the five assurance levels, who must be trusted for each claim, and what every check does when it cannot run |
+| [docs/operations.md](docs/operations.md) | enforced limits, measured costs, filesystem guarantees, key rotation, recovery, retention and troubleshooting |
+| [docs/compatibility.md](docs/compatibility.md) | the package, schema, fingerprint and cassette-format matrix, and what upgrading to 2.3 changes |
+| [docs/importers/promptfoo.md](docs/importers/promptfoo.md) | reading a promptfoo export into a receipt: the field mapping, and a column for what each field does not support |
+| [docs/readiness.md](docs/readiness.md) | what to depend on and what not to, one row per capability, with what would move each one |
+
 | command | what it does | exit code |
 |---|---|---|
-| `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `report.json` + `report.md`; `--html` also writes a receipt. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error |
+| `evalseal run` | Runs each case N times, analyzes variance, seals a record, writes `runs/<id>/` (report, cassette snapshot) plus `report.json` + `report.md` aliases; `--html` also writes a receipt. `--out-dir` chooses the directory, `--no-snapshot` skips the copy. | `0` all stable/borderline · `3` any case UNSTABLE · `1` error (including a cassette another run is writing) |
 | `evalseal verify` | Recomputes every hash in `.evalseal/ledger.jsonl` and checks the chain links; `--public-key` or `--signed` also checks signatures, `--artifacts` re-hashes the cassette, dataset and suite. | `0` intact · `1` tampered or broken |
 | `evalseal diff A B` | Compares two sealed runs - receipt files or ledger indices - item by item: comparability, a paired test on the score difference, and which cases started or stopped flipping. `--json` for CI, `--html` to share. | `0` |
-| `evalseal power` | Estimates how many items or repeats it would take to detect a difference you care about. `--from-receipt` uses a real run's per-item rates. | `0` |
-| `evalseal decompose` | For `llm_judge` suites: splits flips into the judge's share and the target's, by judging one fixed response N times versus sampling the target N times. | `0` |
+| `evalseal power` | Estimates how many items or repeats it would take to detect a difference you care about **in the paired majority-verdict test** - not in the mean score, which is a different claim with a different power curve. `--from-receipt` uses a real run's per-item rates, and refuses a continuous-scored receipt rather than reporting a figure for a test `diff` would not run on it. | `0` · `2` continuous-scored receipt |
+| `evalseal import` | Reads another tool's export into a sealed receipt, binding the export's digest and naming every field it could not fill. One adapter: `--tool promptfoo`. The receipt says what that tool reported and which file it came from, and nothing about how the file came to exist. [Quickstart](examples/integrations/promptfoo/README.md). | `0` · `2` the export was refused, with the field named |
+| `evalseal recover` | Moves an interrupted append aside and keeps the complete history. Asks first unless given `--yes`. | `0` recovered and the chain verifies · `1` nothing to recover, or damage it cannot fix · `2` no such ledger |
+| `evalseal evidence` | How precisely the repeats you already have pin down each case: the flip-rate interval, its half-width, a label saying whether a magnitude may be quoted at all, and how many more repeats a target margin would take. Retrospective, where `power` is prospective. See [docs/uncertainty.md](docs/uncertainty.md). | `0` · `2` unknown case |
+| `evalseal decompose` | For `llm_judge` suites: measures the flip rate with the target's response held fixed against the flip rate with both varying, by judging one fixed response N times versus sampling the target N times. It reports the two rates and their ratio; it does not apportion variance between them, because the design cannot. | `0` |
 | `evalseal keygen` | Writes an Ed25519 keypair for signing. | `0` |
 | `evalseal sign` | Signs the ledger head with your private key. | `0` · `1` if the ledger doesn't verify |
-| `evalseal report` | Prints the per-case verdict distribution for a sealed record; takes a receipt path or ledger index, `--html` writes a shareable page. | `0` |
+| `evalseal report` | The mean, the case and repeat counts, how many repeats went ungraded, where the numbers came from, how many independent draws are behind them, the per-case verdict distribution and the run's warnings. Takes a receipt path or ledger index; `--html` writes a shareable page, `--json` adds the uncertainty and independence blocks. | `0` |
 | `evalseal gate` | Applies CI thresholds to a sealed record, from flags or a `--policy` file (thresholds, critical cases, drift rules against a baseline). `--prereg` also checks it against a pre-registration. `--expect-evaluator` pins the grading setup, `--expect-config` the whole configuration. `--json` for CI. | `0` passed · `3` gate failed · `2` broken policy or contract |
 | `evalseal preregister` | Declares an evaluation before it runs: suite, dataset, case-id set, repeat count, required artifacts, optionally an embedded policy and a pinned evaluator fingerprint. See [docs/pre-registration.md](docs/pre-registration.md). | `0` |
 | `evalseal anchor` | Writes a local anchor binding a receipt to its ledger head, signature and any extra artifacts by hash. Not an external timestamp. `--with rfc3161 --tsa URL` adds a timestamp-authority proof; `anchor-verify --tsa-ca issuer.pem` then checks its signature. See [docs/external-anchoring.md](docs/external-anchoring.md). | `0` · `1` if the receipt or ledger does not verify |
 | `evalseal --version` | The version, the `harness_version` it seals into receipts, and the record schema. | `0` |
 | `evalseal anchor-verify` | Re-checks every claim in an anchor, reporting what it could not check as not checked. | `0` verified · `1` failed |
-| `evalseal drift A B` | Did the judge behave the same way when the suite was re-run? Labels the cause: evaluator drift, judge variance, target variance or a target change. `--json` for CI. | `0` |
+| `evalseal drift A B` | Did the judge behave the same way when the suite was re-run? Labels the cause - evaluator drift, judge variance, target variance, a target change, or `cannot_isolate` when the receipts admit more than one explanation - and reports the grounds the label rests on, so it can be checked rather than taken. `--json` for CI. | `0` |
 
 `run` takes `--concurrency` (default 4 requests in flight), `--max-retries` (default 5, on
 HTTP 429/408/5xx and connection errors, honouring `Retry-After`), `--timeout`, and
@@ -843,27 +883,78 @@ tracked target).
 - **Linear appends under concurrent writers.** The head is read and the record appended
   inside one file lock, so two simultaneous runs cannot create sibling records. `verify`
   reports siblings explicitly if a ledger acquires them another way.
+- **One response per measurement, whatever the scheduling.** A cassette entry belongs to
+  one (case, repeat, role), and two callers scheduled for the same measurement get the
+  same response: the second waits for the first rather than asking the provider again.
+  Before this, both called, both wrote, and the last write won - so one of the two scores
+  in the receipt came from bytes the cassette no longer held, and replaying that receipt
+  produced a different number than the receipt recorded.
 - **Repeat-run instability measurement.** Per-case verdict sequences, counts, flip rates
   and Wilson intervals, rather than one aggregate number.
 - **A paired comparison between two runs.** Both runs cover the same items, so `diff`
   tests them item by item: an exact McNemar test on the items that changed verdict, and a
   cluster bootstrap over items for the interval.
 - **Sealed provenance.** The receipt seals the judge prompt hash, rubric hash, scorer
-  type, judge model, endpoint and parameters, the target's requested and served model,
-  endpoint and parameters, dataset and suite hashes, EvalSeal version, git commit and dirty
-  flag, Python version and platform.
+  type, a digest of the scoring *code*, judge model, endpoint, API version, system prompt
+  hash and parameters, the target's requested and served model, endpoint and parameters,
+  dataset and suite hashes, EvalSeal version, git commit and dirty flag, Python version
+  and platform.
+- **A per-call execution manifest.** Every provider call is bound to the case, repeat and
+  role it was made for, with digests of the request and the response it used, the
+  provider's request id, how many HTTP attempts it took, and whether it was a live call or
+  a cassette replay. The summary counts are checked against the calls, so a receipt whose
+  summary disagrees with its own detail is an input error rather than something a reader
+  has to notice. Before this, `manifest.target` was call number one standing in for every
+  call - and **a replayed run and a live one produced receipts no field could tell apart**.
 - **Two fingerprints over that provenance.** An evaluator fingerprint that decides whether
   two runs are comparable, and a config fingerprint that identifies exactly what ran.
+- **Inputs are hashed as they are read, before they are used.** The dataset, suite and
+  any `--artifact` file is read once; that read is what the cases are parsed from, what
+  an agent artifact is validated against, and what the receipt's digest is of. An input
+  used to be used at the start and hashed at the end, so a file rewritten in between
+  left a receipt sealing bytes that produced no score - and `verify --artifacts` then
+  reported `ok` against the file nothing ran on. A file that changes while a run is in
+  flight is now named in the receipt (`DATASET CHANGED DURING RUN: ...`), the run keeps
+  using the bytes it read, and re-hashing afterwards reports `changed`, because the file
+  as it stands really cannot reproduce the result.
+- **One writer per cassette.** A run that may record takes the cassette's writer lock
+  and a second one is refused by name. Both used to be served: each held the whole entry
+  table in memory and rewrote the whole file, so the last to finish erased the other's
+  responses - admitted, acknowledged and then silently deleted by a process that never
+  knew the first existed.
+- **An immutable copy of what each receipt used.** At the end of a run the cassette
+  entries that run read or wrote are copied into its output directory and bound into the
+  receipt as `cassette_snapshot`. A later run recording into the same cassette, or
+  re-drawing it from scratch, cannot invalidate the bytes behind an earlier receipt, and
+  the snapshot replays on its own. See
+  [docs/adr/0002-cassette-writer-strategy.md](docs/adr/0002-cassette-writer-strategy.md).
+- **One output directory per run.** `runs/<timestamp>-<session>/` holds that run's
+  `report.json`, `report.md` and cassette snapshot, so two runs in one working directory
+  do not overwrite each other's results. `./report.json` and `./report.md` remain as
+  aliases for the latest run.
 - **Artifact digests that are re-checkable.** The cassette, dataset and suite are sealed
   by digest with an explicit kind, and `verify --artifacts` reports each as ok, changed,
-  missing or unverifiable - never passing a file it could not read.
+  moved, missing or unverifiable - never passing a file it could not read. `moved` is
+  reserved for a file later runs are expected to write to, and is only reported once the
+  receipt's own snapshot confirms every response it used is still there unchanged; a
+  response that was *replaced* is `changed` and still fails.
 - **A declared contract, checked clause by clause.** `gate --prereg` reports each clause
   of a pre-registration by name, passing ones included.
 
 ## What EvalSeal does not guarantee
 
 - **It cannot prove the provider behaved the same way later.** A replay reproduces recorded
-  responses; it says nothing about what the model would return today.
+  responses; it says nothing about what the model would return today. The receipt now says
+  plainly which it was - `origin: replay` - because the two support different conclusions.
+- **What the provider reports is the provider's claim.** `served_model`,
+  `system_fingerprint` and the per-call `reported_fingerprint` are strings a provider
+  chose to send. They are not proof of which weights answered, that the request was served
+  at all, or that no other call happened. They are useful for noticing a *change*: a
+  fingerprint that moves mid-run says the backend moved under you.
+- **A digest of the grading code is not proof that code ran.** `scorer.impl_hash` says
+  what the scoring code in the build that wrote the receipt *is*. It is a record made by
+  the same process it describes. What it does is make an undeclared change to the grading
+  algorithm visible to someone comparing two receipts.
 - **It does not make a nondeterministic judge deterministic.** It measures the
   nondeterminism instead.
 - **It does not replace human review of borderline cases.** A 40% flip rate tells you where
@@ -887,8 +978,14 @@ tracked target).
   [docs/external-anchoring.md](docs/external-anchoring.md) sets out what that would add.
 - **It cannot check an artifact nobody kept.** The receipt seals digests of the cassette,
   dataset and suite, and `verify --artifacts` re-hashes them - but a digest can only be
-  matched against a file that still exists. Anyone who may need to prove what a model
-  said must retain the cassette themselves.
+  matched against a file that still exists. The cassette snapshot in a run directory is
+  the copy to keep, and keeping it is the operator's job: delete the run directory and
+  the snapshot is reported `missing`, which is accurate and is not something EvalSeal can
+  undo.
+- **A snapshot is a recording, not a witness.** It is the set of responses a receipt's
+  scores were computed from, as recorded by the process that computed them. It is not
+  evidence that those responses came from the model named, that they were obtained when
+  the run says, or that no other run happened.
 - **It cannot prove that no hidden run happened.** Someone can run a suite five times and
   seal the fifth. A pre-registration makes the interesting moves - dropping the cases
   that failed, halving the repeat count, swapping the judge - visible rather than silent,

@@ -20,15 +20,93 @@ The workflow file is [pr-receipt-workflow.yml](pr-receipt-workflow.yml). Copy it
 
 | step | command | fails the job when |
 |---|---|---|
+| required contracts | a few `test -f` checks | a file the workflow says is required is not there |
 | replay the suite | `evalseal run --suite … --html receipt.html --fail-on none` | the replay breaks, e.g. the cassette no longer matches the dataset |
 | verify record and artifacts | `evalseal verify --artifacts` | the record's hash does not match its content, or the cassette changed since it was sealed |
-| gate | `evalseal gate --policy … --prereg … --json` | a policy rule or a pre-registration clause fails (recorded here, acted on last) |
+| anchor and re-check it | `evalseal anchor …` then `evalseal anchor-verify …` | recorded here, acted on last - and it runs **before** the gate, because a pre-registration may require an anchor and the gate can only check one that exists |
+| gate | `evalseal gate --policy … --prereg … --anchor anchor.json --json` | a policy rule or a pre-registration clause fails (recorded here, acted on last) |
 | diff, if a baseline exists | `evalseal diff baseline report.json --json` and `--html` | never: `diff` reports, it does not gate |
 | judge drift, if a baseline exists | `evalseal drift baseline report.json --json` | never: it reports what moved underneath the score |
-| anchor and re-check it | `evalseal anchor …` then `evalseal anchor-verify …` | the receipt does not verify against its ledger |
 | step summary | a short Python block | never (it runs even when an earlier step failed) |
 | upload | `actions/upload-artifact` | never (it runs even when an earlier step failed) |
-| final | exit with the gate's code | the gate failed |
+| final | checks the gate's code and the anchor's | the gate failed, or `anchor-verify` failed and `REQUIRE_ANCHOR` is true |
+
+### The fork trust boundary
+
+`on: pull_request` checks out the pull request's head. When that pull request comes from
+a fork, **the fork controls every input this job reads**: the suite, the dataset, the
+cassette, and the scorer config.
+
+What that does *not* get them:
+
+- **No secrets.** `pull_request` runs with the base repository's `GITHUB_TOKEN` scoped
+  `contents: read` and without access to repository secrets. This workflow needs none —
+  it replays a cassette offline — so there is nothing in the environment to take.
+- **No writes.** `permissions: contents: read`, and nothing in the job pushes, comments
+  or publishes.
+- **No network calls to a provider.** With no API key present the run replays; a
+  cassette miss is an error, not a live call.
+- **No unbounded response reads.** Responses come from a committed cassette, and the
+  8 MiB transport limit applies regardless.
+
+What it *does* get them, and this is the open one:
+
+> **A fork can make this job spin.** A scorer config may name a regular expression, and
+> Python's regex engine backtracks with no timeout. EvalSeal refuses the
+> nested-quantifier family before a run starts — `(a+)+`, `(a*)*`, `([a-z]+)+` — but it
+> does **not** refuse overlapping alternation, which is exponential for the same reason
+> and which no static check can decide in general:
+>
+> ```
+> ^(a|a)*$   against 16 characters: 0.003s
+>            against 20 characters: 0.044s
+>            against 24 characters: 0.722s
+> ```
+>
+> Roughly sixteen times the work for every four characters. At forty characters that is
+> longer than any runner will live.
+
+`src/evalseal/patterns.py` states the limit of the check in the same terms. A
+linear-time regex engine would close it properly, and swapping `re` for one is a change
+this project has not made.
+
+**So: three mitigations, in the order they are worth doing.**
+
+1. **`timeout-minutes: 10`** is set on the job. It bounds the damage to wasted minutes.
+   It is not a fix and is not described as one.
+2. **Require approval for fork workflow runs** — Settings → Actions → *"Require approval
+   for all outside collaborators"*. This is the real control, and it is a repository
+   setting rather than something a workflow file can assert.
+3. **Or run the job only for same-repository pull requests**, and review fork receipts
+   by hand:
+
+   ```yaml
+   jobs:
+     receipt:
+       if: github.event.pull_request.head.repo.full_name == github.repository
+   ```
+
+**Never switch this to `pull_request_target`.** That runs with the base repository's
+secrets *and* checks out the fork's code, which turns "a fork can waste ten minutes"
+into "a fork can read your secrets".
+
+### What must be present
+
+A contract that is configured and then missing used to be skipped silently. The gate ran
+without `--prereg`, the check went green, and deleting the pre-registration in a pull
+request removed the contract with nothing to show it. Three switches decide what is
+required:
+
+| variable | default | what it means |
+|---|---|---|
+| `REQUIRE_PREREG` | `"true"` | the file named by `PREREG` must exist. A pre-registration whose absence is tolerated is not a contract |
+| `REQUIRE_BASELINE` | `"false"` | the file named by `BASELINE_RECEIPT` must exist. False by default because the first pull request on a repository has no history, and failing for that is failing for being new |
+| `REQUIRE_ANCHOR` | `"true"` | `anchor-verify` must pass. The anchor is created in this job, so a failure here is this job's own output not round-tripping |
+
+`POLICY` is always required: a gate with no policy is not a gate.
+
+Opt out in the workflow file, where a reviewer sees it in the diff, rather than by
+deleting a path. Each failure message names the switch that would make it optional.
 
 Every step runs offline. Nothing here needs a secret, a token or an external service.
 
@@ -50,8 +128,10 @@ cassette then shows reviewers exactly which responses changed.
 ## The pre-registration
 
 A policy asks *is this number good enough*. A pre-registration asks *is this the
-evaluation you said you would run*. The workflow applies one when `PREREG` names a file
-that exists, and says plainly in the summary when it does not:
+evaluation you said you would run*. The workflow **requires** one by default: if
+`PREREG` names a file that is not there, the job fails before the replay with a message
+naming `REQUIRE_PREREG`. Set `REQUIRE_PREREG: "false"` to run without one, and the
+summary then says plainly that nothing checked the contract:
 
 > No pre-registration was applied, so nothing checked that this is the evaluation that
 > was declared beforehand.
@@ -130,7 +210,8 @@ items it would take to decide.
 
 ## The baseline
 
-The drift step runs only when `BASELINE_RECEIPT` exists. The simplest way to keep one is to
+The drift step runs only when `BASELINE_RECEIPT` exists, and `REQUIRE_BASELINE: "true"`
+turns a missing one into a failure once you have committed a baseline to compare with. The simplest way to keep one is to
 commit it from the default branch:
 
 ```bash

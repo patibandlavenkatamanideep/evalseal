@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from conftest import fake_http
 
 from evalseal.adapters.recording import Cassette
 from evalseal.adapters.target import MAX_BACKOFF_SECONDS, OpenAICompatibleTarget, backoff_seconds
@@ -27,7 +28,7 @@ def _target(tmp_path, monkeypatch, responses, **kw):
             raise item
         return item
 
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    fake_http(monkeypatch, fake_post)
     slept: list[float] = []
     target = OpenAICompatibleTarget(
         model="m", cassette=Cassette(tmp_path / "c.json", record=True),

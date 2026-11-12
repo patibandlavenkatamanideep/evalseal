@@ -6,20 +6,40 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from ..models import ScorerKind
+from ..patterns import check_pattern
 from .target import Target, TargetResponse
 
 _VERDICT_RE = re.compile(r"\b(PASS|FAIL)\b")
 
-# How models mark a final answer, most trustworthy first. The phrase form demands a
-# number, because "answer" also appears in ordinary prose ("...asks for the answer at
-# the end, which implies...") and a loose pattern captures that sentence instead.
-_HASH_RE = re.compile(r"####\s*([^\n]+)")
+#: The declared answer format. A reply that uses none of these forms has not given an
+#: answer, and is *unscorable* rather than scored on a guess. See docs/metrics.md §11.
+#:
+#: There used to be one more rule: "otherwise, the last number appearing anywhere in
+#: the reply". It made a non-answer indistinguishable from an answer. A refusal that
+#: restated the problem - "I can't determine that ... it says he eats 4 on each of 5
+#: weekdays, which is 20, and then 30" - scored a PASS against an expected 30, exactly
+#: as a reply that worked the problem and concluded 30 did. The same rule graded a
+#: reply truncated mid-calculation on whichever digit the cut landed on, reporting a
+#: wrong answer where no answer had been given.
+_HASH_RE = re.compile(r"####[ \t]*([^\n]+)")
 _BOXED_RE = re.compile(r"\\boxed\{([^}]*)\}")
-_ANSWER_NUMBER_RE = re.compile(
-    r"(?:final answer|answer)\s*(?:is|:|=)\s*\$?(-?\d[\d,]*(?:\.\d+)?)", re.I
-)
-_ANSWER_TEXT_RE = re.compile(r"(?:final answer|answer)\s*(?:is|:|=)\s*([^\n.]{1,40})", re.I)
+_PHRASE_RE = re.compile(r"(?:final answer|answer)\s*(?:is|:|=)\s*([^\n.]{1,40})", re.I)
 _NUMBER_RE = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+#: A line that is one bare number, with the decoration a model puts around one. The
+#: sign is captured separately so stripping the currency symbol cannot drop it.
+_BARE_NUMBER_LINE = re.compile(r"^([-+]?)\$?(\d[\d,]*(?:\.\d+)?)\$?%?$")
+#: A line that is one bare token: `float`, `BudgetExceeded`, `yes`. No whitespace, so a
+#: closing sentence cannot be mistaken for an answer. A multi-word answer needs a
+#: marker, which is a restriction the format states rather than a guess it makes.
+_BARE_TOKEN_LINE = re.compile(r"^\S{1,40}$")
+
+HASH = "hash_marker"
+BOXED = "boxed_marker"
+PHRASE = "answer_phrase"
+FINAL_LINE = "final_line"
+#: Which form the answer was found in, for a receipt to report. Ordered as the format
+#: is documented, not by precedence: precedence is by position in the reply.
+ANSWER_RULES = (HASH, BOXED, PHRASE, FINAL_LINE)
 
 
 def _as_number(text: str) -> float | None:
@@ -48,25 +68,76 @@ def strip_decoration(value: str) -> str:
     return value.strip().strip(_DECORATION).strip()
 
 
-def extract_answer(text: str) -> str:
-    """The model's final answer.
+@dataclass(frozen=True)
+class Answer:
+    """One answer found in a reply, and which declared form carried it."""
+    value: str
+    rule: str
 
-    Order of preference: an explicit `#### x` or `\\boxed{x}` marker, then "the answer
-    is <number>", then the last number in the reply, then an "answer is <text>" phrase
-    for non-numeric answers, then the whole reply. Later markers win over earlier ones,
-    so a model that revises itself is graded on where it ended up.
+
+def _final_line_answer(text: str) -> tuple[int, Answer] | None:
+    """The last non-empty line, when that line is the answer standing alone.
+
+    `examples/gsm8k*` asks for exactly this ("End your reply with the final number on
+    its own line"), so it is part of the format rather than a fallback. A line with
+    internal whitespace is not accepted: a closing sentence would otherwise be read as
+    an answer, which is the guessing this format exists to stop.
+
+    Returns the line's end offset with the answer, so `find_answer` can rank it against
+    the markers by position like any other candidate.
     """
-    for marker in (_HASH_RE, _BOXED_RE, _ANSWER_NUMBER_RE):
-        found = marker.findall(text)
-        if found:
-            return found[-1].strip().rstrip(".").strip()
-    numbers = _NUMBER_RE.findall(text)
-    if numbers:
-        return numbers[-1].strip()
-    phrases = _ANSWER_TEXT_RE.findall(text)
-    if phrases:
-        return phrases[-1].strip().rstrip(".").strip()
-    return text.strip()
+    end = len(text)
+    for raw in reversed(text.splitlines()):
+        start = end - len(raw)
+        candidate = strip_decoration(strip_decoration(raw).rstrip("."))
+        if candidate:
+            compact = candidate.replace(" ", "")
+            number = _BARE_NUMBER_LINE.match(compact)
+            if number is not None:
+                sign = number.group(1) if number.group(1) == "-" else ""
+                return (end, Answer(sign + number.group(2), FINAL_LINE))
+            if _BARE_TOKEN_LINE.match(candidate):
+                return (end, Answer(candidate, FINAL_LINE))
+            return None
+        end = max(0, start - 1)     # step back over this line and its newline
+    return None
+
+
+def find_answer(text: str) -> Answer | None:
+    """The reply's final answer in the declared format, or None if it gave none.
+
+    Precedence is **by position in the reply, not by which form it used**: whichever
+    declared answer appears last wins, so a model that revises itself is graded on
+    where it ended up. Taking the marker classes in a fixed order instead meant a
+    chain of thought containing "the answer is 4" outranked the reply's own final line
+    saying 7, and 37 of 750 recorded gemma replies were graded on a number the model
+    had already moved past.
+    """
+    candidates: list[tuple[int, Answer]] = []
+    for rule, pattern in ((HASH, _HASH_RE), (BOXED, _BOXED_RE), (PHRASE, _PHRASE_RE)):
+        for match in pattern.finditer(text):
+            value = strip_decoration(match.group(1).rstrip("."))
+            if value:
+                candidates.append((match.end(), Answer(value, rule)))
+    tail = _final_line_answer(text)
+    if tail is not None:
+        candidates.append(tail)
+    if not candidates:
+        return None
+    # max() keeps the first of equal keys; markers are appended before the final line,
+    # so a marker that ends exactly where the line does - `#### 72` as the last line -
+    # is preferred over reading that same line as a bare answer.
+    return max(candidates, key=lambda c: c[0])[1]
+
+
+def extract_answer(text: str) -> str | None:
+    """The reply's final answer, or None when it did not give one in the format.
+
+    Returned None rather than a guess since 2.3. Callers that treated the old return
+    value as "always an answer" scored refusals and truncated replies as answers.
+    """
+    found = find_answer(text)
+    return None if found is None else found.value
 
 
 @dataclass
@@ -75,6 +146,13 @@ class ScoreResult:
     binary: bool
     verdict: int | None  # 0/1 or None
     judge_response: TargetResponse | None = None
+    #: The grader could not reach a verdict at all: no answer in the declared format,
+    #: a judge reply with no PASS/FAIL token, an empty reply. **Not** a FAIL. It keeps
+    #: `score=0.0` so it can never inflate a mean, and is counted separately so a run
+    #: cannot look better by becoming less legible. See docs/metrics.md §8.
+    unscorable: bool = False
+    #: Why, in a few words, for the receipt and the report.
+    reason: str | None = None
 
 
 @runtime_checkable
@@ -111,6 +189,11 @@ class RegexScorer:
     pattern: str
     kind: ScorerKind = "regex"
 
+    def __post_init__(self) -> None:
+        # Checked at construction, not on the first case scored: by then a cassette is
+        # open and a run is in flight. `^(a+)+$` took 25 seconds on 31 characters.
+        check_pattern(self.pattern)
+
     def config(self) -> dict:
         return {"pattern": self.pattern}
 
@@ -119,11 +202,19 @@ class RegexScorer:
         return ScoreResult(float(ok), True, int(ok))
 
 
-def parse_verdict(text: str) -> int:
-    """First standalone PASS/FAIL token wins; anything unparseable counts as FAIL.
-    (A plain substring check would read "FAIL — this does not PASS" as a pass.)"""
+def parse_verdict(text: str) -> int | None:
+    """First standalone PASS/FAIL token wins. **None when the reply has neither.**
+
+    A plain substring check would read "FAIL - this does not PASS" as a pass, hence the
+    word boundaries. The None is the Phase D change: this returned 0 for anything it
+    could not parse, so an empty reply, an apology and `ERROR: 503` were all graded as
+    the judge having failed the case. A rate-limited judge then looked exactly like a
+    model that got every case wrong. See docs/metrics.md §8.
+    """
     m = _VERDICT_RE.search(text.upper())
-    return 1 if m and m.group(1) == "PASS" else 0
+    if m is None:
+        return None
+    return 1 if m.group(1) == "PASS" else 0
 
 
 @dataclass
@@ -143,7 +234,19 @@ class AnswerMatchScorer:
     def score(self, prompt, response_text, expected):
         if expected is None:
             raise ValueError("answer_match scoring needs `expected` on every case")
-        got = strip_decoration(extract_answer(response_text))
+        # `extract_answer`, not `find_answer`: the extraction algorithm is the seam
+        # the evaluator fingerprint is taken across, so the scorer calls the same
+        # function a fork would replace. `find_answer` is its implementation.
+        found = extract_answer(response_text)
+        if found is None:
+            # No answer in the declared format. Scored 0.0 so it cannot lift a mean,
+            # and flagged so it is not read as the model having answered wrongly.
+            return ScoreResult(
+                0.0, True, None, unscorable=True,
+                reason="the reply gives no answer in the declared format "
+                       "(#### x, \\boxed{x}, 'answer: x', or the answer alone on the "
+                       "last line)")
+        got = strip_decoration(found)
         want = strip_decoration(expected)
         got_n, want_n = _as_number(got), _as_number(want)
         if got_n is not None and want_n is not None:
@@ -205,4 +308,11 @@ class LLMJudgeScorer:
         self.last_judge_prompt = judge_prompt
         jr = self.judge.generate(judge_prompt)
         verdict = parse_verdict(jr.text)
+        if verdict is None:
+            # The judge did not grade. That is a broken measurement, not a failed case:
+            # an empty reply, a refusal and a provider error used to arrive as FAIL.
+            return ScoreResult(
+                0.0, True, None, judge_response=jr, unscorable=True,
+                reason="the judge reply contains no PASS or FAIL token"
+                       + (" (the reply was empty)" if not jr.text.strip() else ""))
         return ScoreResult(float(verdict), True, verdict, judge_response=jr)

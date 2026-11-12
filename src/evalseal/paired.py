@@ -23,10 +23,18 @@ approximation, because discordant counts here are routinely under ten.
 the run label carries no information, so flipping the sign of an item's difference must
 leave the mean difference exchangeable.
 
-*Both.* A 95% CI for the difference in mean score from a cluster bootstrap that
-resamples whole items, carrying all of an item's repeats together. Resampling individual
-repeats would treat the repeats of one item as independent observations of the suite,
-which they are not, and would report an interval that is too narrow.
+*Both.* A confidence interval for the difference in mean score, at `1 - alpha`, from a
+cluster bootstrap that resamples whole items and carries all of an item's repeats
+together. Resampling individual repeats would treat the repeats of one item as
+independent observations of the suite, which they are not, and would report an interval
+that is too narrow. The interval's width follows `alpha`, so it is stored as `ci` and
+labelled from `confidence`; every renderer used to call it "95% CI" whatever alpha was.
+
+**The two results are two different claims.** The paired test over majority verdicts
+answers "did more items cross the pass/fail line in one direction than the other"; the
+interval answers "by how much did the average item's pass rate move". They can disagree,
+they are reported separately, and `mean_moved_without_majorities` names the case where
+they do. docs/metrics.md §6 and §7.
 
 The verdict is never "no difference". A test that fails to reach significance has not
 shown the runs are the same; it has failed to show they differ, which at N=5 is the
@@ -58,7 +66,11 @@ class PairedComparison:
     """The result of comparing two runs item by item."""
     n_items: int
     delta: float
-    ci95: tuple[float, float]
+    #: The bootstrap interval for `delta` at `1 - alpha`. Named `ci`, not `ci95`,
+    #: because it is not always a 95% interval: with `alpha=0.20` it is an 80% one, and
+    #: every renderer used to label it "95% CI" regardless. `ci95` is kept as a
+    #: property so existing readers keep working.
+    ci: tuple[float, float]
     p_value: float
     test: str
     verdict: str
@@ -77,12 +89,26 @@ class PairedComparison:
     per_case_halfwidth: float = 0.0
 
     @property
+    def ci95(self) -> tuple[float, float]:
+        """The interval, under its old name. Correct only when `alpha` is 0.05."""
+        return self.ci
+
+    @property
+    def confidence(self) -> float:
+        return round(1.0 - self.alpha, 6)
+
+    @property
+    def ci_label(self) -> str:
+        """`95% CI`, `80% CI` - whatever the alpha in force actually makes it."""
+        return f"{self.confidence:.0%} CI"
+
+    @property
     def n_discordant(self) -> int:
         return self.discordant_regressed + self.discordant_improved
 
     @property
     def ci_excludes_zero(self) -> bool:
-        lo, hi = self.ci95
+        lo, hi = self.ci
         return not (lo <= 0.0 <= hi)
 
     @property
@@ -113,7 +139,8 @@ class PairedComparison:
         if self.verdict == INCONCLUSIVE:
             note = (
                 f"inconclusive at this N: delta {self.delta:+.4f}, "
-                f"95% CI [{self.ci95[0]:+.4f}, {self.ci95[1]:+.4f}], p={self.p_value:.4g}. "
+                f"{self.ci_label} [{self.ci[0]:+.4f}, {self.ci[1]:+.4f}], "
+                f"p={self.p_value:.4g}. "
                 "Not evidence the runs are the same; evidence this experiment cannot tell."
             )
             if self.mean_moved_without_majorities:
@@ -126,18 +153,29 @@ class PairedComparison:
             return note
         return (
             f"{self.verdict}: delta {self.delta:+.4f}, "
-            f"95% CI [{self.ci95[0]:+.4f}, {self.ci95[1]:+.4f}], p={self.p_value:.4g}"
+            f"{self.ci_label} [{self.ci[0]:+.4f}, {self.ci[1]:+.4f}], "
+            f"p={self.p_value:.4g}"
         )
 
     def to_dict(self) -> dict[str, object]:
         return {
             "n_items": self.n_items,
             "delta": self.delta,
-            "ci95": [self.ci95[0], self.ci95[1]],
+            "ci": [self.ci[0], self.ci[1]],
+            # The old key, kept so a 2.2.0 consumer is unaffected. It carries the same
+            # numbers as `ci`, which are a 95% interval only when alpha is 0.05 - read
+            # `confidence` or `ci_label` to know which interval these are.
+            "ci95": [self.ci[0], self.ci[1]],
+            "confidence": self.confidence,
+            "ci_label": self.ci_label,
             "p_value": self.p_value,
             "test": self.test,
             "verdict": self.verdict,
             "alpha": self.alpha,
+            # The sentence the human output prints, so the JSON and the text cannot
+            # say different things about the same comparison.
+            "summary": self.summary(),
+            "mean_moved_without_majorities": self.mean_moved_without_majorities,
             "significant": self.significant,
             "n_discordant": self.n_discordant,
             "discordant_regressed": self.discordant_regressed,
@@ -160,6 +198,19 @@ def exact_mcnemar(regressed: int, improved: int) -> float:
 
     Exact rather than the chi-square approximation because n is routinely under ten
     here, where the approximation is not trustworthy.
+
+    **The arithmetic is integer.** It used to sum the binomial tail as exact integers
+    and then multiply by `0.5 ** n`, which is 0.0 for n above 1074: the product is an
+    `int * float`, the int is far beyond the float range, and `exact_mcnemar(1000, 1000)`
+    raised `OverflowError: int too large to convert to float` instead of returning 1.0.
+    A paired test over a suite with a thousand discordant items each way crashed the
+    gate. The tail is now one big-integer sum divided once by `2**n`, which CPython
+    rounds correctly, and the symmetric case returns 1.0 without computing anything.
+
+    For a very large, very one-sided count - some 2100 discordant items all in one
+    direction - the true p-value is below the smallest positive double and the result
+    underflows to 0.0. That is reported as 0.0, meaning "below double precision", and
+    the decision it drives is the same one 1e-300 would drive.
     """
     n = regressed + improved
     if n == 0:
@@ -167,8 +218,14 @@ def exact_mcnemar(regressed: int, improved: int) -> float:
         # encoding of "this test saw nothing to go on".
         return 1.0
     k = min(regressed, improved)
-    tail = sum(math.comb(n, i) for i in range(k + 1)) * (0.5 ** n)
-    return min(1.0, 2.0 * tail)
+    # Twice the smaller tail, capped at 1. When the two counts are equal the smaller
+    # tail is at least half the distribution, so the answer is 1 by inspection - worth
+    # a short circuit because it is both the commonest large case and the one whose
+    # binomial coefficients are the most expensive.
+    if 2 * k >= n:
+        return 1.0
+    tail = sum(math.comb(n, i) for i in range(k + 1))
+    return min(1.0, 2.0 * (tail / (1 << n)))
 
 
 def paired_bootstrap_ci(
@@ -298,7 +355,7 @@ def compare_runs(
 
     if not shared:
         return PairedComparison(
-            n_items=0, delta=0.0, ci95=(0.0, 0.0), p_value=1.0,
+            n_items=0, delta=0.0, ci=(0.0, 0.0), p_value=1.0,
             test="none", verdict=INCONCLUSIVE, alpha=alpha,
             items_only_in_before=only_b, items_only_in_after=only_a,
             per_case_halfwidth=halfwidth,
@@ -332,7 +389,7 @@ def compare_runs(
     result = PairedComparison(
         n_items=len(shared),
         delta=delta,
-        ci95=(round(lo, 6), round(hi, 6)),
+        ci=(round(lo, 6), round(hi, 6)),
         p_value=p,
         test=test,
         verdict=INCONCLUSIVE,

@@ -43,6 +43,15 @@ from typing import TypeVar
 import httpx
 
 from .anchor import AnchorError
+from .transport import (
+    MAX_TSA_RESPONSE_BYTES,
+    Budget,
+    DeadlineExceeded,
+    ResponseTooLarge,
+    UnsupportedEncoding,
+    _Clock,
+    request_bounded,
+)
 
 _SHA256_OID = "2.16.840.1.101.3.4.2.1"
 _CONTENT_TYPE = "application/timestamp-query"
@@ -67,10 +76,30 @@ def _der(tag: int, content: bytes) -> bytes:
 
 
 def _integer(value: int) -> bytes:
-    if value == 0:
-        return _der(0x02, b"\x00")
-    raw = value.to_bytes((value.bit_length() + 8) // 8, "big")
-    return _der(0x02, raw.lstrip(b"\x00") or b"\x00")
+    """DER INTEGER: two's complement, minimally encoded, and positive.
+
+    DER integers are signed. A value whose top byte has the high bit set needs a
+    leading zero byte or it decodes as negative. The width calculation here reserved
+    that byte and the next line then stripped it off with `lstrip(b"\x00")`, so:
+
+        _integer(128) -> 02 01 80   which is -128
+        _integer(255) -> 02 01 ff   which is -1
+
+    `build_timestamp_request` draws a random 64-bit nonce, whose top bit is set about
+    half the time, so roughly **half of all timestamp requests** carried a negative
+    nonce. A strict authority rejects that request; a lenient one echoes whatever it
+    parsed, and the nonce check then compares two different numbers. Serial numbers in
+    real certificates are large for the same reason and hit it too.
+
+    Minimal encoding is still required - DER forbids a redundant leading zero - so one
+    is kept only when the next byte's high bit is set.
+    """
+    if value < 0:
+        raise ValueError(f"{value} is negative; nothing in a TimeStampReq is")
+    raw = value.to_bytes((value.bit_length() // 8) + 1, "big")
+    while len(raw) > 1 and raw[0] == 0x00 and not raw[1] & 0x80:
+        raw = raw[1:]
+    return _der(0x02, raw)
 
 
 def _oid(dotted: str) -> bytes:
@@ -185,24 +214,75 @@ def extract_tst_info(der: bytes) -> dict[str, str] | None:
         if not (t0 == 0x02 and der[b0:e0] == b"\x01" and t1 == 0x06
                 and t2 == 0x30 and t3 == 0x02 and t4 == 0x18):
             continue
-        imprint = _imprint_of(der, b2, e2)
+        try:
+            imprint = _imprint_of(der, b2, e2)
+        except ImprintError:
+            continue
         if imprint is None:
             continue
-        return {
-            "hashed_message": "sha256:" + imprint.hex(),
+        algorithm, raw = imprint
+        # TSTInfo after genTime is: accuracy (SEQUENCE), ordering (BOOLEAN), nonce
+        # (INTEGER), tsa ([0]), extensions ([1]) - all optional. The first INTEGER
+        # after genTime is therefore the nonce.
+        nonce = next((int.from_bytes(der[b:e], "big")
+                      for t, b, e in fields[5:] if t == 0x02), None)
+        found = {
+            # Labelled with the algorithm the token declares, not with an assumption.
+            "hashed_message": f"{algorithm}:{raw.hex()}",
             "gen_time": der[b4:e4].decode("ascii", "replace"),
             "serial_number": str(int.from_bytes(der[fields[3][1]:fields[3][2]], "big")),
         }
+        # Absent rather than None, so a caller's `.get("nonce")` distinguishes "the
+        # authority sent no nonce" without the dict's value type widening.
+        if nonce is not None:
+            found["nonce"] = str(nonce)
+        return found
     return None
 
 
-def _imprint_of(der: bytes, start: int, end: int) -> bytes | None:
-    """The hashedMessage OCTET STRING inside a MessageImprint."""
+#: Digest length in bytes, so the declared algorithm and the imprint can be checked
+#: against each other rather than one being assumed from the other.
+_DIGEST_LENGTHS = {"sha256": 32, "sha384": 48, "sha512": 64}
+
+
+class ImprintError(ValueError):
+    """The MessageImprint does not declare an algorithm this build can read."""
+
+
+def _imprint_of(der: bytes, start: int, end: int) -> tuple[str, bytes] | None:
+    """The MessageImprint's algorithm and hashedMessage, checked against each other.
+
+    This used to ignore the AlgorithmIdentifier entirely, accept any 32-byte
+    hashedMessage, and label it `sha256:`. Two things went wrong with that:
+
+    - a token declaring SHA-512 beside a 32-byte imprint was accepted and read as a
+      SHA-256 imprint. A 32-byte value is not a SHA-512 digest, so the token was
+      malformed, and it was then compared against a SHA-256 subject digest as though
+      the authority had timestamped that.
+    - a genuine SHA-384 or SHA-512 token, whose imprint is 48 or 64 bytes, was
+      rejected as "not a readable TSTInfo" - true only in the sense that this code
+      could not read it.
+
+    So the OID decides the algorithm, and the length must be the one that algorithm
+    produces. An unrecognised OID raises rather than defaulting: the digest's meaning
+    is exactly what the OID says it is, and guessing it is how a token about one value
+    gets read as a token about another.
+    """
     parts = list(_tlvs(der, start, end))
     if len(parts) != 2 or parts[0][0] != 0x30 or parts[1][0] != 0x04:
         return None
+    algorithm = _algorithm_name(der[parts[0][1] - 2:parts[0][2]], _DIGESTS)
+    if algorithm is None:
+        raise ImprintError(
+            "the message imprint declares a digest algorithm this build does not "
+            f"support; supported: {', '.join(sorted(_DIGESTS.values()))}")
     raw = der[parts[1][1]:parts[1][2]]
-    return raw if len(raw) == 32 else None
+    expected = _DIGEST_LENGTHS[algorithm]
+    if len(raw) != expected:
+        raise ImprintError(
+            f"the message imprint declares {algorithm}, whose digest is {expected} "
+            f"bytes, and carries {len(raw)}. The token does not say what it claims to")
+    return (algorithm, raw)
 
 
 def parse_gen_time(text: str) -> str | None:
@@ -230,6 +310,9 @@ _ID_SIGNED_DATA = "1.2.840.113549.1.7.2"
 _ID_CT_TST_INFO = "1.2.840.113549.1.9.16.1.4"
 _ATTR_CONTENT_TYPE = "1.2.840.113549.1.9.3"
 _ATTR_MESSAGE_DIGEST = "1.2.840.113549.1.9.4"
+# RFC 5035: the attribute that binds the signature to a particular certificate.
+_ATTR_SIGNING_CERTIFICATE = "1.2.840.113549.1.9.16.2.12"      # ESSCertID, SHA-1
+_ATTR_SIGNING_CERTIFICATE_V2 = "1.2.840.113549.1.9.16.2.47"   # ESSCertIDv2
 # Authorities are not all SHA-256. freetsa.org signs with ECDSA-P384/SHA-512, and an
 # implementation that assumed SHA-256 - as this one did until a real token was
 # recorded - fails on it twice: the messageDigest attribute is the wrong length, and
@@ -294,6 +377,12 @@ class SignerInfo:
     signature: bytes
     signature_algorithm: bytes   # the encoded AlgorithmIdentifier OID TLV
     digest_algorithm: bytes
+    #: Which certificate signed this, in whichever form the token used. Needed because
+    #: the certificate set is a SET OF, so its order says nothing about which is the
+    #: signer's.
+    sid_issuer: bytes | None = None
+    sid_serial: int | None = None
+    sid_key_id: bytes | None = None
 
     @property
     def signed_data(self) -> bytes:
@@ -309,15 +398,25 @@ class SignerInfo:
     def attribute(self, oid: str) -> bytes | None:
         """The DER of one signed attribute's single value, or None."""
         want = _oid(oid)
+        found: list[bytes] = []
         for _, b, e in _tlvs(self.signed_attrs):          # each Attribute SEQUENCE
             parts = list(_tlvs(self.signed_attrs, b, e))
             if len(parts) != 2 or self.signed_attrs[b:parts[0][2]] != want:
                 continue
             values = list(_tlvs(self.signed_attrs, parts[1][1], parts[1][2]))
-            if len(values) == 1:
-                vb, ve = values[0][1], values[0][2]
-                return self.signed_attrs[vb:ve]
-        return None
+            if len(values) != 1:
+                raise TokenFormatError(
+                    f"the signed attribute {oid} carries {len(values)} values; RFC 5652 "
+                    "requires exactly one for contentType and messageDigest")
+            vb, ve = values[0][1], values[0][2]
+            found.append(self.signed_attrs[vb:ve])
+        if len(found) > 1:
+            # First-match would let two verifiers disagree about the same token while
+            # both believed they had read it.
+            raise TokenFormatError(
+                f"the signed attribute {oid} appears {len(found)} times; RFC 5652 "
+                "requires at most one instance of each")
+        return found[0] if found else None
 
 
 @dataclass(frozen=True)
@@ -341,6 +440,13 @@ def parse_timestamp_response(der: bytes) -> ParsedToken:
     if top is None:
         raise TokenFormatError("not a DER SEQUENCE")
     resp_b, resp_e = top
+    # Per ADR 0001 §8: material after the outermost structure's declared end is an
+    # error, not something to ignore. Ignoring it lets one reader see a token and
+    # another see a token plus something else, from the same bytes.
+    if resp_e != len(der):
+        raise TokenFormatError(
+            f"{len(der) - resp_e} trailing byte(s) after the TimeStampResp; a token is "
+            "the whole file or it is not this token")
 
     children = list(_tlvs(der, resp_b, resp_e))
     if not children:
@@ -412,20 +518,99 @@ def _reslice(der: bytes, content_start: int, content_end: int) -> bytes:
 
 
 def _parse_signer_info(der: bytes, start: int, end: int) -> SignerInfo:
+    """Parse one SignerInfo positionally, as RFC 5652 section 5.3 defines it.
+
+        SignerInfo ::= SEQUENCE {
+          version            CMSVersion,
+          sid                SignerIdentifier,   -- SEQUENCE, or [0] for a key id
+          digestAlgorithm    DigestAlgorithmIdentifier,
+          signedAttrs    [0] IMPLICIT SignedAttributes OPTIONAL,
+          signatureAlgorithm SignatureAlgorithmIdentifier,
+          signature          SignatureValue,
+          unsignedAttrs  [1] IMPLICIT UnsignedAttributes OPTIONAL }
+
+    This used to collect every `SEQUENCE` child and take `[1]` as the digest algorithm
+    and `[-1]` as the signature algorithm. That works only for the
+    `IssuerAndSerialNumber` form of `sid`, which happens to be a SEQUENCE. In the
+    equally legal `[0] SubjectKeyIdentifier` form there is no such SEQUENCE, every
+    index shifts, and the *signature* algorithm was read as the digest algorithm.
+
+    `sid` is also kept now, because the signer certificate has to be *found* rather
+    than assumed - see `_select_certificate`.
+    """
     parts = list(_tlvs(der, start, end))
+    if len(parts) < 5 or parts[0][0] != 0x02:
+        raise TokenFormatError("a SignerInfo must start with a version")
+
+    sid_tag, sid_begin, sid_end = parts[1]
+    sid_issuer: bytes | None = None
+    sid_serial: int | None = None
+    sid_key_id: bytes | None = None
+    if sid_tag == 0x30:                                   # IssuerAndSerialNumber
+        inner = list(_tlvs(der, sid_begin, sid_end))
+        if len(inner) != 2 or inner[0][0] != 0x30 or inner[1][0] != 0x02:
+            raise TokenFormatError("malformed IssuerAndSerialNumber in a SignerInfo")
+        sid_issuer = _reslice(der, inner[0][1], inner[0][2])
+        sid_serial = int.from_bytes(der[inner[1][1]:inner[1][2]], "big")
+    elif sid_tag == 0x80:                                 # [0] SubjectKeyIdentifier
+        sid_key_id = der[sid_begin:sid_end]
+    else:
+        raise TokenFormatError(
+            f"a SignerInfo's signer identifier is tag 0x{sid_tag:02x}; RFC 5652 allows "
+            "an IssuerAndSerialNumber or a [0] SubjectKeyIdentifier")
+
+    if parts[2][0] != 0x30:
+        raise TokenFormatError("a SignerInfo must carry a digestAlgorithm")
+    digest_alg = _reslice(der, parts[2][1], parts[2][2])
+
+    rest = parts[3:]
     signed_attrs = b""
-    attrs = next((c for c in parts if c[0] == 0xA0), None)
-    if attrs is not None:
-        signed_attrs = der[attrs[1]:attrs[2]]
-    algs = [c for c in parts if c[0] == 0x30]
-    signature = b""
-    sig = next((c for c in reversed(parts) if c[0] == 0x04), None)
-    if sig is not None:
-        signature = der[sig[1]:sig[2]]
-    digest_alg = _der(0x30, der[algs[1][1]:algs[1][2]]) if len(algs) > 1 else b""
-    sig_alg = _der(0x30, der[algs[-1][1]:algs[-1][2]]) if algs else b""
+    if rest and rest[0][0] == 0xA0:
+        signed_attrs = der[rest[0][1]:rest[0][2]]
+        rest = rest[1:]
+    if len(rest) < 2 or rest[0][0] != 0x30 or rest[1][0] != 0x04:
+        raise TokenFormatError(
+            "a SignerInfo must carry a signatureAlgorithm and a signature")
+    sig_alg = _reslice(der, rest[0][1], rest[0][2])
+    signature = der[rest[1][1]:rest[1][2]]
+
     return SignerInfo(signed_attrs=signed_attrs, signature=signature,
-                      signature_algorithm=sig_alg, digest_algorithm=digest_alg)
+                      signature_algorithm=sig_alg, digest_algorithm=digest_alg,
+                      sid_issuer=sid_issuer, sid_serial=sid_serial,
+                      sid_key_id=sid_key_id)
+
+
+def _select_certificate(certificates: list[bytes], signer: SignerInfo):
+    """The certificate the SignerInfo names, or None.
+
+    This used to be `certificates[0]`. The certificate set is a DER `SET OF`, whose
+    encoding order is by sorted bytes - not "signer first" - so a token carrying its
+    signer alongside an intermediate could present either one first, and a real
+    authority that ships a chain would fail against a parser that assumed the signer.
+
+    So the signer is matched: by issuer and serial number, or by subject key
+    identifier, whichever form the SignerInfo used.
+    """
+    from cryptography import x509
+
+    for raw in certificates:
+        try:
+            candidate = x509.load_der_x509_certificate(raw)
+        except Exception:
+            continue
+        if signer.sid_issuer is not None:
+            if (candidate.issuer.public_bytes() == signer.sid_issuer
+                    and candidate.serial_number == signer.sid_serial):
+                return candidate
+        elif signer.sid_key_id is not None:
+            try:
+                extension = candidate.extensions.get_extension_for_class(
+                    x509.SubjectKeyIdentifier)
+            except x509.ExtensionNotFound:
+                continue
+            if extension.value.digest == signer.sid_key_id:
+                return candidate
+    return None
 
 
 # --- what a verification establishes, stated per check --------------------------------
@@ -499,12 +684,17 @@ def _tst_info_fields(econtent: bytes) -> dict[str, str] | None:
     (t0, b0, e0), (t1, _, _), (t2, b2, e2), (t3, b3, e3), (t4, b4, e4) = fields[:5]
     if not (t0 == 0x02 and t1 == 0x06 and t2 == 0x30 and t3 == 0x02 and t4 == 0x18):
         return None
+    # ImprintError propagates: this is the content the signature commits to, and
+    # "the token declares an algorithm it does not carry" has to reach the verdict
+    # with its reason rather than becoming a generic unreadable-TSTInfo.
     imprint = _imprint_of(econtent, b2, e2)
     if imprint is None:
         return None
+    algorithm, raw = imprint
     assert e0 >= b0
     return {
-        "hashed_message": "sha256:" + imprint.hex(),
+        "hashed_message": f"{algorithm}:{raw.hex()}",
+        "imprint_algorithm": algorithm,
         "gen_time": econtent[b4:e4].decode("ascii", "replace"),
         "serial_number": str(int.from_bytes(econtent[b3:e3], "big")),
     }
@@ -586,11 +776,21 @@ def verify_token(
         else "eContentType is not id-ct-TSTInfo, so the signed content is not a "
              "timestamp"))
 
-    info = _tst_info_fields(token.econtent)
+    try:
+        info = _tst_info_fields(token.econtent)
+    except ImprintError as e:
+        # Named rather than folded into "unreadable": the token declares a digest
+        # algorithm whose length it does not carry, which is a different fault from
+        # a structure this build cannot parse.
+        checks.append(TokenCheck("message_imprint_algorithm", False, str(e)))
+        return TokenVerification(checks, FAILED)
     if info is None:
         checks.append(TokenCheck("tst_info", False,
                                  "the signed content is not a readable TSTInfo"))
         return TokenVerification(checks, FAILED)
+    checks.append(TokenCheck(
+        "message_imprint_algorithm", True,
+        f"the imprint declares {info['imprint_algorithm']} and carries that many bytes"))
 
     matches = info["hashed_message"] == subject_digest
     checks.append(TokenCheck(
@@ -606,7 +806,39 @@ def verify_token(
         checks.append(TokenCheck("signer", False, "the token carries no SignerInfo"))
         return TokenVerification(checks, FAILED)
     signer = token.signers[0]
-    attr = signer.attribute(_ATTR_MESSAGE_DIGEST)
+    # RFC 5652 section 5.3: when signedAttrs is present it must carry a contentType
+    # attribute equal to the eContentType. `_ATTR_CONTENT_TYPE` was defined in this
+    # module and never read, so the signature did not commit to the content's type: a
+    # signature over signedAttrs naming some other type verified happily, and only the
+    # unsigned eContentType field was compared.
+    try:
+        signed_type = signer.attribute(_ATTR_CONTENT_TYPE)
+        digest_attribute = signer.attribute(_ATTR_MESSAGE_DIGEST)
+    except TokenFormatError as e:
+        # Cardinality is a structural fault. It has to be a failed verdict with its
+        # reason, not an exception out of a verifier a gate is calling.
+        checks.append(TokenCheck("signed_attributes", False, str(e)))
+        return TokenVerification(checks, FAILED)
+    # `attribute()` returns the value's *content*, so compare against the OID body
+    # rather than the whole TLV: an OID body is under 128 bytes, so the header is two.
+    want_type = _oid(_ID_CT_TST_INFO)[2:]
+    type_ok = signed_type == want_type
+    checks.append(TokenCheck(
+        "content_type_attribute", type_ok,
+        "the signed contentType attribute is id-ct-TSTInfo, so the signature commits "
+        "to what kind of content this is"
+        if type_ok else
+        ("the signedAttrs carry no contentType attribute, so the signature does not "
+         "commit to the content's type" if signed_type is None else
+         "the signed contentType attribute is not id-ct-TSTInfo")))
+    if type_ok and signed_type is not None \
+            and _der(0x06, signed_type) != token.econtent_type:
+        checks.append(TokenCheck(
+            "content_type_agreement", False,
+            "the signed contentType attribute and the unsigned eContentType field "
+            "disagree"))
+
+    attr = digest_attribute
     # The SignerInfo names its own digest algorithm, and it is not always SHA-256:
     # freetsa.org uses SHA-512. Defaulting to SHA-256 made every such token fail.
     digest_name = _algorithm_name(signer.digest_algorithm, _DIGESTS) or "sha256"
@@ -637,22 +869,109 @@ def verify_token(
         return TokenVerification(checks, FAILED)
 
     try:
-        cert = x509.load_der_x509_certificate(token.certificates[0])
         roots = x509.load_pem_x509_certificates(ca_pem)
     except ValueError as e:
         checks.append(TokenCheck("signing_certificate", False,
-                                 f"a certificate could not be parsed: {e}"))
+                                 f"the supplied root could not be parsed: {e}"))
         return TokenVerification(checks, FAILED)
+
+    # Matched against the SignerInfo, not taken from the front of the set: the set's
+    # order is its sorted DER encoding, so a token shipping a chain can put any of
+    # them first.
+    cert = _select_certificate(token.certificates, signer)
+    if cert is None:
+        checks.append(TokenCheck(
+            "signing_certificate", False,
+            f"none of the {len(token.certificates)} embedded certificate(s) is the one "
+            "the SignerInfo names, so the signature cannot be attributed to any of them"))
+        return TokenVerification(checks, FAILED)
+    checks.append(TokenCheck(
+        "signing_certificate", True,
+        f"the certificate the SignerInfo names is present "
+        f"(of {len(token.certificates)} embedded)"))
 
     sig_ok, sig_detail = _verify_signature(signer, cert)
     checks.append(TokenCheck("signature", sig_ok, sig_detail))
 
+    checks.append(_signing_certificate_check(signer, cert))
     checks.append(_eku_check(cert))
     checks.append(_validity_check(cert, info["gen_time"]))
     checks.append(_chain_check(cert, roots))
 
     state = VERIFIED if all(c.passed for c in checks if c.ran) else FAILED
     return TokenVerification(checks, state)
+
+
+def _signing_certificate_check(signer: SignerInfo, certificate) -> TokenCheck:
+    """RFC 5035: the signed attribute that says *which* certificate signed this.
+
+    This matters because `SignerIdentifier` sits outside `signedAttrs` and is therefore
+    **not covered by the signature**. Nothing stops someone repointing it at a
+    different certificate; the signature still verifies, because it only ever covered
+    the attributes. The ESS attribute closes that by naming the certificate's hash
+    inside the signed data.
+
+    `openssl ts -verify` requires it, and the recorded freetsa token carries it, so
+    requiring it here is what a real authority already does rather than a rule
+    invented for this parser.
+    """
+    import hashlib as _hashlib
+
+    raw = certificate.public_bytes(__import__(
+        "cryptography.hazmat.primitives.serialization",
+        fromlist=["Encoding"]).Encoding.DER)
+
+    for oid, default in ((_ATTR_SIGNING_CERTIFICATE_V2, "sha256"),
+                         (_ATTR_SIGNING_CERTIFICATE, "sha1")):
+        try:
+            value = signer.attribute(oid)
+        except TokenFormatError as e:
+            return TokenCheck("signing_certificate_binding", False, str(e))
+        if value is None:
+            continue
+
+        certs = _first(value, 0, len(value), 0x30)          # SEQUENCE OF ESSCertID
+        if certs is None:
+            return TokenCheck("signing_certificate_binding", False,
+                              "the signing-certificate attribute is malformed")
+        first = _first(value, certs[0], certs[1], 0x30)     # the first ESSCertID
+        if first is None:
+            return TokenCheck("signing_certificate_binding", False,
+                              "the signing-certificate attribute names no certificate")
+
+        algorithm = default
+        parts = list(_tlvs(value, first[0], first[1]))
+        index = 0
+        if parts and parts[0][0] == 0x30:                   # explicit hashAlgorithm
+            named = _algorithm_name(_reslice(value, parts[0][1], parts[0][2]), _DIGESTS)
+            if named is None:
+                return TokenCheck(
+                    "signing_certificate_binding", False,
+                    "the signing-certificate attribute names a hash algorithm this "
+                    "build does not support")
+            algorithm = named
+            index = 1
+        if len(parts) <= index or parts[index][0] != 0x04:
+            return TokenCheck("signing_certificate_binding", False,
+                              "the signing-certificate attribute carries no hash")
+        claimed = value[parts[index][1]:parts[index][2]]
+        actual = _hashlib.new(algorithm, raw).digest()
+        if claimed != actual:
+            return TokenCheck(
+                "signing_certificate_binding", False,
+                f"the signed signing-certificate attribute names a {algorithm} hash "
+                "that is not the certificate the signature was checked against, so the "
+                "signature does not belong to that certificate")
+        return TokenCheck(
+            "signing_certificate_binding", True,
+            f"the signed signing-certificate attribute names this certificate "
+            f"({algorithm})")
+
+    return TokenCheck(
+        "signing_certificate_binding", False,
+        "the SignerInfo carries no RFC 5035 signing-certificate attribute, so nothing "
+        "signed says which certificate signed this. The signer identifier is outside "
+        "signedAttrs and can be repointed without disturbing the signature")
 
 
 def _eku_check(certificate) -> TokenCheck:
@@ -749,9 +1068,14 @@ class Rfc3161Backend:
     name = "rfc3161"
 
     def __init__(self, url: str | None = None, *, timeout: float = 15.0,
-                 ca_pem: bytes | None = None) -> None:
+                 ca_pem: bytes | None = None,
+                 max_bytes: int = MAX_TSA_RESPONSE_BYTES) -> None:
         self.url = url
         self.timeout = timeout
+        # An RFC 3161 token is a few kilobytes. The body was read unbounded, so a
+        # misconfigured URL that answers with a web page - or anything hostile - was
+        # read into memory in full before this parser saw a byte of it.
+        self.max_bytes = max_bytes
         # The trust root is held by whoever is *verifying*, never read from the proof.
         # A root carried inside the anchor would be a root the author chose, which
         # defeats the point of an external attestation.
@@ -763,16 +1087,27 @@ class Rfc3161Backend:
                 "the rfc3161 backend needs a timestamp authority: pass --tsa URL. "
                 "EvalSeal ships no default, because a default would make one service "
                 "part of this tool's trust root.")
-        request = build_timestamp_request(subject_digest)
+        # Kept, so the echo can be checked. The nonce used to be generated inside
+        # `build_timestamp_request` and discarded, which left nothing to compare the
+        # response against - so a replayed token for the same digest was
+        # indistinguishable from a fresh one.
+        nonce = int.from_bytes(os.urandom(8), "big")
+        request = build_timestamp_request(subject_digest, nonce=nonce)
+        budget = Budget(timeout=self.timeout, max_retries=0,
+                        max_bytes=self.max_bytes)
+        clock = _Clock(budget.total_deadline(lambda i: 0.0))
         try:
-            response = httpx.post(
-                self.url, content=request, timeout=self.timeout,
-                headers={"Content-Type": _CONTENT_TYPE, "Accept": _ACCEPT})
+            response, der = request_bounded(
+                method="POST", url=self.url, content=request,
+                headers={"Content-Type": _CONTENT_TYPE, "Accept": _ACCEPT},
+                budget=budget, clock=clock, what=f"the timestamp authority {self.url}")
             response.raise_for_status()
         except httpx.HTTPError as e:
             raise AnchorError(f"timestamp request to {self.url} failed: {e}") from None
-
-        der = response.content
+        except (ResponseTooLarge, UnsupportedEncoding, DeadlineExceeded) as e:
+            # Named separately from an HTTP error: the authority answered, and what it
+            # answered with is the problem. Nothing is recorded either way.
+            raise AnchorError(f"timestamp request to {self.url} failed: {e}") from None
         status, status_text = response_status(der)
         if status is not None and status not in _STATUS_GRANTED:
             raise AnchorError(f"{self.url} refused to timestamp this digest: {status_text}")
@@ -787,6 +1122,23 @@ class Rfc3161Backend:
             raise AnchorError(
                 "the authority timestamped a different digest than the one submitted "
                 f"({info['hashed_message']} vs {subject_digest})")
+
+        # RFC 3161 section 2.4.2: a nonce in the request MUST be returned with the same
+        # value. Without that match this exchange cannot be told apart from a token
+        # minted earlier for the same digest and replayed, so nothing is recorded.
+        # Note the narrowness of what a match buys: it establishes that *this response*
+        # answered *this request*. It says nothing about `genTime` being right, and a
+        # token read back from a file later carries no freshness at all.
+        echoed = info.get("nonce")
+        if echoed is None:
+            raise AnchorError(
+                f"{self.url} returned no nonce, though one was sent. RFC 3161 requires "
+                "it to be echoed, and without it this response cannot be distinguished "
+                "from a replay of an earlier token for the same digest")
+        if int(echoed) != nonce:
+            raise AnchorError(
+                f"{self.url} echoed nonce {echoed}, not the {nonce} that was sent; this "
+                "response does not answer this request")
 
         return {
             "backend": self.name,
@@ -808,21 +1160,26 @@ class Rfc3161Backend:
                 f"{BOUNDARY_AT_REST}"),
         }
 
-    def check(self, subject_digest: str, proof: dict) -> tuple[bool, str]:
-        """Re-read the stored token offline. Network is never touched here.
+    def verify(self, subject_digest: str, proof: dict) -> tuple[str, str]:
+        """Re-read the stored token offline and report which of three states it reached.
 
-        How far this gets depends on whether a trust root was supplied. With one, the
-        signature and the signing certificate are checked and the result can say
-        "signature verified". Without one, it establishes what it always did - the
-        imprint - and says so in the same words as before.
+        Network is never touched here. How far this gets depends on whether a trust
+        root was supplied. With one, the signature and the signing certificate are
+        checked and the result can say "signature verified". Without one, it
+        establishes what it always did - the imprint - and says so.
+
+        This is the primary form, and `check` wraps it. A bool cannot tell a verified
+        signature apart from an imprint nobody checked: both are "ok" to a caller
+        reading the boolean, so a gate requiring external evidence that read `check`
+        would accept an unverified token. Returning the state keeps the two apart.
         """
         blob = proof.get("proof")
         if not blob:
-            return (False, "not checked: the proof entry carries no token")
+            return (FAILED, "not checked: the proof entry carries no token")
         try:
             der = base64.b64decode(blob, validate=True)
         except (ValueError, TypeError):
-            return (False, "not checked: the stored token is not valid base64")
+            return (FAILED, "not checked: the stored token is not valid base64")
 
         result = verify_token(der, subject_digest, ca_pem=self.ca_pem)
         authority = proof.get("authority", "the authority")
@@ -832,14 +1189,23 @@ class Rfc3161Backend:
         when = (parse_gen_time(info["gen_time"]) or info["gen_time"]) if info else "?"
 
         if result.state == VERIFIED:
-            return (True,
+            return (VERIFIED,
                     f"{BOUNDARY_VERIFIED}. {authority} asserts this digest existed no "
                     f"later than {when}, and the token's signature checks out against "
                     "the certificate you supplied. Revocation was not checked.")
         if result.state == IMPRINT_ONLY:
-            return (True,
+            return (IMPRINT_ONLY,
                     f"{BOUNDARY_IMPRINT_ONLY}. The imprint matches this anchor's "
                     f"subject digest, and {authority} asserts it existed no later than "
                     f"{when} - on that authority's word, unverified here. {_UNVERIFIED}")
         failing = "; ".join(c.detail for c in result.checks if c.ran and not c.passed)
-        return (False, f"{BOUNDARY_FAILED}: {failing}")
+        return (FAILED, f"{BOUNDARY_FAILED}: {failing}")
+
+    def check(self, subject_digest: str, proof: dict) -> tuple[bool, str]:
+        """The `AnchorBackend` boolean form, unchanged: verified and imprint-only are
+        both "ok" here, because this answers "could it be re-checked at all?".
+
+        Anything that needs the difference calls `verify` instead.
+        """
+        state, detail = self.verify(subject_digest, proof)
+        return (state in (VERIFIED, IMPRINT_ONLY), detail)

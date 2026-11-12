@@ -11,7 +11,7 @@ from evalseal.adapters.target import LocalCallableTarget
 from evalseal.analyze import analyze_case
 from evalseal.cli import EXIT_UNSTABLE, app
 from evalseal.executor import run_eval
-from evalseal.ledger import seal_and_append
+from evalseal.ledger import FINGERPRINT_PREFIX, seal_and_append
 from evalseal.report import case_rows, to_case_table, verdict_sequence
 
 runner = CliRunner()
@@ -93,7 +93,8 @@ def test_report_json_exposes_distribution_and_provenance(tmp_path):
     assert case["verdict_sequence"] == "PFPFP"
     assert case["flip_count"] == 2
     # Scheme-tagged since 1.4, so a pin made under an older scheme is recognisable.
-    assert payload["provenance"]["config_fingerprint"].startswith("evalseal-fp/2:sha256:")
+    assert payload["provenance"]["config_fingerprint"].startswith(
+        f"{FINGERPRINT_PREFIX}:sha256:")
     assert payload["provenance"]["evalseal_version"]
 
 

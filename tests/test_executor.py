@@ -52,5 +52,8 @@ def test_parse_verdict():
     assert parse_verdict("PASS") == 1
     assert parse_verdict("pass.") == 1
     assert parse_verdict("FAIL — this does not PASS") == 0
-    assert parse_verdict("PASSABLE") == 0
-    assert parse_verdict("") == 0
+    # None, not 0: a reply with no verdict token in it is a grader that did not grade,
+    # which is a different thing from a grader that failed the case. docs/metrics.md §8.
+    assert parse_verdict("PASSABLE") is None
+    assert parse_verdict("") is None
+    assert parse_verdict("ERROR: 503 upstream unavailable") is None

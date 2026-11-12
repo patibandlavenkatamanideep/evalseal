@@ -47,12 +47,82 @@ record.
 **Does not protect against:** someone rewriting the whole file. A complete rebuild
 produces a valid chain. That is what signing is for.
 
+**What the hash covers depends on the schema that sealed the record.** A record sealed
+under an older schema is re-hashed with the fields that schema did not have stripped
+out - that is what lets a 1.1-era ledger still verify today. Those fields are therefore
+*not* covered by the hash for that record: a value written into one leaves the chain
+intact. On the previous release, writing `manifest.suite = {"hash": X}` into a genuine
+1.1 receipt left `verify` printing *"Chain intact"* and a pre-registration pinning `X`
+reporting *"suite digest matches"*, for a digest nothing had sealed.
+
+Such fields are now **quarantined**: `load_verified()` removes them before anything
+reads them and names what it removed, `gate` fails `ledger.unsealed_fields`, and
+`verify` says so beside the intact chain. A genuine old receipt is unaffected, because
+the fields its schema lacked are already at their defaults - the only way a value gets
+there is for someone to write it.
+
+A claimed schema version that is unparseable, or newer than this build, is rejected
+before any hash is compared. Unknown in either direction is unsupported: a later format
+may have added fields this build cannot see, or changed what an existing one means.
+Schema 1.3 added no field at all and only changed the meaning of
+`scorer.judge_prompt_hash`, so a format change need not be visible in the data.
+
+### Data invariants
+
+A hash attests that nobody changed a number after it was sealed. It says nothing about
+whether the number was ever possible, because an impossible number gets sealed along
+with everything else. Until v2.3 nothing asked, so invalid data did not fail a gate -
+it passed one: `aggregate.mean_score = 42.0` cleared `--min-score 0.9`, and
+`aggregate.n_cases = 999` on a two-case run with `mean_score = 1.0` cleared
+`--min-score 0.95`.
+
+`evalseal.validation` now checks, and `gate` reports `ledger.data_invariants`
+separately from `ledger.record_verified`, because the hash matching and the numbers
+being possible are different claims:
+
+- scores, means, flip rates and interval bounds are finite and within range, and
+  intervals run the right way round
+- each case mean matches its own scores, and each case's verdict counts match its
+  verdicts
+- the case set is non-empty with distinct ids - a per-case threshold addresses a case
+  by id, so two cases sharing one makes which was checked undecidable
+- `n_cases` and the stability counts match the cases present, and the summary mean
+  matches the case means
+
+A record failing any of these is refused at seal time rather than written, because a
+non-finite score additionally serialises as `null` and the sealed receipt could then
+never be loaded again.
+
+**Protects against:** a fabricated or mis-copied summary passing a threshold, a
+non-finite value clearing every limit it is compared against (every comparison against
+`NaN` is false), a receipt that measured nothing satisfying a gate.
+**Does not protect against:** a plausible lie. Numbers that are internally consistent
+and in range are accepted; whether the evaluation that produced them happened as
+described is what the rest of this document is about.
+
+**File-level strictness.** JSON resolves a duplicate member silently in favour of the
+last one, so a policy committed as `{"run": {"min_score": 0.9, "min_score": 0.0}}` was
+reviewed as `0.9` and enforced as `0.0` - no tampering and no broken hash needed,
+because nothing hashes a policy file. Policies, pre-registrations and ledger lines are
+now parsed strictly: a duplicate member is refused rather than resolved, and `NaN`,
+`Infinity` and `-Infinity` - which are not JSON at all - are refused as well.
+
 ### Signing
 
 `evalseal sign` signs the ledger head with Ed25519. The head commits to every earlier
 record through the chain, so one signature covers the ledger up to that point.
 
 **Protects against:** anyone without the private key altering the ledger undetectably.
+
+**Two things a signature does not say, which a gate has to ask separately.** It signs
+the *head*, so signing and then appending leaves the new receipt uncovered while the
+sidecar still holds a valid signature - `evalseal verify --signed` correctly reports
+"records 0-0 of 2 are signed" and exits 0. And it is verified with the key stored
+beside it, so without a trust anchor it shows that *someone* signed. A pre-registration
+with `require_signature` checks presence, validity, coverage of the selected receipt,
+and - when `trusted_public_keys` or `--trusted-key` is supplied - identity, reporting
+each separately. See [docs/pre-registration.md](docs/pre-registration.md).
+
 **Does not protect against:** the key holder. They can rebuild the ledger and re-sign it.
 A verifier who only ever sees the new signature cannot tell. It also says nothing about
 *when* the signature was made - `signed_at` is the signer's own clock.
@@ -94,7 +164,21 @@ What it still does not do, stated rather than omitted:
 - **Path building.** One hop only: supply the issuing certificate directly.
 - **Choose a root for you.** The root is never read from the anchor. A root the author
   chose would defeat the point of an external attestation, and a test greps the source
-  to keep it that way.
+  to keep it that way. It is also scoped to the invocation that supplied it: it used to
+  be applied through a process-wide registry, where a root passed for one verification
+  stayed configured for every later call and could decide a verdict its own verifier
+  never chose.
+
+**Requiring it in a gate.** `require_external_anchor` passes only on a `verified` proof
+from an approved backend - meaning a signature checked against a root *you* passed with
+`gate --tsa-ca`. Four weaker states are kept distinct from it and none of them satisfy
+it: `imprint_only` (the imprint matches, the signature was never checked), `unsupported`
+(an unknown backend, a malformed entry, or `local`, which attests nothing), `missing`,
+and `failed`. Until v2.3 the clause was `bool(anchor["external_proofs"])`, so
+`[{"backend": "local"}]`, `[{}]` and the string `"no"` all satisfied a requirement for
+third-party attestation; a producer could meet it by editing their own anchor. A proof
+that **failed** fails the requirement even alongside a verified one, because a token
+that does not verify is evidence of tampering or of a proof lifted from another anchor.
 
 Without `--tsa-ca` nothing about the signature is established, and the signature check
 is reported as *not run* rather than as passed. `openssl ts -verify` remains a fine

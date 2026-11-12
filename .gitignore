@@ -225,6 +225,13 @@ __marimo__/
 report.json
 report.md
 report.html
+# One directory per run (report.json, report.md, and the cassette snapshot the receipt
+# is bound to). Archive or publish a run directory you need to keep - a committed copy
+# goes stale the same way the working-directory report does.
+runs/
+# A cassette's writer lock. Its contents are a pid; the lock itself lives in the open
+# descriptor, so there is nothing here worth keeping or committing.
+*.json.lock
 
 # ...but an example's receipt is committed on purpose, not generated into the worktree.
 # Without this, examples/verification-demo/report.json silently never lands and every
@@ -240,3 +247,6 @@ junit.xml
 
 # Signing keys — never commit a private key
 *.key
+
+# macOS finder metadata, which iCloud sprinkles through this tree.
+.DS_Store

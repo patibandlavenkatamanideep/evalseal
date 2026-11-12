@@ -57,8 +57,12 @@ evalseal run --suite agent-suite.json \
 
 The receipt then carries them in `manifest.artifacts`, with the `kind` field saying
 what it holds - `hashed` for a digest, `external` when the file was named but not
-readable at seal time. `evalseal verify --artifacts` re-hashes both and reports `ok`,
-`changed`, `missing` or `unverifiable`:
+readable at seal time, `mutable` for a file later runs are expected to write to (the
+live cassette, and nothing a `--artifact` flag binds). `evalseal verify --artifacts`
+re-hashes them and reports `ok`, `changed`, `moved`, `missing` or `unverifiable`.
+`moved` applies only to a `mutable` artifact whose own snapshot confirms the responses
+this receipt used are still there unchanged; anything a tool manifest or a frozen
+response file does is `changed`, and still fails:
 
 ```console
 $ evalseal verify --ledger .evalseal/ledger.jsonl --artifacts

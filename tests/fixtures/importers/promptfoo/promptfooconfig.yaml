@@ -1,0 +1,54 @@
+# A small promptfoo evaluation that runs entirely offline.
+#
+# SYNTHETIC DATA. The questions and answers are made up for this fixture; the export
+# this produces is a genuine promptfoo artifact, written by promptfoo 0.125.1.
+description: EvalSeal import fixture - arithmetic, deterministic local provider
+
+providers:
+  - id: file://provider.js
+    label: deterministic-local
+
+prompts:
+  - 'Answer with a number only. {{question}}'
+
+defaultTest:
+  options:
+    provider: file://provider.js
+
+tests:
+  - description: addition
+    vars:
+      question: 'What is 2 + 2?'
+    assert:
+      - type: equals
+        value: '4'
+
+  - description: division with a non-integer result
+    vars:
+      question: 'What is 10 divided by 4?'
+    assert:
+      - type: equals
+        value: '2.5'
+
+  - description: a question the provider answers wrongly
+    vars:
+      question: 'How many sides does a hexagon have?'
+    assert:
+      - type: equals
+        value: '6'
+
+  - description: two assertions on one case
+    vars:
+      question: 'What is the square root of 144?'
+    assert:
+      - type: equals
+        value: '12'
+      - type: javascript
+        value: 'output.length === 2'
+
+  - description: a case the provider errors on
+    vars:
+      question: 'UNANSWERABLE by this provider'
+    assert:
+      - type: equals
+        value: 'anything'

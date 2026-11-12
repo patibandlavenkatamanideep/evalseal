@@ -30,6 +30,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,7 +44,7 @@ from .ledger import (
     load_all,
     verify_chain,
 )
-from .models import RunRecord
+from .models import ArtifactProvenance, RunRecord
 from .provenance import environment_provenance
 from .signing import (
     ALGORITHM,
@@ -140,9 +142,36 @@ def _load_builtin_backends() -> None:
 
 
 def register_backend(backend: AnchorBackend) -> None:
-    """Add a backend. Adapters for real services register themselves here."""
+    """Add a backend. Adapters for real services register themselves here.
+
+    Process-wide and permanent. For a backend configured with trust supplied for one
+    verification, use `temporary_backends` instead - see why there.
+    """
     _load_builtin_backends()
     _BACKENDS[backend.name] = backend
+
+
+@contextmanager
+def temporary_backends(*backends: AnchorBackend) -> Iterator[None]:
+    """Register backends for one block, then put the registry back as it was.
+
+    `register_backend` mutates a module-global dict that never gets cleaned up. The
+    CLI used it to apply the trust root a verifier passed with `--tsa-ca`, which left
+    that root configured for every later call in the same process. In a CLI that exits
+    straight after, that is invisible; in a test suite, or any program that verifies
+    more than one anchor, a root supplied for one verification silently decides the
+    next one's result, and a proof can appear verified against a root its verifier
+    never chose.
+    """
+    _load_builtin_backends()
+    saved = dict(_BACKENDS)
+    try:
+        for backend in backends:
+            _BACKENDS[backend.name] = backend
+        yield
+    finally:
+        _BACKENDS.clear()
+        _BACKENDS.update(saved)
 
 
 def get_backend(name: str) -> AnchorBackend:
@@ -308,8 +337,69 @@ def write_anchor(anchor: dict, path: Path) -> None:
 class ArtifactCheck:
     """One sealed artifact, re-hashed against the file on disk now."""
     role: str
-    status: str          # ok | changed | missing | unverifiable
+    status: str          # ok | changed | moved | missing | unverifiable
     detail: str
+
+
+def _cassette_entries(path: Path) -> dict[str, str] | None:
+    """One cassette-shaped file's entries, canonicalized for comparison.
+
+    None when the file is not a readable cassette, which a caller must treat as "cannot
+    compare" rather than as "nothing changed".
+    """
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        entries = raw["entries"]
+        if not isinstance(entries, dict):
+            return None
+        return {k: json.dumps(v, sort_keys=True, separators=(",", ":"))
+                for k, v in entries.items()}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _mutable_verdict(
+    record: RunRecord, art: ArtifactProvenance, path: Path, base: Path,
+) -> tuple[str, str]:
+    """Whether a mutable artifact that no longer matches its digest merely moved on.
+
+    The whole-file digest cannot answer this: a later run that appends and a tampered
+    response both change it. The receipt's immutable snapshot can, because it holds the
+    exact entries this run used. Every one of them still present and byte-identical in
+    the live file means the file grew; any of them missing or different means the
+    evidence behind this receipt was replaced, which is reported as `changed` and still
+    fails. With no snapshot to compare against - every receipt sealed before
+    `cassette_snapshot` existed - the answer is unknown, and unknown is reported as the
+    stronger claim, not the weaker one.
+    """
+    snapshot = next((a for a in record.manifest.artifacts
+                     if a.role == f"{art.role}_snapshot"), None)
+    if snapshot is None or snapshot.path is None:
+        return "changed", (
+            f"{path} does not match the digest sealed with this record, and this "
+            f"record binds no {art.role}_snapshot to narrow that down")
+    snap_path = Path(snapshot.path)
+    if not snap_path.is_absolute():
+        snap_path = base / snap_path
+    sealed = _cassette_entries(snap_path)
+    if sealed is None:
+        return "changed", (
+            f"{path} does not match the digest sealed with this record, and its "
+            f"snapshot {snap_path} could not be read to narrow that down")
+    live = _cassette_entries(path)
+    if live is None:
+        return "changed", f"{path} is no longer a readable cassette"
+    gone = [k for k, v in sealed.items() if live.get(k) != v]
+    if gone:
+        return "changed", (
+            f"{len(gone)} of the {len(sealed)} responses this record was sealed against "
+            f"{'is' if len(gone) == 1 else 'are'} no longer in {path}, or no longer "
+            f"{'holds' if len(gone) == 1 else 'hold'} the same bytes: the responses "
+            f"behind this receipt were replaced, not merely added to")
+    return "moved", (
+        f"{path} has {len(live) - len(sealed)} more entries than when this record was "
+        f"sealed, and all {len(sealed)} it used are still there unchanged. Expected of "
+        f"a file later runs record into; not evidence of tampering")
 
 
 def check_artifacts(record: RunRecord, base_dir: Path | None = None) -> list[ArtifactCheck]:
@@ -336,6 +426,14 @@ def check_artifacts(record: RunRecord, base_dir: Path | None = None) -> list[Art
         actual = _sha256_bytes(path.read_bytes())
         if actual == art.sha256:
             checks.append(ArtifactCheck(art.role, "ok", f"{path} matches the sealed digest"))
+        elif art.kind == "mutable":
+            # The file moved on, or its responses were replaced. Reporting both as
+            # `changed` made an honest later run look like tampering, which teaches
+            # people to stop reading the one check that would catch the real thing;
+            # reporting both as `moved` would hide the real thing. The snapshot tells
+            # them apart.
+            status, detail = _mutable_verdict(record, art, path, base)
+            checks.append(ArtifactCheck(art.role, status, detail))
         else:
             checks.append(ArtifactCheck(
                 art.role, "changed",
@@ -482,8 +580,26 @@ def verify_anchor(
                 f"external proof ({name})", False,
                 f"not checked: no backend named {name!r} is available here", required=False))
             continue
-        ok, detail = backend.check(anchor.get("subject_digest", ""), proof)
-        checks.append(AnchorCheck(f"external proof ({name})", ok, detail))
+        # A backend that can report its state is read that way, so an imprint nobody
+        # verified is not shown as a required check that passed. The prose already said
+        # "NOT verified"; a required tick beside it is the assurance label being
+        # upgraded by the display. Backends with only the boolean `check` keep their
+        # previous behaviour, since a bool cannot tell the two apart.
+        verify = getattr(backend, "verify", None)
+        subject = anchor.get("subject_digest", "")
+        if callable(verify):
+            state, detail = verify(subject, proof)
+            # Only imprint-only is demoted. A proof that FAILED stays required, or
+            # an anchor whose token does not verify against the root you supplied
+            # would pass: the first version of this line read `state == "verified"`
+            # and made `anchor-verify --tsa-ca wrong-root.pem` exit 0 saying
+            # "Anchor verified."
+            checks.append(AnchorCheck(
+                f"external proof ({name})", state != "failed", detail,
+                required=state != "imprint_only"))
+        else:
+            ok, detail = backend.check(subject, proof)
+            checks.append(AnchorCheck(f"external proof ({name})", ok, detail))
     return checks
 
 

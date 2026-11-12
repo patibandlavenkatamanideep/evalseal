@@ -20,7 +20,26 @@ class Dataset:
 
     @classmethod
     def from_jsonl(cls, path: str | Path) -> Dataset:
-        raw = Path(path).read_text(encoding="utf-8")
+        """Load from a file. Prefer `from_bytes` when the bytes are already captured.
+
+        Reading the file here means the parse and any digest taken elsewhere are of two
+        separate reads, and a file rewritten between them leaves a receipt describing
+        bytes that produced no score. `evalseal run` captures the dataset once and calls
+        `from_bytes`; this stays for every other caller.
+        """
+        return cls.from_bytes(Path(path).read_bytes(), what=str(path))
+
+    @classmethod
+    def from_bytes(cls, data: bytes, what: str = "<bytes>") -> Dataset:
+        """Parse the exact bytes given, and hash the same bytes.
+
+        `what` names the source in an error message only. The hash is of the decoded
+        text with line endings normalized, which is what `read_text` returns and
+        therefore what every dataset hash sealed so far was computed over - a CRLF
+        dataset keeps the digest it has always had.
+        """
+        path = what
+        raw = data.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
         cases = []
         seen: set[str] = set()
         for lineno, line in enumerate(raw.splitlines(), start=1):

@@ -51,6 +51,8 @@ from .ledger import (
 from .models import RunRecord
 from .policy import Check, Policy
 from .provenance import file_hash, git_provenance
+from .validation import InvalidInput, strict_json_loads
+from .verification import ExternalEvidence, SignatureVerification
 
 PREREG_VERSION: Literal[1] = 1
 
@@ -100,6 +102,10 @@ class Preregistration(_Strict):
 
     require_ci_claim: bool = False
     require_signature: bool = False
+    #: Keys the *verifier* is willing to trust, as base64, PEM or a path. Empty means
+    #: identity is not checked: a valid signature then shows that someone signed, not
+    #: that your signer did. Several keys are allowed, which is how rotation works.
+    trusted_public_keys: list[str] = Field(default_factory=list)
     require_anchor: bool = False
     require_external_anchor: bool = False
 
@@ -125,10 +131,13 @@ def load_preregistration(path: str | Path) -> Preregistration:
         raise PreregError(f"{p} could not be read: {e.strerror}") from None
     if not text.strip():
         raise PreregError(f"{p} is empty")
+    # Strict: see `validation.strict_json_loads`. A contract is committed and read by
+    # people, and a duplicate member makes the reviewer and the gate read different
+    # numbers from the same file.
     try:
-        data = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise PreregError(f"{p} is not valid JSON: {e}") from None
+        data = strict_json_loads(text, what=str(p))
+    except InvalidInput as e:
+        raise PreregError(str(e)) from None
     if not isinstance(data, dict):
         raise PreregError(f"{p} must contain a mapping at the top level")
     try:
@@ -149,6 +158,7 @@ def build_preregistration(
     required_artifacts: list[str] | None = None,
     require_ci_claim: bool = False,
     require_signature: bool = False,
+    trusted_public_keys: list[str] | None = None,
     require_anchor: bool = False,
     require_external_anchor: bool = False,
     baseline: str | None = None,
@@ -186,6 +196,7 @@ def build_preregistration(
         required_artifacts=sorted(required_artifacts or []),
         require_ci_claim=require_ci_claim,
         require_signature=require_signature,
+        trusted_public_keys=sorted(trusted_public_keys or []),
         require_anchor=require_anchor,
         require_external_anchor=require_external_anchor,
         baseline=baseline,
@@ -214,10 +225,17 @@ def _git_branch() -> str | None:
 
 @dataclass
 class AnchorState:
-    """What the caller found out about an anchor, so this module need not re-verify it."""
+    """What the caller found out about an anchor, so this module need not re-verify it.
+
+    `has_external_proof: bool` used to live here and was computed by the CLI as
+    `bool(anchor["external_proofs"])`. It is gone rather than deprecated: while the
+    field existed, the cheapest way to answer the strongest clause in a contract was
+    to read a boolean that any producer could set by writing `[{}]` into their own
+    anchor. External evidence now arrives as `ExternalEvidence`, which has to say
+    which of five states it reached.
+    """
     present: bool = False
     verified: bool = False
-    has_external_proof: bool = False
     detail: str = ""
 
 
@@ -226,6 +244,8 @@ def check_preregistration(
     record: RunRecord,
     *,
     anchor: AnchorState | None = None,
+    signature: SignatureVerification | None = None,
+    external: ExternalEvidence | None = None,
 ) -> list[Check]:
     """Check one receipt against the contract, one named check per clause.
 
@@ -297,8 +317,33 @@ def check_preregistration(
             "the receipt carries no CI markers, so it was not produced by a CI runner "
             "EvalSeal recognises"))
 
-    checks.extend(_anchor_checks(prereg, anchor))
+    checks.extend(_signature_checks(prereg, signature))
+    checks.extend(_anchor_checks(prereg, anchor, external))
     return checks
+
+
+def _signature_checks(
+    prereg: Preregistration, signature: SignatureVerification | None
+) -> list[Check]:
+    """Whether the selected receipt carries a signature the contract asked for.
+
+    Separate from the anchor requirement, because they are separate claims: a
+    signature says who sealed this, an anchor says what it was bound to. Requiring one
+    must not require or imply the other.
+
+    A `None` state means the caller could not look at the ledger. That fails rather
+    than skips - invariant: an unperformed required check cannot become a pass.
+    """
+    if not prereg.require_signature:
+        return []
+    if signature is None:
+        return [Check(
+            "prereg.require_signature", False,
+            "not checked: the gate had no ledger to verify a signature against, so "
+            "the requirement could not be evaluated. A requirement that cannot run "
+            "is a failure, not a skip")]
+    return [Check(
+        "prereg.require_signature", signature.satisfies_requirement, signature.detail)]
 
 
 def _repeat_checks(runs: RunContract, record: RunRecord) -> list[Check]:
@@ -361,7 +406,11 @@ def _artifact_checks(prereg: Preregistration, record: RunRecord) -> list[Check]:
     return checks
 
 
-def _anchor_checks(prereg: Preregistration, anchor: AnchorState | None) -> list[Check]:
+def _anchor_checks(
+    prereg: Preregistration,
+    anchor: AnchorState | None,
+    external: ExternalEvidence | None,
+) -> list[Check]:
     if not (prereg.require_anchor or prereg.require_external_anchor):
         return []
     state = anchor or AnchorState()
@@ -370,11 +419,16 @@ def _anchor_checks(prereg: Preregistration, anchor: AnchorState | None) -> list[
         state.detail or ("anchor verified" if state.verified
                          else "no anchor was supplied to check (pass --anchor)"))]
     if prereg.require_external_anchor:
-        checks.append(Check(
-            "prereg.require_external_anchor", state.has_external_proof,
-            "the anchor carries an external proof" if state.has_external_proof
-            else "the anchor carries no external proof, so nothing establishes when it "
-                 "was made. A local anchor is this machine's clock"))
+        if external is None:
+            # Unevaluable, so it fails: the same rule as every other clause here.
+            checks.append(Check(
+                "prereg.require_external_anchor", False,
+                "not checked: no external evidence state was supplied, so nothing "
+                "established that a third party attested this anchor"))
+        else:
+            checks.append(Check(
+                "prereg.require_external_anchor", external.satisfies_requirement,
+                external.detail))
     return checks
 
 

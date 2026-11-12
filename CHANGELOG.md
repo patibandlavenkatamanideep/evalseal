@@ -7,7 +7,661 @@ older version still verifies.
 
 ## [Unreleased]
 
+> A draft of the release notes this would ship with is in
+> [docs/release-notes-2.3.0-draft.md](docs/release-notes-2.3.0-draft.md), and what to
+> depend on afterwards is in [docs/readiness.md](docs/readiness.md). Nothing is tagged,
+> built or published; the package still reports `2.2.0`.
+
 ### Added
+
+- **Delivery documents**: [readiness](docs/readiness.md) (one row per capability, with
+  what would move it), a [release-note draft](docs/release-notes-2.3.0-draft.md) and a
+  [reviewer checklist](docs/reviewer-checklist.md).
+
+#### Earlier in this unreleased cycle
+
+- **`evalseal import`**: reads another tool's export into a sealed receipt. One
+  adapter, promptfoo, written against a real export from **0.125.1**
+  (`results.version: 3`) rather than an invented shape. The receipt binds the export's
+  digest, so `verify --artifacts` can show the retained file still matches what was
+  sealed - and nothing more than that. See
+  [the quickstart](examples/integrations/promptfoo/README.md) and
+  [the field mapping](docs/importers/promptfoo.md), which has a column for what each
+  field does **not** support.
+
+  What it refuses to invent: `origin` is `imported` on every call; `served_model` stays
+  null because promptfoo does not record it; sampling parameters are `unsupported`
+  rather than `inherited`; the export's timestamps are kept as claims. `scorer.impl_hash`
+  stays null, so **an imported receipt is never comparable** - the grading code belongs
+  to another tool. Two imports missing that same field are not thereby comparable, and
+  `diff` refuses explicitly rather than letting two absences hash to one fingerprint.
+
+  Schema 1.9 adds `manifest.imported`, whose `gaps` list names every field the export
+  could not fill.
+
+#### Earlier in this unreleased cycle
+
+- **Four contract documents**, each one a page a reviewer is told to act on:
+  [docs/statistical-contract.md](docs/statistical-contract.md) (estimands, assumptions,
+  coverage, decision rules), [docs/verification-policy.md](docs/verification-policy.md)
+  (five assurance levels, trust roots, fail-closed rules),
+  [docs/compatibility.md](docs/compatibility.md) (package/schema/fingerprint/cassette
+  matrix and the 2.3 upgrade notes) and
+  [docs/operations.md](docs/operations.md) (limits, key handling, recovery, retention,
+  troubleshooting). Every number in the last of those is measured by
+  `scripts/measure_limits.py` on a machine it names, not asserted as an SLA.
+
+- **`evalseal recover`**: moves an interrupted append aside and keeps the complete
+  history. The partial bytes go to a sidecar and are fsynced before the ledger is
+  truncated, under the ledger lock.
+
+- **Bounded transport** (`src/evalseal/transport.py`): `--max-response-bytes` (8 MiB by
+  default) and `--deadline` on `run`, as suite keys too, for provider and
+  timestamp-authority traffic alike.
+
+- **A packaging lane and a minimum-dependency lane.** `scripts/wheel_smoke.py` installs
+  the built wheel outside the repository and exercises the CLI from a clean environment;
+  CI runs it on Linux, macOS and Windows. A second lane pins every declared dependency
+  to exactly its lower bound and runs the suite, so the bounds are claims rather than
+  guesses.
+
+#### Earlier: scoring, attribution and statistics
+
+- **[docs/metrics.md](docs/metrics.md): what every number means.** One row per
+  user-facing metric and verdict, with its unit, denominator, treatment of ties and
+  missing observations, the question it answers and whether higher or lower is better -
+  binary, continuous and unscorable alike. It was written before any of the arithmetic
+  below was changed, and used to review both the implementation and PR #12 rather than
+  assuming either was right. Seven rows disagreed with the code.
+
+- **`evalseal evidence`**: how precisely the repeats you already have pin down each
+  case's behaviour, with the interval, a label saying whether a magnitude may be quoted
+  at all, and how many more repeats a target margin would take. Ported from PR #12 by
+  behaviour - see [docs/pr-12-disposition.md](docs/pr-12-disposition.md) - with three of
+  its defects fixed first. `docs/uncertainty.md` answers the questions it raises.
+
+- **Ungraded observations are counted and gateable.** `results[].unscorable_count`,
+  `aggregate.n_unscorable` and `aggregate.n_observations` (schema 1.8), with
+  `run.max_unscorable`, `run.max_unscorable_fraction` and
+  `run.require_every_case_scored`. All default to off.
+
+- **How many independent draws are behind a number.** `execution.calls[].source_key`
+  (schema 1.8) names the cassette entry that served each call, which is the only
+  evidence that separates two independently recorded draws that happened to agree from
+  one recorded draw counted twice. `evalseal report --json` carries the audit and
+  `run.require_independent_repeats` gates on it; a receipt that cannot answer the
+  question reports `unknown` and fails that rule rather than being assumed independent.
+
+- **`drift.regression_budget_policy`**: `require_evidence_within_budget` passes only
+  when the interval rules out a drop larger than the budget, so an inconclusive
+  comparison fails. The default, `fail_on_evidence_of_regression`, is the old behaviour.
+
+- **`cannot_isolate`**, a first-class `drift` label for when the receipts admit more
+  than one explanation, and `drift.grounds`, which states what the label rests on.
+
+### Fixed
+
+- **The cassette lock never worked on Windows.** `fcntl.flock` locks the whole file;
+  `msvcrt.locking` locks from the **current file position**, and the lock file was
+  opened in append mode — so the second writer locked a byte past the first writer's
+  pid, was granted it, and was served. A second `evalseal run` on one cassette was
+  never refused on that platform, which is the invariant exclusive ownership exists to
+  hold. Both contenders seek to byte 0 now, and the pid hint moved out of the contended
+  byte so nothing has to truncate a file another process holds.
+
+- **`write_private_key` leaked a file descriptor** when `os.fdopen` failed. `fdopen`
+  takes ownership only on success, and on Windows an open file cannot be deleted — so
+  the cleanup that stops a half-written key from surviving failed, and a zero-length key
+  was left behind.
+
+- **Every `cassette_snapshot` artifact reported `changed` on Windows.** A snapshot's
+  digest is taken from the string before it is written, and text-mode writes translate
+  `\n` to `\r\n` there, so the bytes on disk were never the bytes that were hashed.
+
+- **`python -m evalseal.cli`** — offered by the troubleshooting table to anyone whose
+  console script is not on `PATH` — defined `app`, never called it, printed nothing and
+  exited 0. Both it and `python -m evalseal` work now.
+
+- **`typer>=0.12` was declared and never worked.** Typer before 0.19 raises
+  `RuntimeError: Type not yet supported` on this CLI's `Literal` option types, so
+  `pip install evalseal` resolving there produced a package whose commands could not be
+  constructed.
+
+- **A case with no graded repeat rendered as `FFF`** in all three places that render a
+  verdict strip, including the Markdown report that gets pasted into a pull request.
+
+#### Earlier in this unreleased cycle
+
+- **A case with no graded repeat rendered as `FFF`.** The verdict strip fell back to
+  the scores when a case had no verdicts, so three rows the provider errored on read as
+  three graded failures - the opposite of what happened. An ungraded repeat is `-` now.
+
+- **An imported receipt claimed independent draws.** The independence audit counted
+  distinct rows, and promptfoo caches by default without marking per row which were
+  served from cache, so a row count is not a draw count. It reports `unknown` for any
+  import, on the same page that warns caching was on.
+
+- **`evalseal diff` printed that two runs were not comparable without printing why.**
+  The reason was in `--json` only; the human output showed a table of changed hashes.
+  For an import that meant a changed suite digest was shown while the actual answer -
+  the grading code is another tool's and cannot be fingerprinted - went unsaid.
+
+#### Earlier in this unreleased cycle
+
+- **An unbounded response body.** Against a loopback server returning 200 MB of JSON,
+  and the same body gzipped to about 200 KB on the wire:
+
+  ```
+  a 200 MB JSON body  -> accepted 210 MB of content  (peak traced 630 MB)
+  a gzip bomb         -> accepted 210 MB of content  (peak traced 629 MB)
+  ```
+
+  Neither is a plausible chat completion; both are what a captive portal, a
+  misconfigured `--base-url` or a proxy's error page hands you. Bodies are now read in
+  chunks under a limit on **decoded** bytes, and inflated under `zlib`'s own
+  `max_length`, because httpx decodes a whole raw chunk before yielding any of it and at
+  a 1000:1 ratio one 64 KiB read expands to 64 MB — which left the same bomb peaking at
+  270 MB even with the limit in place. It now peaks at 17 MB. The TSA backend read
+  `response.content` the same way, for a token that is a few kilobytes.
+
+- **A grading pattern could outlast the evaluation.** `RegexScorer('^(a+)+$')` took
+  **25.12 s on 31 characters**, doubling with each one after, from a scorer config file
+  that in a pull-request workflow can come from a fork. Nested unbounded quantifiers are
+  refused before anything runs; `patterns.py` states what that does not cover.
+
+- **A private signing key was created world-readable.** `write_bytes` honours the umask,
+  so the file existed at `0644` until the `chmod(0o600)` landed. It is created with
+  `O_CREAT|O_EXCL|O_NOFOLLOW` and mode `0600` now — which also refuses a symlink at the
+  key's path (a **dangling** one passed the old `exists()` check and the key was created
+  at the link's target) and makes creation the existence check, so check-then-write has
+  no window.
+
+- **The public key destination was replaced silently.** A verifier pinned to the old key
+  would see every signature as untrusted with no record of which key changed.
+  `--overwrite-public` is the explicit way to rotate.
+
+- **An interrupted append made the whole ledger unreadable.** One partial final line and
+  `load_all` raised *"line 2 is not valid JSON"*, so `verify`, `gate`, `report`, `diff`
+  and `sign` all failed and none of the intact history could be read.
+  `IncompleteFinalRecord` names the condition, says how many records are fine, and names
+  `evalseal recover`.
+
+- **`sign_head` did not hold the ledger lock.** An append between reading the head and
+  writing the signature left a valid signature over a head that was no longer the head,
+  while the newest record was unsigned and nothing said so. The signature line is also
+  fsynced inside the lock.
+
+- **CI went green on a failed anchor verification.** `anchor-verify`'s exit code was
+  printed in the step summary as "FAILED" and then ignored. The copied workflow now fails
+  for it, and the anchor is created **before** the gate — a pre-registration can require
+  one, and `gate --prereg` can only check a file that exists, so `require_anchor: true`
+  used to fail for an anchor the job was about to create.
+
+- **A configured-but-missing contract was skipped in silence.** `if [ -f "$PREREG" ]`
+  left the gate running without it, so deleting the pre-registration in a pull request
+  removed the contract and the check stayed green. `REQUIRE_PREREG`, `REQUIRE_BASELINE`
+  and `REQUIRE_ANCHOR` decide what is required, checked before the replay.
+
+- **The release did not depend on lint, audit or packaging.** `build` needed only the
+  cross-platform tests, while ruff, mypy and `pip-audit` lived in a workflow a tag push
+  does not wait for.
+
+- **Concurrency had no ceiling.** `"concurrency": 1000` in a suite file would have
+  started a thousand threads and read a thousand bodies at once. Capped at 64, refused
+  with the arithmetic.
+
+#### Earlier: scoring, attribution and statistics
+
+- **A grader that could not read a reply graded it anyway.** `extract_answer` ended with
+  "otherwise, the last number anywhere in the reply", so a refusal that restated the
+  problem scored a PASS:
+
+  ```
+  genuine answer 30      -> extracted '30'  score 1.0
+  refusal, no answer     -> extracted '30'  score 1.0
+  genuine wrong answer   -> extracted '28'  score 0.0
+  ```
+
+  The supported answer format is now declared (`####`, `\boxed{}`, an "answer is"
+  phrase, or the answer alone on the final line, whichever appears **last** in the
+  reply), and anything outside it is unscorable rather than scored on a guess. A reply
+  truncated at the token limit is unscorable too, and `parse_verdict` returns `None`
+  instead of mapping an empty reply, an apology and `ERROR: 503` all to a graded FAIL.
+
+  Precedence by position rather than by marker class **changes the frozen Gemma/Flash
+  comparison**: 49 of its 1500 recorded replies are read differently, and six of gemma's
+  nine "unstable" items were the grader reading a different number out of a reply the
+  model had not changed. `examples/gsm8k_compare/RESULTS.md` carries both readings. The
+  recordings are byte-identical; the pre-registered verdict is still inconclusive.
+
+- **`exact_mcnemar(1000, 1000)` raised `OverflowError: int too large to convert to
+  float`** instead of returning 1.0, taking the gate down with it on any suite with a
+  large number of discordant items each way.
+
+- **Every confidence interval was labelled "95% CI"** whatever `alpha` was in force, so
+  `alpha=0.20` printed an 80% interval as a 95% one.
+
+- **A 0.600 drop against a 0.050 budget passed the gate.** Five items cannot reach
+  significance - the six-item floor - and the rule needed both over-budget *and*
+  significance to fail, so the only state it could distinguish was "evidence of a
+  regression". The three states are now named in the detail, and the strict policy above
+  asks the other question.
+
+- **`judge_variance` was returned whenever the target model *name* matched.** Two runs
+  of one model at temperature 0.0 and 1.0 read as "the target model is unchanged, yet
+  ... came back with a different verdict". A changed sampling parameter, endpoint, API
+  version or system prompt now gives `cannot_isolate`.
+
+- **A continuous scorer's drift was invisible.** `verdict_changed` compared `pass_count`
+  with `fail_count`, both 0 when there are no verdicts, so a run whose mean moved from
+  0.10 to 0.90 reported `stable` - "No drift".
+
+- **`decompose` called a clipped ratio a share of variance.** A judge_only flip rate of
+  0.4 against a full rate of 0.2 was clipped from 2.0 to 1.0 and rendered as "The judge
+  alone reproduces 100% of the suite's mean flip rate", so the one case where the arms
+  contradict the apportioning model was reported as a perfect fit. With the judge
+  flipping on every case and the full arm on none, it printed "Neither arm flipped, so
+  there is no variance here to apportion" - false about the data on its own page.
+
+- **`power` reported a figure for a test `diff` would not run.** It simulated the exact
+  McNemar test over any receipt, including continuous-scored ones that `diff` tests with
+  a paired permutation, and nothing said which metric the power was for.
+
+- **A receipt with no hash was reported as "TAMPER DETECTED".** `RunRecord.hash` is
+  empty until the ledger seals it, so that was a false accusation about a file nobody
+  altered. There is an `unsealed` status now; it still fails, under its own name.
+
+- **The cross-schema drift note said "sealed before schema 1.4"** when the evaluator
+  fingerprint has needed 1.6 since scheme 3, so a pair sealed under 1.5 and 1.5 was told
+  one of them predated 1.4.
+
+- **`target seed` was missing from the config field table** while `config_fingerprint`
+  hashed it, so a changed target seed showed up in `diff` only as "something changed
+  that this summary does not list" and in `drift` not at all - and `drift` decides a
+  cause from exactly those names.
+
+- **`evalseal report` printed the per-case table and nothing else**, so a run whose
+  grader failed on a third of its repeats looked like any other. It now leads with the
+  mean, the counts, the ungraded share, the origin and the draw count, and prints the
+  run's warnings.
+
+#### Earlier: sealing the experiment
+
+- **An input was used at the start of a run and hashed at the end.** Anything that
+  rewrote the file in between - a `git checkout`, an editor save, another job
+  regenerating a dataset - left a receipt describing bytes that produced no score:
+
+  ```
+  prompt actually used  : what the model was asked
+  dataset bytes at start: sha256:99a1baea720ec4631
+  dataset bytes at end  : sha256:15524b82f5e323980
+  digest SEALED in the receipt: sha256:15524b82f5e323980
+    -> sealed the bytes that ran  : False
+    -> sealed bytes nothing ran on: True
+  manifest.dataset.hash : sha256:99a1baea720ec4631 (computed at load)
+  any warning about it  : []
+  validate_record says  : nothing wrong
+  ```
+
+  The receipt held two different digests for one file and said nothing about either, and
+  `verify --artifacts` afterwards reported `ok` - against the file nothing ran on. A
+  check that passes because it is looking at the wrong bytes is worse than no check.
+
+  New `evalseal.inputs` captures each input once: the bytes are read, hashed as read,
+  and used from there. `Dataset.from_bytes` parses the captured bytes (hashing them the
+  way `read_text` did, so a CRLF dataset keeps the digest it has always had), the suite's
+  whole-file and section digests come from one read, and `validate_agent_artifact`
+  accepts the captured bytes so the file that is validated is the file whose digest is
+  sealed. A file that changes while the run is in flight becomes a named warning -
+  `DATASET CHANGED DURING RUN: it is now ...; this run used ...` - plus a note on the
+  artifact; the run keeps the bytes it read, and `verify --artifacts` reports `changed`
+  afterwards, which is the truth. A file that only *appears* mid-run is reported too,
+  and is not adopted: "there was no tool manifest" and "there was one, a moment too late
+  to be the one that applied" are different facts.
+
+- **Two writers on one cassette silently deleted each other's responses.** Every
+  `Cassette` kept the whole entry table in memory and rewrote the whole file after each
+  recorded response, so two writers each erased the other's entries and the last one
+  won:
+
+  ```
+  after writer A : 1 entries
+  after writer B : 1 entries
+  A's entry survived: False
+  A replays       : NO -> No cassette entry for repeat 0 of request 7f24486a3603
+  ```
+
+  Writer A's response was admitted, acknowledged, and then deleted by a process that
+  never knew A existed - and the receipt A sealed could no longer be replayed. A
+  cassette that may write now takes an exclusive advisory lock on `<cassette>.lock`, and
+  a second writer is refused with `CassetteBusy`, the holding pid and what to do
+  instead. Readers take no lock, so a CI job that only replays is never blockable by a
+  recording run. `Cassette` is closeable and usable as a context manager. The decision,
+  and the append-journal and SQLite alternatives it was chosen over, are in
+  [docs/adr/0002-cassette-writer-strategy.md](docs/adr/0002-cassette-writer-strategy.md).
+
+- **A receipt was bound to a cassette that later runs were free to rewrite.** Wrong in
+  both directions at once:
+
+  ```
+  run A sealed cassette : sha256:57106b513ae0af6f6 (3 entries)
+  run A mean            : 1.0
+  run A verifies        : ['ok']
+
+  after an honest append of 2 more repeats:
+  run A verifies        : [('cassette', 'changed')]
+
+  after a `fresh` re-draw on the same path:
+  run A verifies        : [('cassette', 'changed')]
+  replaying run A now   : mean 0.0 (run A's receipt says 1.0 )
+  any immutable copy of run A's responses: ['run.json']
+  ```
+
+  An honest later run turned the earlier receipt red - a check that cries wolf on normal
+  use is a check people switch off - and a `fresh` re-draw destroyed the responses behind
+  it with no copy kept anywhere.
+
+  Each run now **finalizes** the cassette entries it read or wrote into its output
+  directory and binds that file into the receipt as the `cassette_snapshot` artifact. A
+  snapshot is content-addressed, never overwritten, and is itself a cassette:
+  `Cassette(snapshot, mode="replay")` reproduces the run it came from even after the
+  live cassette has been re-drawn. The live cassette stays sealed as a new artifact kind,
+  `mutable`, and `verify --artifacts` reports a mismatch on one as **`moved`** rather
+  than `changed` - but only once the receipt's own snapshot confirms that every response
+  it used is still present and byte-identical. A response that was *replaced* is
+  `changed`, names how many, and still exits non-zero; a receipt with no snapshot (every
+  receipt sealed before this release) reports a mismatch as `changed` exactly as before,
+  because unknown belongs on the stronger side of that distinction.
+
+- **`decompose` reported an unusable cassette as a traceback.** Its two cassettes were
+  constructed *before* the `try` that caught `CassetteFormatError`, so the handler
+  written for that error could never run: an incompatible cassette reached the user as
+  an exception instead of the message. Found while wiring the new `CassetteBusy` through
+  the same path.
+
+- **Two runs in one working directory overwrote each other's `report.json`.** `run` now
+  writes `runs/<timestamp>-<session>/report.json`, `report.md` and the cassette snapshot,
+  one directory per run, named after the `session_id` the receipt carries. `--out-dir`
+  chooses the directory and `--no-snapshot` skips the copy. `./report.json` and
+  `./report.md` are still written as aliases for the latest run, so existing workflows
+  are unaffected.
+
+- **A setting a config asked for could be silently dropped.** `_build_target` read the
+  keys it knew about with `cfg.get(...)` and ignored everything else:
+
+  - `top_p` and `max_tokens` were **never transmitted** for an OpenAI-compatible
+    target. The adapter had no fields for them. A config asking for `top_p: 0.1` ran
+    unconstrained, and the receipt recorded `top_p: null` - which reads as an effective
+    value rather than as "we never set one".
+  - a misspelled key was indistinguishable from a decision. `tempreature: 0.9` beside
+    `temperature: 0.0` was accepted, ignored, and the run used the value that happened
+    to be spelled correctly, with nothing in the output mentioning the other key.
+  - `params_source` was derived from `temperature` alone, so a run that set only
+    `top_p` was reported as inheriting every provider default.
+
+  New `evalseal.config` validates the target and scorer files against models that
+  forbid unknown keys, and the error names the nearest legal key: an unsupported key
+  now reports *"did you mean 'temperature'?"* and lists what is supported. Every field
+  in those schemas is one the adapters actually transmit, and ranges are the provider's
+  own - Anthropic's `temperature` stops at 1.0 where OpenAI's reaches 2.0, and
+  `system` and `seed` belong to the provider that has them rather than to both.
+
+  The judge's `judge_`-prefixed keys are translated into target vocabulary and
+  validated by the same schema, so a judge can no longer accept a key a target would
+  reject. Tests assert that every target and scorer config in this repository still
+  loads, because a schema that rejects the project's own examples is the wrong schema.
+
+- **About half of all timestamp requests encoded a negative nonce.** DER integers are
+  signed, so a value whose top byte has the high bit set needs a leading zero byte.
+  `_integer()` reserved that byte and the next line stripped it off, so `128` encoded
+  as `-128`, `255` as `-1`, and **492 of 1000** random 64-bit nonces as a different,
+  negative number. `build_timestamp_request` draws a random 64-bit nonce, so roughly
+  half of every request EvalSeal ever sent was malformed: a strict authority rejects
+  it, and a lenient one echoes whatever it parsed. Certificate serial numbers are large
+  random integers and hit the same path.
+
+- **The message imprint's algorithm was never read.** Any 32-byte `hashedMessage` was
+  accepted and labelled `sha256:`, whatever the `AlgorithmIdentifier` said. A token
+  declaring SHA-512 beside a 32-byte imprint was accepted and compared against the
+  anchor's SHA-256 digest as though the authority had timestamped it; a genuine SHA-384
+  or SHA-512 token, whose imprint is 48 or 64 bytes, was rejected as "not a readable
+  TSTInfo". The OID now decides the algorithm, the length must be the one that
+  algorithm produces, and an unrecognised OID fails closed naming it.
+
+- **The signer certificate was whichever came first.** `certificates[0]` was assumed to
+  be the signer. The certificate set is a DER `SET OF`, whose order is its sorted
+  encoding rather than signer-first - and the recorded real token embeds **two**
+  certificates, so this was live against the one real authority in the repository. The
+  certificate is now selected by matching the `SignerIdentifier`, by issuer and serial
+  or by subject key identifier.
+
+- **`SignerInfo` was parsed by counting SEQUENCEs.** That works only for the
+  `IssuerAndSerialNumber` form of `sid`. In the equally legal `[0] SubjectKeyIdentifier`
+  form every index shifts and the *signature* algorithm was read as the digest
+  algorithm. It is now parsed positionally per RFC 5652 section 5.3.
+
+- **The `contentType` signed attribute was defined and never compared.** The constant
+  existed in the module and nothing read it, so the signature did not commit to what
+  kind of content it covered; only the unsigned `eContentType` field was checked.
+
+- **No RFC 5035 signing-certificate binding.** `SignerIdentifier` is outside
+  `signedAttrs` and so is not covered by the signature, which means that without this
+  attribute nothing signed says which certificate signed the token. It is now required
+  and its hash must match the certificate the signature was checked against. This gap
+  was found by the new `openssl ts -verify` cross-check, not by any test written here -
+  and the recorded freetsa token already carries the attribute, so requiring it is what
+  a real authority does.
+
+- **Signed attributes had no cardinality.** `attribute()` returned the first match and
+  skipped an attribute carrying several values, so two verifiers could read the same
+  token differently. Exactly one `contentType` and one `messageDigest`, each with one
+  value, or the token fails.
+
+- **Trailing material after the token was ignored**, letting one reader see a token and
+  another see a token plus something else from the same bytes.
+
+- **The request nonce was generated and discarded**, so a response could not be
+  distinguished from a replay of an earlier token for the same digest. `submit` now
+  keeps the nonce and requires it to be echoed, as RFC 3161 section 2.4.2 says it must
+  be. Freshness is claimed only for a submission, never for a token read back from a
+  file, and a test pins that no verification wording implies otherwise.
+
+  [ADR 0001](docs/adr/0001-timestamp-verification-trust-model.md) records the trust
+  model these rest on: one-hop issuer verification rather than path building, no
+  revocation claim because none is checked, verifier-supplied roots only, the supported
+  algorithms, and the parser profile. It also records an open decision - whether to
+  replace the hand-written CMS parser with `asn1crypto` - which needs a maintainer call
+  because it adds a required runtime dependency.
+
+  The demo bundle's synthetic proof and its throwaway CA were regenerated offline,
+  since the old token predates the signing-certificate requirement. Nothing outside
+  `external_proofs` changed, and the anchor's subject digest excludes that field, so
+  the rest of the bundle verifies unchanged.
+
+- **A number that could not be a measurement was read as one.** The receipt models
+  carried no constraints - no bounds, no finiteness, and no check that a summary agreed
+  with the cases it summarises - so invalid data did not fail a gate, it *passed* one:
+
+  - `aggregate.mean_score = 42.0` cleared `--min-score 0.9`. Nothing asked whether a
+    mean score of 42 is a mean score.
+  - `aggregate.n_cases = 999` on a two-case run with `mean_score = 1.0` cleared
+    `--min-score 0.95`, and the chain verified: sealing attests that nobody changed a
+    number afterwards, not that it was ever true.
+  - a non-finite score was serialised as `null`, so the sealed receipt could never be
+    loaded again - the measurement lost and every later command failing on a file that
+    verified as nothing.
+  - duplicate case ids and an empty case set were both accepted.
+
+  JSON contributed two more. A duplicate member is resolved silently in favour of the
+  last one, so a policy committed as `{"run": {"min_score": 0.9, "min_score": 0.0}}`
+  was reviewed as `0.9` and enforced as `0.0` - no tampering and no broken hash
+  required, because nothing hashes a policy file. And Python's `json` accepts `NaN`,
+  `Infinity` and `-Infinity`, which are not JSON, and against which every comparison is
+  false, so such a value clears any threshold it is tested against.
+
+  New `evalseal.validation`:
+
+  - `strict_json_loads()` refuses duplicate members and non-finite literals. Used by
+    the policy loader, the pre-registration loader and `load_all`.
+  - `validate_record()` returns a named `Problem` per invariant that does not hold:
+    score, mean, flip-rate and interval bounds and finiteness, intervals the right way
+    round, case means matching their scores, verdict counts matching the verdicts,
+    a non-empty case set, distinct case ids, `n_cases` matching the cases,
+    stability counts adding up, and the summary mean matching the case means.
+  - `require_valid()` is called by `seal_and_append` *before* the lock, so an invalid
+    record is never sealed.
+  - `gate` reports `ledger.data_invariants`, kept separate from
+    `ledger.record_verified` because the hash matching and the numbers being possible
+    are different claims.
+  - A malformed ledger is now an input error with the documented exit code and no
+    traceback. `verify` used to let pydantic's `ValidationError` reach the user.
+
+  Policy thresholds were already guarded - `ge=0.0, le=1.0` rejects `NaN`, `Infinity`
+  and `42.0`, and `extra="forbid"` rejects a typo - and tests now pin that so it cannot
+  be removed quietly.
+
+- **A field the sealing schema did not have could be injected and read as sealed
+  evidence.** A record sealed under an older schema is re-hashed with the fields that
+  schema lacked stripped out, which is what keeps an old ledger verifiable. The same
+  strip leaves those fields *unsealed*: they are absent from the bytes the hash commits
+  to, so any value may be written into them without disturbing it.
+
+  Writing `manifest.suite = {"hash": <forged>}` into a genuine 1.1 receipt left
+  `check_record_hash` returning `("legacy", "1.1")`, `verify` printing *"Chain
+  intact"*, and a pre-registration pinning that digest reporting **"suite digest
+  matches"** - on a digest that was never sealed.
+
+  Two related defects made it worse:
+
+  - `_schema_tuple` returned `(0,)` for any version it could not parse, so a record
+    claiming `schema_version: "nonsense"` was treated as predating every field and had
+    the **whole** strip table applied before hashing: `manifest.suite`,
+    `manifest.code`, `manifest.environment`, `manifest.artifacts`,
+    `results[].verdicts`, `results[].pass_count` and `results[].stability_label` all
+    injectable at once, with the chain still reported intact.
+  - Support for a claimed schema was checked only as a *fallback*, after the hashes
+    were compared, so a record claiming a version this build does not understand could
+    still come back verified. `9.9` was reported as `("ok", "1.5")` - asserting it was
+    sealed under today's schema.
+
+  Fixed by quarantine rather than rejection, so old receipts keep working:
+
+  - `ledger.quarantine_unsealed()` removes the fields the sealing schema did not cover
+    and names what it removed. A genuine old receipt is untouched, because those
+    fields are already at their defaults; a receipt with a value written into one comes
+    back without it. The record still verifies - quarantine is not an accusation.
+  - `verification.load_verified()` is the loading path for anything that decides
+    something: it verifies the chain, establishes each record's sealing schema,
+    quarantines unsealed fields before anything reads them, and reports per record.
+    `gate` now loads through it, and adds two named checks, `ledger.record_verified`
+    and `ledger.unsealed_fields`. The gate previously read `load_all` and verified the
+    chain *after* every check had already used the record.
+  - `schema_is_supported()` and `SUPPORTED_SCHEMAS` reject a version that is
+    unparseable or newer than this build, before any hash is compared. Unknown in
+    either direction is unsupported: a newer schema may have added fields this build
+    cannot see, or changed what an existing one means - 1.3 added no field and only
+    changed the meaning of `scorer.judge_prompt_hash`, so a format change need not be
+    visible in the data at all.
+  - `verify` now says when a record that verified carries unsealed fields. "Chain
+    intact" was true and not the whole truth.
+
+  Genuine 1.0 through 1.5 ledgers still verify, and a record whose schema label was
+  changed without rewriting its content is still reported as such rather than as
+  tampering.
+
+- **`require_external_anchor` was satisfied by any non-empty list.** The strongest
+  clause a contract can declare was evaluated as `bool(anchor["external_proofs"])`,
+  which made it the easiest clause in the contract to satisfy. On the previous release
+  all of these passed it:
+
+  ```json
+  [{"backend": "local", "proof": null}]   // the backend that attests nothing
+  [{}]                                     // an empty object
+  [{"backend": "notarius-maximus"}]        // a backend that does not exist
+  ["no"]                                   // the string "no"
+  ```
+
+  Only a completely empty list failed, so any producer could satisfy a requirement for
+  third-party attestation by writing one character into an anchor they wrote themselves.
+
+  Reading the backend's `check()` instead would have produced a quieter false green:
+  it returns `True` for an imprint-only token, because it answers "could this be
+  re-checked at all?". A token whose signature was never verified - because the verifier
+  supplied no trust root - is "ok" to that boolean. `Rfc3161Backend.verify()` now
+  returns the state and `check()` wraps it, with its own boolean semantics unchanged.
+
+  External evidence is now an `ExternalEvidence` result with five states, of which one
+  satisfies the requirement:
+
+  | state | satisfies it |
+  |---|---|
+  | `verified` - an approved backend checked the proof against a root the **verifier** supplied | yes |
+  | `imprint_only` - the imprint matches; the signature was not checked | no |
+  | `unsupported` - an unknown backend, a malformed entry, or `local`, which attests nothing | no |
+  | `missing` - no external proof at all | no |
+  | `failed` - checked, and it did not hold | no |
+
+  A verified proof must also come from an approved backend: `rfc3161` by default,
+  replaceable with `gate --approved-backend NAME`. `local` is never accepted even when
+  named, because external evidence rests on someone other than the party being audited.
+  A proof that **failed** is not routed around - an anchor carrying one verified and one
+  failed proof fails the requirement, since a token that does not verify is evidence of
+  tampering or of a proof copied from another anchor. Proofs are checked against the
+  subject digest **recomputed** from the anchor, never the `subject_digest` field it
+  carries, which differ exactly when the anchor was edited after being stamped.
+
+  `gate` gains `--tsa-ca` so the requirement can actually be met, and
+  `--approved-backend`. A requirement the gate could not evaluate - `--require-external-anchor`
+  with no `--anchor` - reports `not checked` and fails.
+
+  `AnchorState.has_external_proof` is **removed** rather than deprecated: while the
+  field existed, the cheapest way to answer the clause was to read a boolean a producer
+  could set. Callers pass `check_preregistration(..., external=...)` instead.
+
+- **A trust root supplied for one verification stayed configured for the whole process.**
+  `verify --tsa-ca` applied the root with `register_backend()`, which mutates a
+  module-global registry. In a CLI that exits immediately this is invisible; in a test
+  suite, or any program verifying more than one anchor, a root supplied for one
+  verification silently decided the next one's result, and a proof could appear verified
+  against a root its verifier never chose. `anchor.temporary_backends()` scopes a
+  registration to a block and restores the registry, and the gate's own path constructs
+  a configured backend per call without touching the registry at all.
+
+- **`require_signature` was declared and never read.** A pre-registration could set it,
+  `examples/prereg.json` shipped it, and `gate --prereg` passed an **unsigned** receipt
+  silently - no signature clause appeared in the output at all. It was reachable only
+  by hand-editing JSON, which is how a setting ends up declared and unread. This is the
+  failure `policy.py` opens by naming: a threshold that quietly does nothing is worse
+  than no threshold, because the build going green is read as evidence.
+
+  Wiring it to `verify_signatures()` and reading the boolean would have replaced one
+  false green with a subtler one, so `verification.py` now returns a typed outcome and
+  the clause reports four claims separately:
+
+  - **presence** - a sidecar with at least one entry
+  - **validity** - the signature verifies **and** the record still matches the hash
+    that was signed. Comparing the signature against the record's stored `hash` field
+    only compares two copies of the same number: edit a score, leave the field, and the
+    signature would still "cover" it. The content is re-hashed.
+  - **coverage** - a valid signature over *this* receipt. `sign` signs the ledger head,
+    so signing and then appending leaves the new receipt uncovered while
+    `verify --signed` still correctly reports "records 0-0 of 2 are signed" and exits 0.
+    A gate reading that boolean would pass a receipt nobody signed.
+  - **identity** - the signer is one the **verifier** trusts, via `--trusted-key`
+    (repeatable, for rotation) or `trusted_public_keys`. The flag wins, because trust
+    should not be decided by the file being verified. With none declared the clause says
+    *"identity not checked"* rather than implying a trusted signer.
+
+  Unsupported algorithms, malformed signatures, a missing sidecar, an unreadable ledger
+  and a rewritten ledger each fail closed with their own message. A requirement the gate
+  could not evaluate fails rather than skips.
+
+#### Earlier: signing requirements
+
+- **`evalseal preregister --require-signature` and `--trusted-key`**, and
+  `gate --trusted-key`. The requirement had no CLI surface at all.
+
+#### Earlier still
 
 - **RFC 3161 signature validation.** `evalseal anchor-verify --tsa-ca issuer.pem` now
   checks a timestamp token's signature over the re-tagged `signedAttrs`, the

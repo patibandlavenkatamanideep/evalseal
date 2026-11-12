@@ -1,0 +1,2165 @@
+{
+  "evalId": "eval-hrl-2026-11-12T10:56:48",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-11-12T10:56:48.960Z",
+    "prompts": [
+      {
+        "id": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "raw": "Answer with a number only. {{question}}",
+        "label": "Answer with a number only. {{question}}",
+        "provider": "deterministic-local",
+        "metrics": {
+          "score": 6,
+          "testPassCount": 6,
+          "testFailCount": 6,
+          "testErrorCount": 3,
+          "testCacheHitCount": 0,
+          "assertPassCount": 9,
+          "assertFailCount": 6,
+          "totalLatencyMs": 13,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 15,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "namedScoreWeights": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "equals",
+                "value": "4"
+              }
+            }
+          ]
+        },
+        "id": "293c3d58-d034-44e8-8d74-66b29b870eb7",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is 2 + 2?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-0-vars-0",
+        "repeatIndex": 0,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "4",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "addition",
+          "vars": {
+            "question": "What is 2 + 2?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "4"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is 2 + 2?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "equals",
+                "value": "4"
+              }
+            }
+          ]
+        },
+        "id": "97d7666d-833c-4288-bc35-9a94deb8c13f",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is 2 + 2?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-0-vars-0",
+        "repeatIndex": 1,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "4",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "addition",
+          "vars": {
+            "question": "What is 2 + 2?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "4"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is 2 + 2?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "equals",
+                "value": "4"
+              }
+            }
+          ]
+        },
+        "id": "4e3eafdf-6228-4b1d-8464-89b7f060674e",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is 2 + 2?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-0-vars-0",
+        "repeatIndex": 2,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "4",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "addition",
+          "vars": {
+            "question": "What is 2 + 2?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "4"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 2,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is 2 + 2?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "error": "Expected output \"2.5\" to equal \"2\"",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Expected output \"2.5\" to equal \"2\"",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output \"2.5\" to equal \"2\"",
+              "assertion": {
+                "type": "equals",
+                "value": "2"
+              }
+            }
+          ]
+        },
+        "id": "e854eb2e-af68-4d65-9e56-c07ddad7546c",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is 10 divided by 4?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-1-vars-0",
+        "repeatIndex": 0,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "2.5",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "division with a non-integer result",
+          "vars": {
+            "question": "What is 10 divided by 4?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "2"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 3,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is 10 divided by 4?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Expected output \"2.5\" to equal \"2\"",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Expected output \"2.5\" to equal \"2\"",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output \"2.5\" to equal \"2\"",
+              "assertion": {
+                "type": "equals",
+                "value": "2"
+              }
+            }
+          ]
+        },
+        "id": "db73f29e-2b7e-4051-a6c3-a012ced96410",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is 10 divided by 4?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-1-vars-0",
+        "repeatIndex": 1,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "2.5",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "division with a non-integer result",
+          "vars": {
+            "question": "What is 10 divided by 4?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "2"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 4,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is 10 divided by 4?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Expected output \"2.5\" to equal \"2\"",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Expected output \"2.5\" to equal \"2\"",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output \"2.5\" to equal \"2\"",
+              "assertion": {
+                "type": "equals",
+                "value": "2"
+              }
+            }
+          ]
+        },
+        "id": "51b51ca8-dc18-4661-8ec6-6f5efb59219e",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is 10 divided by 4?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-1-vars-0",
+        "repeatIndex": 2,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "2.5",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "division with a non-integer result",
+          "vars": {
+            "question": "What is 10 divided by 4?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "2"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 5,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is 10 divided by 4?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Expected output \"7\" to equal \"6\"",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Expected output \"7\" to equal \"6\"",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output \"7\" to equal \"6\"",
+              "assertion": {
+                "type": "equals",
+                "value": "6"
+              }
+            }
+          ]
+        },
+        "id": "e9f9df35-5104-4dec-aa11-788cb3c64bb9",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. How many sides does a hexagon have?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-2-vars-0",
+        "repeatIndex": 0,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "7",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "a question the provider answers wrongly",
+          "vars": {
+            "question": "How many sides does a hexagon have?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "6"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 6,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "How many sides does a hexagon have?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Expected output \"7\" to equal \"6\"",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Expected output \"7\" to equal \"6\"",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output \"7\" to equal \"6\"",
+              "assertion": {
+                "type": "equals",
+                "value": "6"
+              }
+            }
+          ]
+        },
+        "id": "10bea59d-b44e-49ac-beb4-7c4db6c9a4af",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. How many sides does a hexagon have?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-2-vars-0",
+        "repeatIndex": 1,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "7",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "a question the provider answers wrongly",
+          "vars": {
+            "question": "How many sides does a hexagon have?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "6"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 7,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "How many sides does a hexagon have?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Expected output \"7\" to equal \"6\"",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Expected output \"7\" to equal \"6\"",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output \"7\" to equal \"6\"",
+              "assertion": {
+                "type": "equals",
+                "value": "6"
+              }
+            }
+          ]
+        },
+        "id": "67179c84-39ee-486b-842a-aebadd9ddb71",
+        "latencyMs": 2,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. How many sides does a hexagon have?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-2-vars-0",
+        "repeatIndex": 2,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "7",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "a question the provider answers wrongly",
+          "vars": {
+            "question": "How many sides does a hexagon have?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "6"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 8,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "How many sides does a hexagon have?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "equals",
+                "value": "12"
+              }
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "output.length === 2"
+              }
+            }
+          ]
+        },
+        "id": "8a16ef13-ef5b-4137-93d9-5e326290f8f5",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is the square root of 144?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-3-vars-0",
+        "repeatIndex": 0,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "12",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "two assertions on one case",
+          "vars": {
+            "question": "What is the square root of 144?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "12"
+            },
+            {
+              "type": "javascript",
+              "value": "output.length === 2"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 9,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is the square root of 144?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "equals",
+                "value": "12"
+              }
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "output.length === 2"
+              }
+            }
+          ]
+        },
+        "id": "d718b89e-41ec-4eb5-90f9-fddee57b6816",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is the square root of 144?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-3-vars-0",
+        "repeatIndex": 1,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "12",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "two assertions on one case",
+          "vars": {
+            "question": "What is the square root of 144?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "12"
+            },
+            {
+              "type": "javascript",
+              "value": "output.length === 2"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 10,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is the square root of 144?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "equals",
+                "value": "12"
+              }
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "output.length === 2"
+              }
+            }
+          ]
+        },
+        "id": "01131b8c-97a4-4f40-93d6-1dcde76b0b66",
+        "latencyMs": 0,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. What is the square root of 144?",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-3-vars-0",
+        "repeatIndex": 2,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "output": "12",
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "two assertions on one case",
+          "vars": {
+            "question": "What is the square root of 144?"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "12"
+            },
+            {
+              "type": "javascript",
+              "value": "output.length === 2"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 11,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "What is the square root of 144?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "error": "deterministic provider: no answer configured for this question",
+        "gradingResult": null,
+        "id": "ec4cfda6-7e70-40c9-b9e2-bf7b03a7bd10",
+        "latencyMs": 1,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. UNANSWERABLE by this provider",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-4-vars-0",
+        "repeatIndex": 0,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "error": "deterministic provider: no answer configured for this question"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "a case the provider errors on",
+          "vars": {
+            "question": "UNANSWERABLE by this provider"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "anything"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 12,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "UNANSWERABLE by this provider"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "deterministic provider: no answer configured for this question",
+        "gradingResult": null,
+        "id": "50ee6e20-6415-4c0a-94e3-607a3a363ef7",
+        "latencyMs": 0,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. UNANSWERABLE by this provider",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-4-vars-0",
+        "repeatIndex": 1,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "error": "deterministic provider: no answer configured for this question"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "a case the provider errors on",
+          "vars": {
+            "question": "UNANSWERABLE by this provider"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "anything"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 13,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "UNANSWERABLE by this provider"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "deterministic provider: no answer configured for this question",
+        "gradingResult": null,
+        "id": "bab3dee8-33b0-4231-be31-d9824808d232",
+        "latencyMs": 0,
+        "namedScores": {},
+        "prompt": {
+          "raw": "Answer with a number only. UNANSWERABLE by this provider",
+          "label": "Answer with a number only. {{question}}",
+          "config": {
+            "provider": "file://provider.js"
+          }
+        },
+        "promptId": "6ad7abdf4fad23e66f656351a858019d7e095418944345c81c4e3fd7672ab455",
+        "promptIdx": 0,
+        "repeatGroupId": "test-4-vars-0",
+        "repeatIndex": 2,
+        "provider": {
+          "id": "deterministic-local:fixture-v1",
+          "label": "deterministic-local"
+        },
+        "response": {
+          "error": "deterministic provider: no answer configured for this question"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "a case the provider errors on",
+          "vars": {
+            "question": "UNANSWERABLE by this provider"
+          },
+          "assert": [
+            {
+              "type": "equals",
+              "value": "anything"
+            }
+          ],
+          "options": {
+            "provider": "file://provider.js"
+          },
+          "metadata": {}
+        },
+        "testIdx": 14,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "question": "UNANSWERABLE by this provider"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 2
+      }
+    ],
+    "stats": {
+      "successes": 6,
+      "failures": 6,
+      "errors": 3,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 15,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          }
+        }
+      },
+      "durationMs": 34,
+      "evaluationDurationMs": 34
+    },
+    "repeatStability": {
+      "totalGroups": 5,
+      "unstableGroups": 0,
+      "groupsWithErrors": 1,
+      "cachedResults": 0,
+      "groups": [
+        {
+          "repeatGroupId": "test-0-vars-0",
+          "promptIdx": 0,
+          "provider": {
+            "id": "deterministic-local:fixture-v1",
+            "label": "deterministic-local"
+          },
+          "description": "addition",
+          "promptLabel": "Answer with a number only. {{question}}",
+          "repetitions": 3,
+          "passed": 3,
+          "failed": 0,
+          "errors": 0,
+          "cached": 0,
+          "unstable": false,
+          "passRate": 1,
+          "passRateConfidenceInterval": {
+            "confidenceLevel": 0.95,
+            "lower": 0.43850296824495455,
+            "upper": 1
+          }
+        },
+        {
+          "repeatGroupId": "test-1-vars-0",
+          "promptIdx": 0,
+          "provider": {
+            "id": "deterministic-local:fixture-v1",
+            "label": "deterministic-local"
+          },
+          "description": "division with a non-integer result",
+          "promptLabel": "Answer with a number only. {{question}}",
+          "repetitions": 3,
+          "passed": 0,
+          "failed": 3,
+          "errors": 0,
+          "cached": 0,
+          "unstable": false,
+          "passRate": 0,
+          "passRateConfidenceInterval": {
+            "confidenceLevel": 0.95,
+            "lower": 0,
+            "upper": 0.5614970317550455
+          }
+        },
+        {
+          "repeatGroupId": "test-2-vars-0",
+          "promptIdx": 0,
+          "provider": {
+            "id": "deterministic-local:fixture-v1",
+            "label": "deterministic-local"
+          },
+          "description": "a question the provider answers wrongly",
+          "promptLabel": "Answer with a number only. {{question}}",
+          "repetitions": 3,
+          "passed": 0,
+          "failed": 3,
+          "errors": 0,
+          "cached": 0,
+          "unstable": false,
+          "passRate": 0,
+          "passRateConfidenceInterval": {
+            "confidenceLevel": 0.95,
+            "lower": 0,
+            "upper": 0.5614970317550455
+          }
+        },
+        {
+          "repeatGroupId": "test-3-vars-0",
+          "promptIdx": 0,
+          "provider": {
+            "id": "deterministic-local:fixture-v1",
+            "label": "deterministic-local"
+          },
+          "description": "two assertions on one case",
+          "promptLabel": "Answer with a number only. {{question}}",
+          "repetitions": 3,
+          "passed": 3,
+          "failed": 0,
+          "errors": 0,
+          "cached": 0,
+          "unstable": false,
+          "passRate": 1,
+          "passRateConfidenceInterval": {
+            "confidenceLevel": 0.95,
+            "lower": 0.43850296824495455,
+            "upper": 1
+          }
+        },
+        {
+          "repeatGroupId": "test-4-vars-0",
+          "promptIdx": 0,
+          "provider": {
+            "id": "deterministic-local:fixture-v1",
+            "label": "deterministic-local"
+          },
+          "description": "a case the provider errors on",
+          "promptLabel": "Answer with a number only. {{question}}",
+          "repetitions": 3,
+          "passed": 0,
+          "failed": 0,
+          "errors": 3,
+          "cached": 0,
+          "unstable": false
+        }
+      ]
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "EvalSeal import fixture - arithmetic, stricter grading",
+    "prompts": [
+      "Answer with a number only. {{question}}"
+    ],
+    "providers": [
+      {
+        "id": "file://provider.js",
+        "label": "deterministic-local"
+      }
+    ],
+    "tests": [
+      {
+        "description": "addition",
+        "vars": {
+          "question": "What is 2 + 2?"
+        },
+        "assert": [
+          {
+            "type": "equals",
+            "value": "4"
+          }
+        ]
+      },
+      {
+        "description": "division with a non-integer result",
+        "vars": {
+          "question": "What is 10 divided by 4?"
+        },
+        "assert": [
+          {
+            "type": "equals",
+            "value": "2"
+          }
+        ]
+      },
+      {
+        "description": "a question the provider answers wrongly",
+        "vars": {
+          "question": "How many sides does a hexagon have?"
+        },
+        "assert": [
+          {
+            "type": "equals",
+            "value": "6"
+          }
+        ]
+      },
+      {
+        "description": "two assertions on one case",
+        "vars": {
+          "question": "What is the square root of 144?"
+        },
+        "assert": [
+          {
+            "type": "equals",
+            "value": "12"
+          },
+          {
+            "type": "javascript",
+            "value": "output.length === 2"
+          }
+        ]
+      },
+      {
+        "description": "a case the provider errors on",
+        "vars": {
+          "question": "UNANSWERABLE by this provider"
+        },
+        "assert": [
+          {
+            "type": "equals",
+            "value": "anything"
+          }
+        ]
+      }
+    ],
+    "env": {},
+    "outputPath": [
+      "export-strict.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {},
+    "defaultTest": {
+      "options": {
+        "provider": "file://provider.js"
+      },
+      "vars": {},
+      "assert": [],
+      "metadata": {}
+    },
+    "basePath": "/private/tmp/claude-501/-Users-manideep-Desktop-Projects-EvalSeal/c6cdd067-e90d-4f89-9660-49239ee41d84/scratchpad/promptfoo"
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.125.1",
+    "nodeVersion": "v25.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "exportedAt": "2026-11-12T10:56:49.013Z",
+    "evaluationCreatedAt": "2026-11-12T10:56:48.960Z"
+  },
+  "vars": [
+    "question"
+  ],
+  "runtimeOptions": {
+    "eventSource": "cli",
+    "showProgressBar": false,
+    "repeat": 3,
+    "maxConcurrency": 4,
+    "cache": true
+  }
+}

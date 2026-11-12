@@ -4,6 +4,8 @@ import contextlib
 import json
 import os
 import sys
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -14,7 +16,7 @@ from rich.markup import escape as rich_escape
 from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
 from .adapters.dataset import Dataset
-from .adapters.recording import Cassette, CassetteFormatError
+from .adapters.recording import Cassette, CassetteBusy, CassetteFormatError
 from .adapters.scorer import (
     AnswerMatchScorer,
     ExactMatchScorer,
@@ -30,31 +32,55 @@ from .anchor import (
     build_anchor,
     check_artifacts,
     register_backend,
+    temporary_backends,
     verify_anchor,
     write_anchor,
+)
+from .config import (
+    AnthropicTargetConfig,
+    ConfigError,
+    judge_config,
+    load_scorer_config,
+    load_target_config,
 )
 from .decompose import decompose as run_decompose
 from .decompose import render as render_decomposition
 from .diffing import ReceiptError, diff_records, load_receipt, mean_flip_rate
 from .drift import analyze_drift
 from .drift import render as render_drift
-from .executor import run_eval
+from .evidence import CAVEAT as EVIDENCE_CAVEAT
+from .evidence import (
+    DEFAULT_CONFIDENCE,
+    DEFAULT_TARGET_MARGIN,
+    CaseEvidence,
+    analyze_evidence,
+)
+from .evidence import render as render_evidence
+from .executor import MAX_CONCURRENCY, run_eval
 from .htmlreport import write_diff_html, write_html
+from .importers.base import ImportRefused
+from .importers.promptfoo import import_export as import_promptfoo
+from .independence import audit_independence
+from .inputs import InputSnapshot, capture_all
 from .ledger import (
     LEDGER_PATH,
     config_fingerprint,
     evaluator_fingerprint,
     explain_fingerprint_mismatch,
+    incomplete_tail,
     last_hash,
     load_all,
+    recover_incomplete_tail,
     seal_and_append,
     verify_chain,
 )
 from .models import FailOn, RunRecord, SuiteProvenance
-from .policy import PolicyError, evaluate, load_policy
+from .policy import Check, PolicyError, evaluate, load_policy
 from .power import (
     BERNOULLI,
     DETERMINISTIC,
+    METRIC,
+    NotBinary,
     analytic_deterministic_items,
     estimate,
     estimate_from_record,
@@ -69,10 +95,12 @@ from .prereg import (
     check_preregistration,
     load_preregistration,
 )
-from .provenance import file_hash, text_hash
+from .provenance import text_hash
 from .report import (
     case_rows,
     failing_cases,
+    independence_line,
+    origin_line,
     render_diff,
     to_case_table,
     to_markdown,
@@ -88,6 +116,17 @@ from .signing import (
     signatures_path,
     verify_signatures,
 )
+from .transport import MAX_RESPONSE_BYTES
+from .validation import InvalidInput
+from .verification import (
+    DEFAULT_APPROVED_BACKENDS,
+    ExternalEvidence,
+    ExternalTrust,
+    load_verified,
+    verify_external_evidence,
+    verify_receipt_signature,
+)
+from .verification import FAILED as EXTERNAL_FAILED
 
 # Distinct from 1 (uncaught error) and 2 (usage error) so CI can tell
 # "the eval is unstable" apart from "the tool broke".
@@ -173,6 +212,7 @@ def _main(
 _FLAT_SUITE_KEYS = {
     "dataset", "target", "scorer", "n_repeats", "concurrency", "cassette",
     "fail_on", "max_retries", "timeout", "ledger", "junit_xml", "sign_key",
+    "max_response_bytes", "deadline",
 }
 _PATH_KEYS = ("dataset", "target", "scorer", "cassette", "ledger", "junit_xml", "sign_key")
 
@@ -185,7 +225,7 @@ _V2_KEYS: dict[str, set[str]] = {
     "dataset": {"path"},
     "cases": {"only"},
     "run": {"n_repeats", "concurrency", "cassette", "fail_on", "max_retries", "timeout",
-            "ledger", "junit_xml", "sign_key"},
+            "ledger", "junit_xml", "sign_key", "max_response_bytes", "deadline"},
     "policy": {"file"},
 }
 
@@ -266,7 +306,8 @@ def _load_suite(path: Path | None) -> dict:
     return suite
 
 
-def _suite_section_hashes(path: Path | None) -> dict[str, str | None]:
+def _suite_section_hashes(path: Path | None,
+                          data: bytes | None = None) -> dict[str, str | None]:
     """Digest the evaluator and target sections separately.
 
     Why separate: the whole-file suite hash cannot go into the evaluator fingerprint,
@@ -281,11 +322,18 @@ def _suite_section_hashes(path: Path | None) -> dict[str, str | None]:
     anything new. See docs/suite-format.md.
     """
     out: dict[str, str | None] = {"evaluator_hash": None, "target_hash": None}
-    if path is None:
-        return out
+    # `data` when the caller has already read the file, so the sections hashed here and
+    # the whole-file digest in the receipt come from one read of it.
+    if data is None:
+        if path is None:
+            return out
+        try:
+            data = path.read_bytes()
+        except OSError:
+            return out
     try:
-        suite = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        suite = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
         return out
     if not isinstance(suite, dict) or suite.get("version") != 2:
         return out          # the flat format has no sections to hash apart
@@ -330,14 +378,21 @@ def _parse_artifacts(pairs: list[str]) -> dict[str, str]:
         if role in out:
             raise typer.BadParameter(f"--artifact role {role!r} given twice")
         out[role] = path
+    return out
 
-    # Fail closed on a malformed agent artifact, for the same reason an `external`
-    # artifact fails closed: a digest over a broken file produces a receipt that
-    # verifies perfectly and describes an environment nobody can reconstruct.
+
+def _check_agent_artifacts(captured: dict[str, InputSnapshot]) -> None:
+    """Fail closed on a malformed agent artifact, judging the bytes that were read.
+
+    Same reason an `external` artifact fails closed: a digest over a broken file
+    produces a receipt that verifies perfectly and describes an environment nobody can
+    reconstruct. The bytes come from the capture rather than from a second read of the
+    file, so the file this validates is the file whose digest is sealed.
+    """
     problems = [
-        (role, problem)
-        for role, path in out.items()
-        for problem in validate_agent_artifact(role, path)
+        (snapshot.role, problem)
+        for snapshot in captured.values()
+        for problem in validate_agent_artifact(snapshot.role, snapshot.path, snapshot.data)
     ]
     if problems:
         listed = "\n".join(f"  {role}: {problem}" for role, problem in problems)
@@ -345,62 +400,94 @@ def _parse_artifacts(pairs: list[str]) -> dict[str, str]:
             f"{len(problems)} problem(s) in the agent artifact(s) you are sealing:\n"
             f"{listed}\nThe schema is in docs/agent-eval-receipts.md. EvalSeal checks "
             "the shape of these files, not whether the agent really made these calls.")
-    return out
 
 
 def _build_target(
     cfg: dict, cassette: Cassette, max_retries: int, timeout: float,
-    prefix: str = "",
+    prefix: str = "", max_bytes: int = MAX_RESPONSE_BYTES,
+    deadline: float | None = None,
 ) -> AnthropicTarget | OpenAICompatibleTarget:
-    """Build a target from config. `provider` picks the wire format, defaulting to the
-    OpenAI-compatible one so every existing config and suite file keeps working.
+    """Build a target from config, rejecting anything this build would not transmit.
+
+    The config is validated by `config.py` first. It used to be read key by key with
+    `cfg.get(...)`, which meant `top_p` and `max_tokens` were silently dropped for an
+    OpenAI-compatible target, and a misspelled key was indistinguishable from a
+    decision not to set it.
 
     `prefix` lets the judge reuse this with its own `judge_*` keys, so a judge is
     configured exactly like a target rather than through a second, smaller vocabulary.
     """
-    provider = cfg.get(f"{prefix}provider", cfg.get("provider", "openai"))
-    model = cfg[f"{prefix}model"]
+    if prefix:
+        # The judge's keys are translated into target vocabulary, so one schema
+        # governs both and the judge cannot accept a key a target would reject.
+        try:
+            scorer = load_scorer_config(cfg, what="the scorer config")
+        except ConfigError as e:
+            raise typer.BadParameter(str(e)) from None
+        cfg = judge_config(scorer)
 
-    if provider == "anthropic":
+    try:
+        validated = load_target_config(
+            cfg, what="the judge config" if prefix else "the target config")
+    except ConfigError as e:
+        raise typer.BadParameter(str(e)) from None
+
+    if isinstance(validated, AnthropicTargetConfig):
         return AnthropicTarget(
-            model=model,
+            model=validated.model,
             cassette=cassette,
-            base_url=cfg.get("base_url", "https://api.anthropic.com/v1"),
-            max_tokens=cfg.get(f"{prefix}max_tokens", cfg.get("max_tokens", 1024)),
-            temperature=cfg.get(f"{prefix}temperature"),
-            top_p=cfg.get(f"{prefix}top_p"),
-            system=cfg.get("system"),
-            api_key_env=cfg.get("api_key_env", "ANTHROPIC_API_KEY"),
+            base_url=validated.base_url,
+            max_tokens=validated.max_tokens,
+            temperature=validated.temperature,
+            top_p=validated.top_p,
+            system=validated.system,
+            api_key_env=validated.api_key_env,
             max_retries=max_retries,
             timeout=timeout,
-        )
-    if provider != "openai":
-        raise typer.BadParameter(
-            f"unknown provider {provider!r}; expected 'openai' or 'anthropic'"
+            max_response_bytes=max_bytes,
+            deadline=deadline,
         )
     return OpenAICompatibleTarget(
-        model=model,
+        model=validated.model,
         cassette=cassette,
-        base_url=cfg.get("base_url", "https://api.openai.com/v1"),
-        temperature=cfg.get(f"{prefix}temperature"),  # omit to surface the "unset" warning
-        seed=cfg.get(f"{prefix}seed"),
-        api_key_env=cfg.get("api_key_env", "EVALSEAL_API_KEY"),
+        base_url=validated.base_url,
+        temperature=validated.temperature,  # omit to surface the "unset" warning
+        top_p=validated.top_p,
+        max_tokens=validated.max_tokens,
+        seed=validated.seed,
+        system=validated.system,
+        api_key_env=validated.api_key_env,
         max_retries=max_retries,
         timeout=timeout,
+        max_response_bytes=max_bytes,
+        deadline=deadline,
     )
 
 
-def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: float):
-    if cfg["type"] == "exact":
+def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: float,
+                  max_bytes: int = MAX_RESPONSE_BYTES, deadline: float | None = None):
+    """Build a scorer from config, rejecting keys this build does not read."""
+    try:
+        validated = load_scorer_config(cfg)
+    except ConfigError as e:
+        raise typer.BadParameter(str(e)) from None
+
+    if validated.type == "exact":
         return ExactMatchScorer()
-    if cfg["type"] == "regex":
-        return RegexScorer(pattern=cfg["pattern"])
-    if cfg["type"] == "answer_match":
-        return AnswerMatchScorer(tolerance=cfg.get("tolerance", 1e-6))
-    if cfg["type"] == "llm_judge":
-        judge = _build_target(cfg, cassette, max_retries, timeout, prefix="judge_")
-        return LLMJudgeScorer(judge=judge, rubric=cfg["rubric"])
-    raise typer.BadParameter(f"unknown scorer type {cfg['type']!r}")
+    if validated.type == "regex":
+        if validated.pattern is None:
+            raise typer.BadParameter("a regex scorer needs a `pattern`")
+        return RegexScorer(pattern=validated.pattern)
+    if validated.type == "answer_match":
+        return AnswerMatchScorer(
+            tolerance=1e-6 if validated.tolerance is None else validated.tolerance)
+    if validated.type == "llm_judge":
+        if validated.rubric is None:
+            raise typer.BadParameter("an llm_judge scorer needs a `rubric`")
+        judge = _build_target(cfg, cassette, max_retries, timeout, prefix="judge_",
+                              max_bytes=max_bytes, deadline=deadline)
+        return LLMJudgeScorer(judge=judge, rubric=validated.rubric)
+    raise typer.BadParameter(f"unknown scorer type {validated.type!r}")
 
 
 @app.command()
@@ -414,9 +501,29 @@ def run(
     scorer_config: Path | None = typer.Option(None, exists=True, dir_okay=False),
     n: int | None = typer.Option(None, min=1, help="Repeats per case (flip rate needs N>=5)."),
     cassette: Path | None = typer.Option(None),
+    cassette_mode: str | None = typer.Option(
+        None, "--cassette-mode",
+        help="replay (no provider calls; a miss fails) | resume (reuse what is "
+             "recorded, call for the rest) | fresh (ignore what is recorded and draw "
+             "again). Defaults to $EVALSEAL_MODE, or replay unless EVALSEAL_RECORD=1.",
+    ),
     ledger: Path = LedgerOpt,
-    concurrency: int | None = typer.Option(None, min=1, help="Parallel requests in flight."),
+    concurrency: int | None = typer.Option(
+        None, min=1, max=MAX_CONCURRENCY,
+        help=f"Parallel requests in flight, at most {MAX_CONCURRENCY}. This is the "
+             "in-flight bound in both senses: that many sockets, and that many "
+             "response bodies being read at --max-response-bytes each."),
     max_retries: int | None = typer.Option(None, min=0, help="Retries per request on 429/5xx."),
+    max_response_bytes: int | None = typer.Option(
+        None, "--max-response-bytes", min=1024,
+        help="Most bytes read from one provider response, after decompression. "
+             f"Default {MAX_RESPONSE_BYTES // 1024 // 1024} MiB. A larger body is an "
+             "error, never a truncation."),
+    deadline: float | None = typer.Option(
+        None, "--deadline", min=1.0,
+        help="Total seconds for one provider call including its retries and backoff. "
+             "Derived from --timeout and --max-retries when unset, and enforced "
+             "either way."),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress the progress bar."),
     timeout: float | None = typer.Option(None, min=1.0, help="Per-request timeout in seconds."),
     fail_on: FailOn | None = typer.Option(
@@ -444,6 +551,19 @@ def run(
         False, "--store-judge-prompt",
         help="Seal the judge prompt verbatim, not only its hash. It embeds case text.",
     ),
+    out_dir: Path | None = typer.Option(
+        None, "--out-dir",
+        help="This run's output directory. Defaults to runs/<timestamp>-<session>, one "
+             "per run, so two runs cannot overwrite each other's report. report.json "
+             "and report.md in the working directory are also written, as aliases for "
+             "the latest run.",
+    ),
+    snapshot: bool = typer.Option(
+        True, "--snapshot/--no-snapshot",
+        help="Copy the cassette entries this run used into the output directory and "
+             "bind them into the receipt, so a later run recording into the same "
+             "cassette cannot invalidate the bytes behind this receipt.",
+    ),
     artifact: list[str] = typer.Option(
         [], "--artifact", metavar="ROLE=PATH",
         help="Bind another file into the receipt by digest, as `tool_acl=tools.json`. "
@@ -470,11 +590,27 @@ def run(
     concurrency = concurrency or cfg.get("concurrency", 4)
     max_retries = max_retries if max_retries is not None else cfg.get("max_retries", 5)
     timeout = timeout or cfg.get("timeout", 60.0)
+    max_response_bytes = (max_response_bytes
+                          or cfg.get("max_response_bytes", MAX_RESPONSE_BYTES))
+    deadline = deadline or cfg.get("deadline")
     fail_on = fail_on or cfg.get("fail_on", "unstable")
     junit_xml = junit_xml or (Path(cfg["junit_xml"]) if "junit_xml" in cfg else None)
     sign_key = sign_key or (Path(cfg["sign_key"]) if "sign_key" in cfg else None)
 
-    ds = Dataset.from_jsonl(dataset)
+    # Read every input once, here, and use what was read from here on. An input that
+    # was used at the start and hashed at the end left receipts sealing bytes that
+    # produced no score - and `verify --artifacts` then reported `ok` against the file
+    # nothing ran on. See evalseal/inputs.py.
+    captured = capture_all({
+        "dataset": str(dataset),
+        **({"suite": str(suite)} if suite else {}),
+        **extra_artifacts,
+    })
+    _check_agent_artifacts(captured)
+    ds_bytes = captured["dataset"].data
+    if ds_bytes is None:
+        raise typer.BadParameter(f"cannot read the dataset {dataset}")
+    ds = Dataset.from_bytes(ds_bytes, what=str(dataset))
     # A v2 suite's `cases.only` is a list; --only is a comma-separated string. The flag
     # wins, as it does for every other suite key.
     wanted_ids = ([c.strip() for c in only.split(",") if c.strip()] if only
@@ -485,15 +621,30 @@ def run(
         if missing:
             raise typer.BadParameter(f"case id(s) not in {dataset}: {', '.join(missing)}")
         ds = Dataset([c for c in ds.cases if c.case_id in wanted], ds.hash)
+    # Named before the run, because the receipt binds files that go in here and the
+    # receipt is sealed before anything is written out.
+    session_id = uuid.uuid4().hex
+    run_dir = out_dir or Path("runs") / (
+        f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{session_id[:8]}")
     try:
-        cass = Cassette(cassette)
+        cass = Cassette(cassette, mode=cassette_mode)
+    except CassetteBusy as e:
+        # Two runs sharing a cassette path used to lose data silently: each holds the
+        # whole table in memory and rewrites the whole file, so the last one to finish
+        # erased the other's responses. See docs/adr/0002-cassette-writer-strategy.md.
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1) from e
     except CassetteFormatError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=1) from e
+    except ValueError as e:                     # an unknown mode name
+        raise typer.BadParameter(str(e)) from None
     target_cfg = json.loads(target_config.read_text(encoding="utf-8"))
     scorer_cfg = json.loads(scorer_config.read_text(encoding="utf-8"))
-    target = _build_target(target_cfg, cass, max_retries, timeout)
-    scorer = _build_scorer(scorer_cfg, cass, max_retries, timeout)
+    target = _build_target(target_cfg, cass, max_retries, timeout,
+                           max_bytes=max_response_bytes, deadline=deadline)
+    scorer = _build_scorer(scorer_cfg, cass, max_retries, timeout,
+                           max_bytes=max_response_bytes, deadline=deadline)
 
     total = len(ds.cases) * n
     show_progress = not quiet and sys.stderr.isatty()
@@ -515,8 +666,9 @@ def run(
                 concurrency=concurrency,
                 on_unit_done=lambda: progress.advance(task),
                 suite=SuiteProvenance(
-                    name=suite.stem, path=str(suite), hash=file_hash(suite),
-                    **_suite_section_hashes(suite),
+                    name=suite.stem, path=str(suite),
+                    hash=captured["suite"].sha256,
+                    **_suite_section_hashes(suite, captured["suite"].data),
                 ) if suite else None,
                 dataset_path=str(dataset),
                 store_judge_prompt=store_judge_prompt,
@@ -528,6 +680,9 @@ def run(
                     **({"suite": str(suite)} if suite else {}),
                     **extra_artifacts,
                 },
+                captured=captured,
+                session_id=session_id,
+                snapshot_dir=run_dir if snapshot else None,
             )
     except RuntimeError as e:
         console.print(f"[red]{e}[/red]")
@@ -548,6 +703,12 @@ def run(
             )
         raise typer.Exit(code=1) from e
     record = seal_and_append(record, ledger, relink=True)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    write_json(record, run_dir / "report.json")
+    write_markdown(record, run_dir / "report.md")
+    # The working-directory copies are aliases for the latest run, kept because every
+    # existing README, workflow and script reads `report.json` from here. They are
+    # overwritten by the next run - the per-run directory is the one to archive.
     write_json(record)
     write_markdown(record)
     if junit_xml is not None:
@@ -561,6 +722,10 @@ def run(
             f"-> {signatures_path(ledger)}[/green]"
         )
     console.print(Markdown(to_markdown(record)))
+    console.print(
+        f"[dim]This run: {run_dir}/ (report.json, report.md"
+        f"{', cassette snapshot' if snapshot else ''}). "
+        f"./report.json and ./report.md are aliases for the latest run.[/dim]")
     if show_cases:
         console.print(Markdown(to_case_table(record, unstable_only=unstable_only)))
 
@@ -592,10 +757,30 @@ def verify(
     index: int = typer.Option(-1, help="Which record's artifacts to check; -1 = latest."),
 ):
     """Check the ledger chain integrity, and signatures or artifacts when asked."""
-    ok, msg = verify_chain(ledger)
+    try:
+        ok, msg = verify_chain(ledger)
+    except InvalidInput as e:
+        # A malformed ledger is an input error with a documented exit code, not a
+        # traceback. `verify` used to let pydantic's ValidationError reach the user.
+        console.print(f"[red]Cannot read the ledger:[/red] {rich_escape(str(e))}")
+        raise typer.Exit(code=EXIT_BAD_INPUT) from None
     console.print(f"[{'green' if ok else 'red'}]{msg}[/{'green' if ok else 'red'}]")
     if not ok:
         raise typer.Exit(code=1)
+    # An intact chain does not mean every field in the record is covered by it. A
+    # record sealed under an older schema is hashed with the fields that schema lacked
+    # stripped out, so a value written into one of them leaves the chain intact and
+    # this command saying so. Reporting "Chain intact" and nothing else is how that
+    # value gets read as sealed evidence further down.
+    unsealed = load_verified(ledger)
+    for result in unsealed.results:
+        if result.quarantined:
+            console.print(
+                f"[yellow]Unsealed field(s) in record {result.index}:[/yellow] "
+                f"{rich_escape(', '.join(result.quarantined))} - present in the file "
+                f"but not covered by the hash that just verified, because schema "
+                f"{result.sealed_under} did not seal them. Nothing here vouches for "
+                "their contents, and `gate` refuses them.")
     if public_key is not None or signed:
         sig_ok, sig_msg = verify_signatures(ledger, public_key)
         console.print(f"[{'green' if sig_ok else 'red'}]{sig_msg}[/{'green' if sig_ok else 'red'}]")
@@ -611,8 +796,8 @@ def verify(
             console.print("[yellow]No artifacts are sealed in this record.[/yellow] "
                           "Records sealed before schema 1.4 bind none.")
         for r in results:
-            colour = {"ok": "green", "changed": "red", "missing": "yellow",
-                      "unverifiable": "yellow"}[r.status]
+            colour = {"ok": "green", "changed": "red", "moved": "yellow",
+                      "missing": "yellow", "unverifiable": "yellow"}[r.status]
             console.print(
                 f"[{colour}]{r.status:<12}[/{colour}] {rich_escape(r.role)}: "
                 f"{rich_escape(r.detail)}")
@@ -625,14 +810,31 @@ def verify(
 def keygen(
     private_key: Path = typer.Option(Path("evalseal.key"), help="Where to write the private key."),
     public_key: Path = typer.Option(Path("evalseal.pub"), help="Where to write the public key."),
+    overwrite_public: bool = typer.Option(
+        False, "--overwrite-public",
+        help="Replace an existing public key file. Needed when rotating: the private "
+             "key path must still be new, and anyone verifying against the old public "
+             "key has to be told. See docs/operations.md."),
 ):
-    """Generate an Ed25519 keypair for signing ledgers."""
+    """Generate an Ed25519 keypair for signing ledgers.
+
+    Neither file is overwritten by accident. The private key is created with
+    owner-only permissions and without following a symbolic link, so it cannot be
+    created world-readable for an instant or written somewhere other than the path
+    you named.
+    """
     try:
-        pub = generate_keypair(private_key, public_key)
-    except FileExistsError as e:
-        console.print(f"[red]{e}[/red]")
+        pub = generate_keypair(private_key, public_key,
+                               overwrite_public=overwrite_public)
+    except (FileExistsError, OSError) as e:
+        console.print(f"[red]{rich_escape(str(e))}[/red]")
         raise typer.Exit(code=1) from e
-    console.print(f"[green]private key: {private_key} (mode 600 — keep it secret)[/green]")
+    mode = "" if os.name == "nt" else " (mode 600 — keep it secret)"
+    console.print(f"[green]private key: {private_key}{mode}[/green]")
+    if os.name == "nt":
+        console.print(
+            "[yellow]Windows inherits the parent directory's ACL; this file is only as "
+            "private as the directory it is in.[/yellow]")
     console.print(f"[green]public key:  {public_key}[/green]\n{pub}")
 
 
@@ -651,6 +853,28 @@ def sign(
         f"[green]Signed record {entry['record_index']} ({entry['hash'][:20]}...)[/green]\n"
         f"signature -> {signatures_path(ledger)}\npublic key: {entry['public_key']}"
     )
+
+
+def _case_evidence_block(ev: CaseEvidence | None) -> dict[str, object] | None:
+    """The uncertainty view of one case, for `report --json`.
+
+    A subset of what `evalseal evidence` prints: the fields a CI reviewer or dashboard
+    acts on, without the repeat-count arithmetic that belongs to that command.
+    """
+    if ev is None:
+        return None
+    return {
+        "label": ev.label,
+        # Both margins, named. They are different numbers whenever the interval
+        # straddles 0.5, and a consumer thresholding one must know which it has.
+        "pass_rate_margin": ev.pass_rate_margin,
+        "flip_rate_margin": ev.flip_rate_margin,
+        "margin": ev.pass_rate_margin,
+        "flip_rate_ci": list(ev.flip_rate_ci) if ev.flip_rate_ci else None,
+        "n_graded": ev.n_graded,
+        "underpowered": ev.underpowered,
+        "action": ev.action,
+    }
 
 
 def _read_receipt(source: str | Path) -> RunRecord:
@@ -689,10 +913,39 @@ def _anchor_state(
     return AnchorState(
         present=True,
         verified=ok,
-        has_external_proof=bool(anchor_obj.get("external_proofs")),
         detail=f"anchor verified ({anchor_file})" if ok
         else f"anchor failed: {', '.join(failed) or 'see anchor-verify'}",
     )
+
+
+def _external_state(
+    anchor_file: Path | None,
+    *,
+    tsa_ca: Path | None = None,
+    approved: list[str] | None = None,
+) -> ExternalEvidence | None:
+    """Verify the anchor's external proofs under trust this invocation supplied.
+
+    This replaces `bool(anchor["external_proofs"])`, which satisfied
+    `require_external_anchor` for `[{}]`, for a backend that does not exist, and for
+    the local backend that attests nothing. Returning None when there is no anchor to
+    read makes the clause fail as "not checked" rather than pass.
+    """
+    if anchor_file is None:
+        return None
+    try:
+        anchor_obj = json.loads(anchor_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return ExternalEvidence(
+            EXTERNAL_FAILED, (),
+            f"{anchor_file} could not be read, so no external proof was checked: {e}")
+    if not isinstance(anchor_obj, dict):
+        return ExternalEvidence(
+            EXTERNAL_FAILED, (), f"{anchor_file} does not hold an anchor object")
+    return verify_external_evidence(anchor_obj, trust=ExternalTrust(
+        tsa_ca_pem=tsa_ca.read_bytes() if tsa_ca is not None else None,
+        approved_backends=(tuple(approved) if approved
+                           else DEFAULT_APPROVED_BACKENDS)))
 
 
 def _resolve_record(token: str, ledger: Path) -> RunRecord:
@@ -791,6 +1044,11 @@ def report(
             raise typer.Exit(code=0)
 
     if as_json:
+        # Computed once for both the per-case blocks and the suite summary below.
+        # Every key added here is new: a 2.2.0 consumer reading `flip_rate` or
+        # `stability_label` sees exactly what it saw before, and a test asserts that.
+        ev = analyze_evidence(record)
+        by_case = {c.case_id: c for c in ev.cases}
         cases = [
             {
                 "case_id": c.case_id,
@@ -805,6 +1063,14 @@ def report(
                 "stability": c.stability,
                 "stability_label": c.stability_label,
                 "ci95": list(c.ci95),
+                # How many of those repeats could not be graded. A 0.0 mean over five
+                # ungraded repeats and one over five graded failures are the same
+                # number and not the same result. docs/metrics.md §8.
+                "unscorable_count": c.unscorable_count,
+                "unscorable_reason": c.unscorable_reason,
+                # How much the flip rate above is worth reading. `stability_label` says
+                # which way the case goes; this says how precisely the rate is known.
+                "evidence": _case_evidence_block(by_case.get(c.case_id)),
             }
             for c in case_rows(record, unstable_only)
         ]
@@ -816,7 +1082,34 @@ def report(
                 "n_cases": record.aggregate.n_cases,
                 "n_stable": record.aggregate.n_stable,
                 "n_unstable": record.aggregate.n_unstable,
+                "n_unscorable": record.aggregate.n_unscorable,
+                "n_observations": record.aggregate.n_observations,
                 "sealed_hash": record.hash,
+            },
+            # How many independent draws are behind the numbers above. `unknown` for a
+            # receipt that cannot say, which is every receipt sealed before 1.8.
+            "independence": audit_independence(record).to_dict(),
+            # Present only when the numbers were read out of another tool's export.
+            # `gaps` is what this receipt cannot say, named rather than left as nulls
+            # for a reader to notice.
+            "imported": (record.manifest.imported.model_dump(mode="json")
+                         if record.manifest.imported else None),
+            "uncertainty": {
+                "label": ev.label,
+                "confidence": ev.confidence,
+                "target_margin": ev.target_margin,
+                # Self-describing: a consumer reading this block should not have to
+                # reach into `summary` to learn what the counts are out of.
+                "n_cases": len(ev.cases),
+                "n_underpowered": len(ev.underpowered),
+                "underpowered_cases": [c.case_id for c in ev.underpowered],
+                "min_graded_repeats_per_case": ev.min_runs,
+                "worst_pass_rate_margin": ev.worst_margin,
+                "worst_flip_rate_margin": ev.worst_flip_margin,
+                "n_not_binary": len(ev.not_binary),
+                "counts": ev.counts,
+                "summary": ev.summary(),
+                "caveat": EVIDENCE_CAVEAT,
             },
             "provenance": {
                 # Both, so a pin can be copied from here: the evaluator fingerprint for
@@ -840,7 +1133,34 @@ def report(
         console.print_json(json.dumps(payload))
         raise typer.Exit(code=0)
 
+    # The table alone left out the three things that decide what it means: what the
+    # suite scored, how many of its observations were gradeable, and where the numbers
+    # came from. A reviewer running this command should not have to also open
+    # report.md to find out that a third of the repeats were never graded.
+    agg = record.aggregate
+    header = (f"**{agg.n_cases} case(s)** · mean **{agg.mean_score:.2f}** · "
+              f"{agg.n_stable} stable / {agg.n_borderline} borderline / "
+              f"{agg.n_unstable} unstable")
+    if agg.n_observations:
+        header += f" · {agg.n_observations} repeat(s)"
+    if agg.n_unscorable:
+        header += (f" · **{agg.n_unscorable} ungraded** "
+                   f"({agg.n_unscorable / agg.n_observations:.1%})")
+    console.print(Markdown(header))
+    if (provenance := record.manifest.imported) is not None:
+        # First, because it decides what every number below means.
+        console.print(Markdown(
+            f"- Source: **imported from {provenance.tool}"
+            + (f" {provenance.tool_version}" if provenance.tool_version else "")
+            + f"**, not measured here. `{provenance.source_sha256[:27]}...`"))
+        for gap in provenance.gaps:
+            console.print(f"[yellow]  gap - {rich_escape(gap)}[/yellow]")
+    if (origin := origin_line(record)) is not None:
+        console.print(Markdown(origin))
+        console.print(Markdown(independence_line(record)))
     console.print(Markdown(to_case_table(record, unstable_only=unstable_only)))
+    for warning in agg.warnings:
+        console.print(f"[yellow]{rich_escape(warning)}[/yellow]")
     raise typer.Exit(code=0)
 
 
@@ -887,6 +1207,24 @@ def gate(
         None, "--anchor", exists=True, dir_okay=False,
         help="An anchor to check, when the pre-registration requires one.",
     ),
+    trusted_key: list[str] = typer.Option(
+        [], "--trusted-key", metavar="KEY",
+        help="Public key(s) to trust for `require_signature`, overriding the "
+             "contract's own list. Supplied by the verifier, because a key the "
+             "producer chose establishes nothing. Repeatable.",
+    ),
+    tsa_ca: Path | None = typer.Option(
+        None, "--tsa-ca", exists=True, dir_okay=False,
+        help="PEM trust root for an RFC 3161 proof, for `require_external_anchor`. "
+             "Without it a timestamp token's signature cannot be checked, so the "
+             "proof counts as imprint-only and the requirement fails.",
+    ),
+    approved_backend: list[str] = typer.Option(
+        [], "--approved-backend", metavar="NAME",
+        help="Anchor backend(s) you accept as sources of external evidence "
+             f"(default: {', '.join(DEFAULT_APPROVED_BACKENDS)}). `local` is never "
+             "accepted: it attests nothing. Repeatable.",
+    ),
     as_json: bool = typer.Option(
         False, "--json", help="Emit every check as machine-readable JSON."
     ),
@@ -899,11 +1237,62 @@ def gate(
     `--prereg` adds a different kind of check. A policy asks "is this number good
     enough"; a pre-registration asks "is this the evaluation you said you would run".
     """
-    recs = load_all(ledger)
+    # Loaded through verification rather than `load_all`, so a field the selected
+    # record's schema did not seal is removed before any check reads it. A receipt
+    # sealed under 1.1 is re-hashed with the post-1.1 fields stripped, which is what
+    # keeps it verifiable - and also leaves those fields free to write to without
+    # disturbing the hash. A `manifest.suite.hash` written into one used to satisfy a
+    # pre-registration that pinned that digest.
+    verified = load_verified(ledger)
+    if not verified.records:
+        console.print(f"[red]Cannot read the ledger:[/red] "
+                      f"{rich_escape(verified.detail)}")
+        raise typer.Exit(code=EXIT_BAD_INPUT)
+    recs = verified.records
     if not -len(recs) <= index < len(recs):
         raise typer.BadParameter(f"index {index} out of range; ledger has {len(recs)} record(s)")
     record = recs[index]
+    selected = verified.results[index % len(recs)]
     failures: list[str] = []
+
+    integrity_checks = [Check(
+        "ledger.record_verified", selected.verified, selected.detail)]
+    if not selected.verified:
+        failures.append(f"ledger.record_verified: {selected.detail}")
+    if selected.quarantined:
+        # Only reachable by writing a value into space the hash does not cover: a
+        # genuine old receipt leaves those fields at their defaults.
+        integrity_checks.append(Check(
+            "ledger.unsealed_fields", False,
+            f"record {index} carries {len(selected.quarantined)} field(s) its schema "
+            f"({selected.sealed_under}) did not seal: "
+            f"{', '.join(selected.quarantined)}. They were removed before any check "
+            "read them, and nothing here vouches for them"))
+        failures.append(
+            f"ledger.unsealed_fields: unsealed value(s) in "
+            f"{', '.join(selected.quarantined)}")
+    else:
+        integrity_checks.append(Check(
+            "ledger.unsealed_fields", True,
+            f"every field present was sealed under schema {selected.sealed_under}"))
+    if selected.problems:
+        # Separate from `record_verified` because they are different claims: a
+        # fabricated summary is sealed along with everything else, so the hash matches
+        # and the numbers are still impossible. On the baseline `mean_score = 42.0`
+        # cleared `--min-score 0.9` and `n_cases = 999` on a two-case run cleared
+        # `--min-score 0.95`.
+        integrity_checks.append(Check(
+            "ledger.data_invariants", False,
+            f"record {index} fails {len(selected.problems)} data invariant(s): "
+            + "; ".join(selected.problems[:3])
+            + ("" if len(selected.problems) <= 3
+               else f" (and {len(selected.problems) - 3} more)")))
+        failures.append(
+            f"ledger.data_invariants: {len(selected.problems)} invariant(s) do not hold")
+    else:
+        integrity_checks.append(Check(
+            "ledger.data_invariants", True,
+            "scores are finite and in range, and the summary matches the cases"))
 
     if policy is None and suite is not None:
         # A `policy` section that nothing reads would be a threshold silently doing
@@ -915,7 +1304,7 @@ def gate(
         if not policy.exists():
             raise typer.BadParameter(f"{suite} names a policy that is not there: {policy}")
 
-    policy_checks = []
+    policy_checks = [*integrity_checks]
     if policy is not None:
         try:
             loaded = load_policy(policy)
@@ -937,7 +1326,18 @@ def gate(
             console.print(f"[red]Pre-registration error:[/red] {rich_escape(str(e))}")
             raise typer.Exit(code=EXIT_BAD_INPUT) from None
         prereg_checks = check_preregistration(
-            contract, record, anchor=_anchor_state(anchor_file, record, ledger))
+            contract, record,
+            anchor=_anchor_state(anchor_file, record, ledger),
+            # Verified against the record the gate actually selected, so a signature
+            # over an earlier prefix cannot satisfy the requirement.
+            signature=verify_receipt_signature(
+                ledger, index,
+                trusted_keys=(list(trusted_key) or contract.trusted_public_keys or None)),
+            # Verified here, under a root this invocation supplied, rather than read
+            # as a boolean off the anchor the producer wrote.
+            external=_external_state(
+                anchor_file, tsa_ca=tsa_ca, approved=list(approved_backend)),
+        )
         policy_checks = [*policy_checks, *prereg_checks]
         failures += [f"{c.rule}: {c.detail}" for c in prereg_checks if not c.passed]
         if contract.policy is not None:
@@ -987,15 +1387,25 @@ def gate(
             failures.append(
                 explain_fingerprint_mismatch("config", expect_config, actual))
 
+    execution = record.manifest.execution
     if as_json:
         console.print_json(json.dumps({
             "passed": not failures,
             "checks": [c.to_dict() for c in policy_checks],
+            # The failing subset, so a consumer does not have to filter `checks`
+            # itself. `failures` is the flat list of fingerprint-pin messages, which
+            # are not policy checks and have no rule name.
+            "violations": [c.to_dict() for c in policy_checks if not c.passed],
             "failures": failures,
             "mean_score": record.aggregate.mean_score,
             "sealed_hash": record.hash,
             "evaluator_fingerprint": evaluator_fingerprint(record),
             "config_fingerprint": config_fingerprint(record),
+            # Not a check: replaying a cassette is a legitimate way to run a gate. It
+            # is reported because a gate that passes on replayed numbers and one that
+            # passes on live ones mean different things, and nothing used to say which.
+            # None for a receipt sealed before schema 1.7.
+            "origin": execution.origin if execution else None,
         }))
         raise typer.Exit(code=EXIT_UNSTABLE if failures else 0)
 
@@ -1005,6 +1415,12 @@ def gate(
         if check.passed:
             console.print(
                 f"[green]ok  [/green] {rich_escape(check.rule)}: {rich_escape(check.detail)}")
+
+    if execution is not None and execution.origin != "live":
+        console.print(
+            f"[yellow]note[/yellow] origin: {rich_escape(execution.origin)} "
+            f"({execution.n_replayed} of {execution.n_calls} call(s) replayed) - these "
+            "numbers are not a fresh measurement of the model")
 
     if failures:
         for f in failures:
@@ -1057,8 +1473,14 @@ def power(
     """
     if from_receipt is not None:
         record = _resolve_record(from_receipt, ledger)
-        est = estimate_from_record(
-            record, mdd, n_repeats=repeats, alpha=alpha, trials=trials)
+        try:
+            est = estimate_from_record(
+                record, mdd, n_repeats=repeats, alpha=alpha, trials=trials)
+        except NotBinary as e:
+            # An actionable diagnostic and a documented exit code, not a traceback and
+            # not a number for a test that would never be run on this receipt.
+            console.print(f"[red]{rich_escape(str(e))}[/red]")
+            raise typer.Exit(code=EXIT_BAD_INPUT) from None
     else:
         if model not in (DETERMINISTIC, BERNOULLI):
             raise typer.BadParameter(
@@ -1090,6 +1512,12 @@ def power(
         f"[bold]Power {est.power:.1%}[/bold] to detect a {mdd:.3f} drop "
         f"from {est.baseline:.3f}, with {est.n_items} item(s) at N={est.n_repeats} "
         f"(model: {est.model}, {est.trials} simulated experiments, alpha {alpha})."
+    )
+    console.print(
+        f"[dim]Power for: {METRIC}. Not the power to detect a change in mean score "
+        "across repeats - a shift that lowers every item's pass rate without flipping "
+        "a majority is near-invisible to this test and plainly visible in `diff`'s "
+        "interval.[/dim]"
     )
     console.print(
         f"\nA paired test needs at least [bold]{floor}[/bold] items to change verdict "
@@ -1176,13 +1604,20 @@ def decompose(
     # Separate cassettes: one shared file would let the arms collide whenever the
     # target's first response equals a later one, coupling the two measurements.
     arms = {}
-    for arm in ("judge_only", "full"):
-        path = base.with_name(f"{base.stem}.{arm}{base.suffix}")
-        cas = Cassette(path, record=os.environ.get("EVALSEAL_RECORD") == "1")
-        arms[arm] = (
-            _build_target(target_cfg, cas, max_retries, timeout),
-            _build_scorer(scorer_cfg, cas, max_retries, timeout),
-        )
+    # Inside the try: a cassette rejects an incompatible format, or an owner it cannot
+    # take the lock from, while it is being *constructed*. The handler used to sit
+    # around `run_decompose` alone, so both of those reached the user as a traceback.
+    try:
+        for arm in ("judge_only", "full"):
+            path = base.with_name(f"{base.stem}.{arm}{base.suffix}")
+            cas = Cassette(path, record=os.environ.get("EVALSEAL_RECORD") == "1")
+            arms[arm] = (
+                _build_target(target_cfg, cas, max_retries, timeout),
+                _build_scorer(scorer_cfg, cas, max_retries, timeout),
+            )
+    except (CassetteBusy, CassetteFormatError) as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1) from None
 
     try:
         result = run_decompose(
@@ -1194,7 +1629,7 @@ def decompose(
             n_repeats=n,
             concurrency=concurrency,
         )
-    except CassetteFormatError as e:
+    except (CassetteBusy, CassetteFormatError) as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=1) from None
 
@@ -1314,12 +1749,14 @@ def anchor_verify(
         raise typer.Exit(code=1) from None
     if ledger is None and _looks_like_ledger(source):
         ledger = source
-    if tsa_ca is not None:
-        # Configured for this verification only, so the signature check becomes
-        # possible without the anchor having any say in which root is trusted.
-        register_backend(Rfc3161Backend(ca_pem=tsa_ca.read_bytes()))
     record = _read_receipt(source)
-    checks = verify_anchor(anchor_obj, record, ledger=ledger)
+    # Configured for this verification only, so the signature check becomes possible
+    # without the anchor having any say in which root is trusted - and without the
+    # root outliving the call, which `register_backend` would have let it do.
+    overrides = ([Rfc3161Backend(ca_pem=tsa_ca.read_bytes())]
+                 if tsa_ca is not None else [])
+    with temporary_backends(*overrides):
+        checks = verify_anchor(anchor_obj, record, ledger=ledger)
     passed = anchor_passed(checks)
 
     if as_json:
@@ -1403,11 +1840,22 @@ def preregister(
              "receipt produced on a laptop by accident, not one produced there on "
              "purpose. Stronger evidence needs a resolvable run URL and a ledger "
              "signature from a key only CI holds. See docs/pre-registration.md."),
+    require_signature: bool = typer.Option(
+        False, "--require-signature",
+        help="Require the selected receipt to carry a valid signature that covers it. "
+             "A signature over an earlier prefix of the ledger does not count."),
+    trusted_key: list[str] = typer.Option(
+        [], "--trusted-key", metavar="KEY",
+        help="A public key the *verifier* trusts, as base64, PEM or a path. "
+             "Repeatable, which is how key rotation works. Without any, a signature "
+             "shows that someone signed, not that your signer did."),
     require_anchor: bool = typer.Option(
         False, "--require-anchor", help="Require a verifying anchor at gate time."),
     require_external_anchor: bool = typer.Option(
         False, "--require-external-anchor",
-        help="Require that anchor to carry an external proof of time."),
+        help="Require an externally VERIFIED proof of time on that anchor: a token "
+             "from an approved backend, checked against a root the verifier supplies "
+             "with `gate --tsa-ca`. An unverified imprint does not satisfy it."),
     policy: Path | None = typer.Option(
         None, "--policy", exists=True, dir_okay=False,
         help="A policy file to embed, so thresholds are fixed before the number exists."),
@@ -1453,6 +1901,8 @@ def preregister(
         evaluator_fingerprint_pin=pin,
         required_artifacts=list(require_artifact),
         require_ci_claim=require_ci_claim,
+        require_signature=require_signature,
+        trusted_public_keys=list(trusted_key),
         require_anchor=require_anchor,
         require_external_anchor=require_external_anchor,
         baseline=baseline,
@@ -1471,3 +1921,194 @@ def preregister(
           "what was promised, and cannot prove no private run happened."
     )
     raise typer.Exit(code=0)
+
+
+@app.command()
+def evidence(
+    source: Path = typer.Argument(
+        ..., exists=True, dir_okay=False,
+        help="The sealed receipt to read: the report.json `evalseal run` writes, or a "
+             "ledger whose head is the receipt."),
+    case: str | None = typer.Option(
+        None, "--case", help="Report one case instead of the whole suite."),
+    target_margin: float = typer.Option(
+        DEFAULT_TARGET_MARGIN, "--target-margin", min=0.001, max=0.5,
+        help="How tightly you want a flip rate pinned down. The repeat "
+             "recommendations aim at the flip-rate interval's half-width, which is "
+             "what this names - not the pass-rate interval's, which is a different "
+             "number whenever the interval straddles 0.5."),
+    confidence: float = typer.Option(
+        DEFAULT_CONFIDENCE, "--confidence", min=0.5, max=0.9999,
+        help="Interval confidence. 0.95 matches the intervals in `run` and `report`."),
+    out: Path | None = typer.Option(
+        None, "--out", help="Write the Markdown report here."),
+    as_json: bool = typer.Option(
+        False, "--json", help="Emit machine-readable JSON for CI or a dashboard."),
+):
+    """How much this run actually tells you, and how many repeats would tell you more.
+
+    `evalseal power` answers a different question - how large an experiment would have
+    to be to *detect a difference* between two runs. This answers how precisely the
+    repeats you already have pin down each case's behaviour.
+
+    At five repeats the only flip rates that exist are 0, 0.2 and 0.4, so a case
+    reported at "20%" had exactly one run disagree rather than a twenty-percent
+    tendency. This command puts an interval around that number and says plainly when
+    the interval is too wide to read a magnitude from.
+
+    Intervals are over the repeats that got a verdict. An ungraded repeat is not an
+    observation of the pass proportion, so it is excluded here and reported beside the
+    repeat count.
+
+    Guidance only. It says where to spend repeats; it makes no claim about the model.
+    """
+    record = _read_receipt(source)
+    try:
+        result = analyze_evidence(
+            record, confidence=confidence, target_margin=target_margin, case_id=case)
+    except ValueError as e:
+        console.print(f"[red]{rich_escape(str(e))}[/red]")
+        raise typer.Exit(code=EXIT_BAD_INPUT) from None
+
+    if as_json:
+        console.print_json(json.dumps(result.to_dict()))
+        raise typer.Exit(code=0)
+
+    text = render_evidence(result)
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+        console.print(f"[green]Evidence report -> {rich_escape(str(out))}[/green]")
+    console.print(Markdown(text))
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def recover(
+    ledger: Path = LedgerOpt,
+    yes: bool = typer.Option(
+        False, "--yes", "-y",
+        help="Do not ask. For CI, where there is nobody to ask."),
+):
+    """Move an interrupted append aside and keep the complete history.
+
+    A process killed between one record's newline and the next leaves a partial line
+    at the end of the ledger. Every record before it is intact, and until this command
+    existed nothing could read any of them: the whole file came back as "line N is not
+    valid JSON".
+
+    This is a separate command rather than automatic behaviour because truncating a
+    ledger is a change to tamper-evidence, and a tool that quietly drops a trailing
+    line is a tool that can be made to drop a real one. Nothing is deleted either way:
+    the partial bytes are written to a sidecar before the ledger is touched.
+    """
+    if not ledger.exists():
+        console.print(f"[red]{rich_escape(str(ledger))} does not exist.[/red]")
+        raise typer.Exit(code=EXIT_BAD_INPUT)
+    partial = incomplete_tail(ledger)
+    if partial is None:
+        console.print(
+            f"[green]{rich_escape(str(ledger))} does not end with an incomplete "
+            "record; there is nothing to recover.[/green]")
+        ok, message = verify_chain(ledger)
+        console.print(f"{'ok  ' if ok else 'FAIL'} {rich_escape(message)}")
+        raise typer.Exit(code=0 if ok else 1)
+
+    complete, tail = partial
+    console.print(
+        f"[yellow]{rich_escape(str(ledger))} ends with {len(tail)} byte(s) that are "
+        f"not a whole record, after {complete} complete record(s).[/yellow]")
+    console.print(f"[dim]The partial tail begins: {rich_escape(tail[:120])!r}[/dim]")
+    if not yes and not typer.confirm(
+            "Move the partial tail to a sidecar and truncate the ledger to the last "
+            "complete record?"):
+        console.print("[yellow]Nothing changed.[/yellow]")
+        raise typer.Exit(code=1)
+
+    sidecar, kept, moved = recover_incomplete_tail(ledger)
+    console.print(f"[green]{moved} byte(s) -> {rich_escape(str(sidecar))}[/green]")
+    console.print(f"[green]{kept} complete record(s) kept in "
+                  f"{rich_escape(str(ledger))}.[/green]")
+    ok, message = verify_chain(ledger)
+    console.print(f"{'ok  ' if ok else 'FAIL'} {rich_escape(message)}")
+    if not ok:
+        console.print(
+            "[red]The chain still does not verify, so the damage is not only at the "
+            "end. The sidecar holds what was removed; nothing has been lost.[/red]")
+    raise typer.Exit(code=0 if ok else 1)
+
+
+@app.command("import")
+def import_results(
+    source: Path = typer.Argument(
+        ..., exists=True, dir_okay=False,
+        help="The export to read. Today: a promptfoo `eval -o export.json` file."),
+    tool: str = typer.Option(
+        "promptfoo", "--tool",
+        help="Which tool wrote it. One adapter exists; naming it keeps the next one "
+             "from being guessed at."),
+    ledger: Path = LedgerOpt,
+    out: Path | None = typer.Option(
+        None, "--out", help="Where to write the receipt. Default: ./report.json"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Only the summary line."),
+):
+    """Turn another tool's results into a sealed, verifiable receipt.
+
+    The receipt says: **these are the numbers that tool reported, and this is the file
+    they came from.** It binds the export's digest, so `evalseal verify --artifacts`
+    can later show the retained file still matches what was sealed.
+
+    That is all it can show. It does not establish that the other tool ran what its
+    export describes, that the repeats were independent draws, or that no other run was
+    made and discarded. An imported receipt has no evaluator fingerprint - the grading
+    code belongs to the other tool - so two imports are reported as not comparable,
+    and two imports missing the same field are not thereby comparable.
+
+    See docs/importers/promptfoo.md for the field-by-field mapping, including a column
+    for what each field does not support.
+    """
+    if tool != "promptfoo":
+        console.print(
+            f"[red]No importer for {rich_escape(tool)!r}. One adapter exists: "
+            "`--tool promptfoo`. A second one is deliberately not guessed at before "
+            "an export exists to read.[/red]")
+        raise typer.Exit(code=EXIT_BAD_INPUT)
+
+    try:
+        record = import_promptfoo(source, prev_hash=last_hash(ledger))
+    except ImportRefused as e:
+        # An actionable message naming the field at fault, with a documented exit code.
+        console.print(f"[red]{rich_escape(str(e))}[/red]")
+        raise typer.Exit(code=EXIT_BAD_INPUT) from None
+
+    record = seal_and_append(record, ledger, relink=True)
+    destination = out or Path("report.json")
+    write_json(record, destination)
+    write_markdown(record, destination.with_suffix(".md"))
+
+    provenance = record.manifest.imported
+    assert provenance is not None          # an importer always sets it
+    if not quiet:
+        console.print(Markdown(to_case_table(record)))
+        for warning in record.aggregate.warnings:
+            console.print(f"[yellow]{rich_escape(warning)}[/yellow]")
+    console.print(
+        f"[green]Imported {provenance.tool}"
+        + (f" {provenance.tool_version}" if provenance.tool_version else "")
+        + f": {record.aggregate.n_cases} case(s), "
+        f"{record.aggregate.n_observations} observation(s), mean "
+        f"{record.aggregate.mean_score:.3f}[/green]")
+    console.print(
+        f"[dim]source {rich_escape(provenance.source_sha256[:27])}... "
+        f"({provenance.source_bytes} bytes) -> {rich_escape(str(destination))}[/dim]")
+    if provenance.gaps:
+        console.print(
+            f"[yellow]{len(provenance.gaps)} field(s) this export could not fill; "
+            "`evalseal report` lists them.[/yellow]")
+    raise typer.Exit(code=0)
+
+
+if __name__ == "__main__":  # pragma: no cover - exercised as a subprocess
+    # `python -m evalseal.cli`, the spelling docs/operations.md used to promise. The
+    # module defined `app` and never called it, so this printed nothing and exited 0:
+    # a documented escape hatch that silently did nothing.
+    app()

@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 import typer
+from conftest import fake_http
 
 from evalseal.cli import _load_suite, _suite_section_hashes
 
@@ -143,6 +144,27 @@ def test_changing_the_evaluator_leaves_the_target_digest_alone(tmp_path):
     assert after["target_hash"] == before["target_hash"]
 
 
+def test_section_digests_can_be_taken_from_bytes_already_read(tmp_path):
+    """`run` captures the suite once; the sections and the whole-file digest are of the
+    same read, so a suite rewritten mid-run cannot be hashed two ways."""
+    path = _write(tmp_path, _v2())
+    from_file = _suite_section_hashes(path)
+    from_bytes = _suite_section_hashes(None, path.read_bytes())
+    assert from_bytes == from_file
+    path.write_text("{}", encoding="utf-8")
+    assert _suite_section_hashes(None, from_file and path.read_bytes()) == {
+        "evaluator_hash": None, "target_hash": None}
+
+
+def test_nothing_to_read_means_no_section_digests(tmp_path):
+    """None of these are reported as sections that happen to hash the same way."""
+    empty = {"evaluator_hash": None, "target_hash": None}
+    assert _suite_section_hashes(None) == empty
+    assert _suite_section_hashes(tmp_path / "absent.json") == empty
+    assert _suite_section_hashes(None, b"not json") == empty
+    assert _suite_section_hashes(None, b"\xff\xfe not utf-8") == empty
+
+
 def test_section_digests_ignore_key_order(tmp_path):
     """Canonical JSON, so reformatting a suite is not a change to it."""
     a = _write(tmp_path, {"version": 2, "evaluator": {"scorer": "s.json"},
@@ -180,7 +202,7 @@ def _run(suite: Path, ledger: Path, monkeypatch):
     model = json.loads((suite.parent / "target.json").read_text())["model"]
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, json={"model": model, "choices": [{"message": {"content": "yes"}}]},
         request=httpx.Request("POST", url)))
     result = CliRunner().invoke(

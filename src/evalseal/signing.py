@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
-from .ledger import LEDGER_PATH, load_all, verify_chain
+from .ledger import LEDGER_PATH, ledger_lock, load_all, verify_chain
 
 ALGORITHM = "ed25519"
 SIGNATURES_SUFFIX = ".sig.jsonl"
@@ -35,21 +35,86 @@ def signatures_path(ledger: Path = LEDGER_PATH) -> Path:
     return ledger.with_suffix(ledger.suffix + SIGNATURES_SUFFIX)
 
 
-def generate_keypair(private_path: Path, public_path: Path) -> str:
-    """Write a new keypair. The private key is written readable only by its owner."""
-    if private_path.exists():
-        raise FileExistsError(f"{private_path} exists; refusing to overwrite a private key")
+#: `O_NOFOLLOW` is POSIX. On Windows there is nothing to pass, and `O_EXCL` is still
+#: honoured, so exclusive creation works there even though the symlink refusal does not.
+_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+#: Owner read/write at creation. Not applied afterwards: see `write_private_key`.
+PRIVATE_KEY_MODE = 0o600
+
+
+def write_private_key(path: Path, pem: bytes) -> None:
+    """Create `path` exclusively, owner-only, without following a symlink.
+
+    Three things were wrong with `exists()` then `write_bytes()` then `chmod(0o600)`,
+    and all three are reproduced in tests/test_key_handling.py:
+
+    * **The key was created world-readable.** `write_bytes` honours the umask, so the
+      file existed at 0644 until the chmod landed - a window in which any local user
+      could read a signing key. `os.open` takes the mode at creation instead.
+    * **A dangling symlink passed the check.** `Path.exists()` follows links and is
+      False for one pointing at nothing, so the key was created at the link's target,
+      somewhere the user never named. `O_NOFOLLOW` refuses the link itself.
+    * **Check-then-write is not exclusive.** Anything could appear in between.
+      `O_CREAT | O_EXCL` makes the creation the check.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | _NOFOLLOW
+    try:
+        fd = os.open(path, flags, PRIVATE_KEY_MODE)
+    except FileExistsError:
+        raise FileExistsError(
+            f"{path} exists; refusing to overwrite a private key. Delete it on purpose "
+            "or choose another path - a signing key that is replaced by accident "
+            "invalidates every signature made with it.") from None
+    except OSError as e:
+        # ELOOP on a symlink, ENOTDIR on a path component that is not a directory.
+        raise OSError(
+            f"cannot create the private key at {path}: {e}. It must be a path this "
+            "process creates itself, not an existing file and not a symbolic link."
+        ) from None
+    try:
+        handle = os.fdopen(fd, "wb")
+    except BaseException:
+        # `fdopen` took ownership only on success; on failure the raw descriptor is
+        # still ours and still open. Leaking it also made the cleanup below fail on
+        # Windows, where an open file cannot be deleted - so a failed write left a
+        # zero-length key behind, which is the one outcome this function exists to
+        # prevent.
+        os.close(fd)
+        path.unlink(missing_ok=True)
+        raise
+    try:
+        with handle:
+            handle.write(pem)
+    except BaseException:
+        # A half-written key is worse than none: it would be loaded and fail to parse
+        # at signing time, after a run has already happened.
+        path.unlink(missing_ok=True)
+        raise
+
+
+def generate_keypair(private_path: Path, public_path: Path, *,
+                     overwrite_public: bool = False) -> str:
+    """Write a new keypair. The private key is created readable only by its owner.
+
+    Neither destination is overwritten. The public key used to be replaced silently,
+    which is the quieter half of the same mistake: a verifier pinned to the old key
+    reports every signature as untrusted, and the file that would have told them which
+    key it was is gone. `overwrite_public=True` is the explicit way to replace it,
+    which key rotation needs - see docs/operations.md.
+    """
+    if public_path.exists() and not overwrite_public:
+        raise FileExistsError(
+            f"{public_path} exists; refusing to overwrite a public key. Anyone "
+            "verifying against it would start seeing untrusted signatures with no "
+            "record of which key changed. Pass --overwrite-public to replace it, or "
+            "choose another path.")
     private = Ed25519PrivateKey.generate()
-    private_path.parent.mkdir(parents=True, exist_ok=True)
-    private_path.write_bytes(private.private_bytes(
+    write_private_key(private_path, private.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     ))
-    if os.name != "nt":
-        # POSIX modes do not exist on Windows; NTFS inherits the parent directory's ACL
-        # instead. Callers on Windows should keep keys somewhere already restricted.
-        private_path.chmod(0o600)
     pub_b64 = public_key_b64(private.public_key())
     public_path.parent.mkdir(parents=True, exist_ok=True)
     public_path.write_text(pub_b64 + "\n", encoding="utf-8")
@@ -88,27 +153,43 @@ def load_public_key(value: str) -> Ed25519PublicKey:
 
 
 def sign_head(ledger: Path = LEDGER_PATH, key_path: Path = Path("evalseal.key")) -> dict:
-    """Sign the current head of the ledger and append the signature."""
-    records = load_all(ledger)
-    if not records:
-        raise ValueError(f"{ledger} has no records to sign")
-    ok, message = verify_chain(ledger)
-    if not ok:
-        raise ValueError(f"refusing to sign a ledger that does not verify: {message}")
+    """Sign the current head of the ledger and append the signature.
 
+    **The whole read-verify-sign-append runs under the ledger lock.** Without it a
+    concurrent `evalseal run` could append between the head being read and the
+    signature being written, and the entry would claim `record_index` N for a ledger
+    whose last record is N+1: a signature that is perfectly valid, over a head that is
+    no longer the head, while the newest record is unsigned. The lock is the same one
+    `seal_and_append` takes, so the two serialise against each other.
+    """
+    # The key is loaded before the lock: it is a read of an unrelated file, and a
+    # missing or malformed key should fail without making an appender wait.
     private = load_private_key(key_path)
-    head = records[-1].hash
-    entry = {
-        "record_index": len(records) - 1,
-        "hash": head,
-        "algorithm": ALGORITHM,
-        "public_key": public_key_b64(private.public_key()),
-        "signature": base64.b64encode(private.sign(head.encode())).decode(),
-        "signed_at": datetime.now(UTC).isoformat(),
-    }
-    path = signatures_path(ledger)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, sort_keys=True) + "\n")
+    with ledger_lock(ledger):
+        records = load_all(ledger)
+        if not records:
+            raise ValueError(f"{ledger} has no records to sign")
+        ok, message = verify_chain(ledger)
+        if not ok:
+            raise ValueError(f"refusing to sign a ledger that does not verify: {message}")
+
+        head = records[-1].hash
+        entry = {
+            "record_index": len(records) - 1,
+            "hash": head,
+            "algorithm": ALGORITHM,
+            "public_key": public_key_b64(private.public_key()),
+            "signature": base64.b64encode(private.sign(head.encode())).decode(),
+            "signed_at": datetime.now(UTC).isoformat(),
+        }
+        path = signatures_path(ledger)
+        line = json.dumps(entry, sort_keys=True) + "\n"
+        # One write of one line, flushed and fsynced inside the lock, so a reader
+        # never sees half an entry and a crash cannot leave one.
+        with path.open("a", encoding="utf-8") as f:
+            f.write(line)
+            f.flush()
+            os.fsync(f.fileno())
     return entry
 
 

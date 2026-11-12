@@ -8,16 +8,27 @@ from evalseal.adapters.scorer import AnswerMatchScorer, extract_answer
 
 @pytest.mark.parametrize("text,want", [
     ("The answer is 18.", "18"),
-    ("Janet makes $18 every day.", "18"),
     ("#### 72", "72"),
     ("reasoning...\n#### 1,000", "1,000"),
     (r"so \boxed{42} is the result", "42"),
     ("Final answer: -5", "-5"),
-    ("She has 3 apples, then buys 4, so 7 total", "7"),
-    ("no digits here", "no digits here"),
+    ("20 + 10 = 30 carrots.\n30", "30"),          # the answer alone on the last line
+    ("`RetrievalResult`", "RetrievalResult"),      # a bare token is an answer too
 ])
 def test_extraction(text, want):
     assert extract_answer(text) == want
+
+
+@pytest.mark.parametrize("text", [
+    "Janet makes $18 every day.",                  # a number inside prose is not an answer
+    "She has 3 apples, then buys 4, so 7 total",
+    "no digits here",
+    "I cannot answer that without more information.",
+    "",
+])
+def test_a_reply_outside_the_declared_format_has_no_answer(text):
+    """None, not a guess. See docs/metrics.md §11 for why the guess was removed."""
+    assert extract_answer(text) is None
 
 
 @pytest.mark.parametrize("response,expected,ok", [

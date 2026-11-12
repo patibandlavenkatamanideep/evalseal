@@ -18,7 +18,7 @@ from .ledger import (
     evaluator_fingerprint,
     records_share_fingerprint_inputs,
 )
-from .models import RunRecord
+from .models import EffectiveParams, RunRecord
 from .paired import INCONCLUSIVE, PairedComparison, compare_runs, per_case_halfwidth
 
 # The verdict when the two runs were not graded the same way. It is not a score result,
@@ -274,10 +274,18 @@ __all__ = ["DiffResult", "FieldChange", "ReceiptError", "diff_records",
 # `_config_fields` so the two cannot drift: if the fingerprint covers something this set
 # does not name, a diff can only say "something changed", which is not an explanation.
 EVALUATOR_FIELDS = frozenset({
-    "scorer type", "scorer settings", "judge provider", "judge endpoint", "judge model",
-    "judge temperature", "judge top_p", "judge max_tokens", "judge seed",
-    "judge prompt", "rubric", "dataset", "case set",
+    "scorer type", "scorer settings", "scorer implementation",
+    "judge provider", "judge endpoint", "judge model", "judge api version",
+    "judge system prompt", "judge temperature", "judge top_p", "judge max_tokens",
+    "judge seed", "judge unset params", "judge prompt", "rubric", "dataset", "case set",
 })
+
+
+def _unset_summary(params: EffectiveParams | None) -> str | None:
+    """`temperature=inherited, seed=unsupported`, or None when nothing is absent."""
+    if params is None or not params.unset:
+        return None
+    return ", ".join(f"{name}={why}" for name, why in sorted(params.unset.items()))
 
 
 def _config_fields(record: RunRecord) -> dict[str, str | None]:
@@ -290,13 +298,23 @@ def _config_fields(record: RunRecord) -> dict[str, str | None]:
         # The instrument.
         "scorer type": m.scorer.type,
         "scorer settings": m.scorer.config_hash,
+        # The grading code. Named here as well as hashed, so that "the fingerprints
+        # differ" can be answered with "the grading code changed" rather than with the
+        # fall-through sentence below, which explains nothing.
+        "scorer implementation": m.scorer.impl_hash,
         "judge provider": judge.provider if judge else None,
         "judge endpoint": judge.base_url if judge else None,
         "judge model": judge.requested_model if judge else None,
+        "judge api version": judge.api_version if judge else None,
+        "judge system prompt": judge.system_prompt_hash if judge else None,
         "judge temperature": str(jp.temperature) if jp else None,
         "judge top_p": str(jp.top_p) if jp else None,
         "judge max_tokens": str(jp.max_tokens) if jp else None,
         "judge seed": str(jp.seed) if jp else None,
+        # Which of those the judge inherited from the provider rather than being told.
+        # A run that set temperature and one that inherited it are different setups
+        # even when the recorded value happens to match.
+        "judge unset params": _unset_summary(jp),
         "judge prompt": m.scorer.judge_prompt_hash,
         "rubric": m.scorer.rubric_hash,
         "dataset": m.dataset.hash,
@@ -306,9 +324,17 @@ def _config_fields(record: RunRecord) -> dict[str, str | None]:
         "target provider": m.target.provider,
         "target endpoint": m.target.base_url,
         "target model": m.target.requested_model,
+        "target api version": m.target.api_version,
+        "target system prompt": m.target.system_prompt_hash,
         "target temperature": str(tp.temperature),
         "target top_p": str(tp.top_p),
+        # The seed was missing from this table while `config_fingerprint` hashed it, so
+        # a run that changed the target's seed showed "something changed that this
+        # summary does not list" in `diff` and nothing at all in `drift`, where the
+        # cause of a moved verdict is decided from exactly these names.
+        "target seed": str(tp.seed),
         "target max_tokens": str(tp.max_tokens),
+        "target unset params": _unset_summary(tp),
         "suite": m.suite.hash if m.suite else None,
     }
 
@@ -341,10 +367,11 @@ def _incomparability_reason(
         versions = sorted({before.manifest.schema_version, after.manifest.schema_version})
         return (
             f"the two runs were sealed under different schema versions "
-            f"({', '.join(versions)}). Fields the evaluator fingerprint covers from 1.4 - "
-            "the judge endpoint, max_tokens, the scorer's own settings - are absent from "
-            "the older record, so they cannot be compared. Re-record the older run to "
-            "compare these directly."
+            f"({', '.join(versions)}). Fields the evaluator fingerprint covers - the "
+            "judge endpoint, max_tokens and the scorer's settings from 1.4, the grading "
+            "code, the judge's API version and its system prompt from 1.6 - are absent "
+            "from the older record, so they cannot be compared. Re-record the older run "
+            "to compare these directly."
         )
     changed = [c.name for c in config if c.changed and c.name in EVALUATOR_FIELDS]
     if changed:
@@ -352,6 +379,44 @@ def _incomparability_reason(
     return (
         "the evaluator fingerprints differ although no named field did, which means a "
         "judge parameter or scorer setting changed that this summary does not list."
+    )
+
+
+def _imported_reason(before: RunRecord, after: RunRecord) -> str | None:
+    """Why an import cannot be compared, or None when neither side is one.
+
+    The fingerprint would happily produce a value from a manifest full of nulls, and
+    two such values are equal. That is the trap: a shared *inability* to say how a run
+    was graded is not evidence that two runs were graded alike.
+    """
+    sides = [
+        (label, record.manifest.imported)
+        for label, record in (("the earlier", before), ("the later", after))
+        if record.manifest.imported is not None
+    ]
+    if not sides:
+        return None
+    where = " and ".join(f"{label} run" for label, _ in sides)
+    tools = sorted({f"{p.tool} {p.tool_version or 'at an unrecorded version'}"
+                    for _, p in sides})
+    missing = sorted({gap for _, p in sides for gap in p.gaps
+                      if gap.startswith("scorer.impl_hash")})
+    detail = (
+        f"{where} {'were' if len(sides) > 1 else 'was'} imported from "
+        f"{', '.join(tools)}, so the grading code is not EvalSeal's and cannot be "
+        "fingerprinted. "
+    )
+    if missing:
+        detail += f"The field that decides this is missing: {missing[0]} "
+    if len(sides) == 2:
+        detail += (
+            "Both sides are missing it, which does not make them comparable: two "
+            "receipts that cannot say how they were graded agree about nothing. "
+        )
+    return detail + (
+        "The per-case verdicts, the case set and the per-row provider are still worth "
+        "reading, and the paired test below is over the cases present in both. See "
+        "docs/importers/promptfoo.md."
     )
 
 
@@ -365,8 +430,19 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
     ]
     # Comparability is about the grader, not the subject: a different target model is
     # exactly what a benchmark compares.
-    comparable = evaluator_fingerprint(before) == evaluator_fingerprint(after)
-    reason = _incomparability_reason(before, after, config) if not comparable else ""
+    #
+    # An imported receipt is never comparable, whatever the fingerprints say. Its
+    # grading code belongs to another tool, so `scorer.impl_hash` is None - and two
+    # receipts that are both missing it would hash to the *same* fingerprint and read
+    # as a match. Two absences agreeing is not two instruments agreeing.
+    imported = _imported_reason(before, after)
+    comparable = (
+        imported is None
+        and evaluator_fingerprint(before) == evaluator_fingerprint(after))
+    if imported is not None:
+        reason = imported
+    else:
+        reason = _incomparability_reason(before, after, config) if not comparable else ""
 
     paired = compare_runs(before, after)
     ids_b = {c.case_id for c in before.results}

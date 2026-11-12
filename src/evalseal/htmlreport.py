@@ -294,7 +294,7 @@ def diff_to_html(result: DiffResult) -> str:
 
     delta = "no change" if result.score_delta == 0 else f"{result.score_delta:+.3f}"
     pr = result.paired
-    ci = (f"95% CI [{pr.ci95[0]:+.3f}, {pr.ci95[1]:+.3f}]" if pr else "")
+    ci = (f"{pr.ci_label} [{pr.ci[0]:+.3f}, {pr.ci[1]:+.3f}]" if pr else "")
     pval = (f"p={pr.p_value:.4g} · {pr.n_items} paired items" if pr else "")
     cards = "".join([
         _card("score", f"{result.score_after:.3f}",

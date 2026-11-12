@@ -283,6 +283,75 @@ external anchor is that it rests on someone other than the party being audited. 
 EvalSeal-operated authority would make this project a trust root it has no standing to
 be, and a receipt that can only be verified by asking its author is not a receipt.
 
+## Requiring external evidence in a gate
+
+`preregister --require-external-anchor` declares the strongest clause a contract can
+carry: that a party other than the author attested this receipt. Until v2.3 the gate
+evaluated it as `bool(anchor["external_proofs"])`, which made it the *easiest* clause
+to satisfy. All four of these passed it:
+
+```json
+[{"backend": "local", "proof": null}]   // the backend that attests nothing
+[{}]                                     // an empty object
+[{"backend": "notarius-maximus"}]        // a backend that does not exist
+["no"]                                   // the string "no"
+```
+
+Only a completely empty list failed. Any producer could satisfy the requirement by
+writing one character into an anchor they wrote themselves.
+
+Reading the backend's `check()` would not have fixed it either: that returns `True` for
+an imprint-only token, because it answers "could this be re-checked at all?". A token
+whose signature was never verified — because the verifier supplied no root — is "ok" to
+that boolean.
+
+So external evidence is now a typed result with five states, and exactly one of them
+satisfies the requirement:
+
+| state | what it means | satisfies `require_external_anchor` |
+|---|---|---|
+| `verified` | an approved backend checked the proof against a root **you** supplied | yes |
+| `imprint_only` | the token's imprint matches this anchor, and its signature was not checked | no |
+| `unsupported` | nothing here can turn this entry into external evidence: an unknown backend, a malformed entry, or `local`, which attests nothing | no |
+| `missing` | the anchor carries no external proof | no |
+| `failed` | a backend checked it and it did not hold | no |
+
+A verified proof must also come from a backend you approved. The default is `rfc3161`;
+`--approved-backend NAME` replaces the list. `local` is never accepted, even if you name
+it, because the point of external evidence is that it rests on someone other than the
+party being audited.
+
+```console
+$ evalseal gate --prereg prereg.json --anchor anchor.json run.jsonl
+prereg.require_external_anchor  FAIL  imprint only: NOT verified - rfc3161: ...
+
+$ evalseal gate --prereg prereg.json --anchor anchor.json --tsa-ca tsa-root.pem run.jsonl
+prereg.require_external_anchor  PASS  externally verified by rfc3161
+```
+
+Two further rules follow from the same principle:
+
+- **A failed proof is not routed around.** An anchor carrying one verified proof and one
+  that fails the requirement, because a token that does not verify is evidence of
+  tampering or of a proof copied from another anchor. Passing on the good one while
+  ignoring the broken one would put the false green back in a new place.
+- **Proofs are checked against the digest recomputed from the anchor**, never against
+  the `subject_digest` field the anchor carries. Those differ exactly when the anchor was
+  edited after it was stamped, and checking the stored field would confirm a proof over
+  content the anchor no longer holds.
+
+A clause that cannot be evaluated fails. `--require-external-anchor` with no `--anchor`
+reports `not checked`, and fails.
+
+### Trust configuration is per invocation
+
+The root you pass with `--tsa-ca` is used for that one verification and then discarded.
+It previously went through `register_backend()`, which mutates a process-wide registry:
+in a CLI that exits immediately that is invisible, but in a test suite or any program
+verifying more than one anchor, a root supplied for one verification silently decided
+the next one's result. `temporary_backends()` scopes it, and the gate's own path builds
+a configured backend per call and never touches the registry at all.
+
 ## Privacy
 
 - **Hashes by default.** A receipt stores hashes of the dataset file, the rubric and the

@@ -55,15 +55,18 @@ def test_concurrent_run_matches_serial_run(tmp_path):
                 from evalseal.adapters.target import TargetResponse
                 raw = cass.call(
                     {"prompt": prompt},
-                    lambda: {"text": scripted[prompt][_slot_of(cass)]},
+                    lambda: {"text": scripted[prompt][_repeat_of(cass)]},
                 )
                 return TargetResponse(raw["text"], "m", "m", None, "local://", {}, "explicit")
 
         return T()
 
-    def _slot_of(_cass):
-        from evalseal.adapters import recording
-        return recording._slot.get() or 0
+    def _repeat_of(_cass):
+        """Which repeat this call is answering, through the public accessor."""
+        from evalseal.adapters.recording import current_unit
+
+        here = current_unit()
+        return here.repeat if here is not None else 0
 
     path = tmp_path / "c.json"
     serial = run_eval(ds, build(path, True), RegexScorer("^yes$"), n_repeats=5, concurrency=1)
@@ -74,6 +77,16 @@ def test_concurrent_run_matches_serial_run(tmp_path):
     assert key(serial) == key(parallel)
     assert parallel.manifest.run_config.concurrency == 8
     assert serial.aggregate.warnings == parallel.aggregate.warnings
+
+    # Per measurement, not only per case: the execution manifest (schema 1.7) binds
+    # each call to its (case, repeat, role), so the two runs can be compared response
+    # by response rather than aggregate by aggregate. A scheduler that served the right
+    # multiset of answers to the wrong measurements would pass the comparison above.
+    def by_measurement(r):
+        return {(c.case_id, c.repeat, c.role): c.response_digest
+                for c in r.manifest.execution.calls}
+    assert by_measurement(serial) == by_measurement(parallel)
+    assert len(by_measurement(parallel)) == 8 * 5
 
 
 def test_progress_callback_fires_once_per_call():

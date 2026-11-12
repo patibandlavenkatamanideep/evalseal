@@ -39,9 +39,13 @@ def _run(workspace: Path, *args: str, encoding: str) -> subprocess.CompletedProc
            "PATH": f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}",
            "PYTHONIOENCODING": encoding}
     env.pop("EVALSEAL_RECORD", None)
+    # Decoded with the codec the child was told to encode with. `text=True` alone
+    # uses the parent's locale, which on a Windows runner is cp1252 and would make
+    # this test fail to read its own subject.
     return subprocess.run(
         ["evalseal", *args],
-        cwd=workspace, env=env, capture_output=True, text=True, timeout=300)
+        cwd=workspace, env=env, capture_output=True, text=True,
+        encoding=encoding, errors="replace", timeout=300)
 
 
 @pytest.mark.parametrize("encoding", ["cp1252", "ascii", "utf-8"])

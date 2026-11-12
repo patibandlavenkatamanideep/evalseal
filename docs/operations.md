@@ -19,6 +19,7 @@ macOS-26.2-arm64-arm-64bit-Mach-O, Python 3.13.2, arm
 | wall clock for one provider call, **including retries and backoff** | derived: `timeout × (retries + 1) + Σ backoff` = 391 s at the defaults | `--deadline` | `DeadlineExceeded`, naming what to change |
 | retries per call | 5, on 429/408/5xx and connection errors | `--max-retries` | the last response's status is raised |
 | grading patterns | nested unbounded quantifiers refused | scorer config and `RegexScorer` | `UnsafePattern` before the run starts |
+| requests in flight | 4, capped at 64 | `--concurrency`, suite `concurrency` | refused with the reason; 64 bodies at the response limit is 512 MiB, already more than a runner should be asked for |
 
 The response limit is not a guess: the largest response in any cassette committed to
 this repository is under 40 KB, which is 0.5% of the default. The limit exists for the
@@ -58,7 +59,25 @@ A replay is CPU-bound and single-threaded in Python, so concurrency buys nothing
 costs nothing there. Against a live provider it is the only thing that matters, and the
 in-flight bound is exactly `--concurrency`: that many requests, each capped at
 `--max-response-bytes`. Peak transfer memory is therefore `concurrency ×
-max_response_bytes` in the worst case — 32 MiB at the defaults.
+max_response_bytes` in the worst case — 32 MiB at the defaults, and 512 MiB at the
+ceiling of 64, which is why there is a ceiling. A suite asking for 1000 is refused with
+the arithmetic rather than starting a thousand threads.
+
+### Retries and truncation are recorded, not just handled
+
+A call that failed twice and then succeeded is a different call from one that worked
+first time — slower, later, possibly served by a different backend. The receipt says so:
+
+| field | meaning |
+|---|---|
+| `execution.calls[].attempts` | HTTP attempts for that call. 0 means none was made: replayed, or served by an in-process callable |
+| `execution.attempts` | the run's total. Higher than `n_live` means retries happened |
+| `execution.calls[].status` | `complete`, `truncated` (hit the token limit) or `empty` |
+| `execution.n_truncated` | how many hit the limit |
+| `aggregate.warnings` | `TARGET RESPONSE TRUNCATED: N of M call(s) hit the token limit` |
+
+A truncated reply is also **unscorable**, not a wrong answer: its answer is absent
+rather than incorrect, so it scores 0.0, stays in the mean and leaves the flip rate.
 
 ### Verifying a ledger is linear and cheap
 

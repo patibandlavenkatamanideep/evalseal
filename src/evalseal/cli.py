@@ -56,7 +56,7 @@ from .evidence import (
     analyze_evidence,
 )
 from .evidence import render as render_evidence
-from .executor import run_eval
+from .executor import MAX_CONCURRENCY, run_eval
 from .htmlreport import write_diff_html, write_html
 from .independence import audit_independence
 from .inputs import InputSnapshot, capture_all
@@ -506,7 +506,11 @@ def run(
              "again). Defaults to $EVALSEAL_MODE, or replay unless EVALSEAL_RECORD=1.",
     ),
     ledger: Path = LedgerOpt,
-    concurrency: int | None = typer.Option(None, min=1, help="Parallel requests in flight."),
+    concurrency: int | None = typer.Option(
+        None, min=1, max=MAX_CONCURRENCY,
+        help=f"Parallel requests in flight, at most {MAX_CONCURRENCY}. This is the "
+             "in-flight bound in both senses: that many sockets, and that many "
+             "response bodies being read at --max-response-bytes each."),
     max_retries: int | None = typer.Option(None, min=0, help="Retries per request on 429/5xx."),
     max_response_bytes: int | None = typer.Option(
         None, "--max-response-bytes", min=1024,

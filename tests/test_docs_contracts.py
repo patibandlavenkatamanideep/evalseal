@@ -278,3 +278,23 @@ def test_every_relative_link_resolves(path):
 
     for target in re.findall(r"\]\(([^)#]+\.md)(?:#[^)]*)?\)", _text(path)):
         assert (path.parent / target).resolve().is_file(), f"{path.name} -> {target}"
+
+
+# --- SECURITY.md ---------------------------------------------------------------------
+
+def test_security_md_does_not_claim_signing_is_unimplemented():
+    """It said "There is no signing yet" while `evalseal sign` had shipped."""
+    security = (Path(__file__).resolve().parent.parent / "SECURITY.md"
+                ).read_text(encoding="utf-8")
+    assert "no signing yet" not in security
+    assert "Signing the head closes that gap" in security
+    # And it says what a signature does not establish, which is the part that matters.
+    assert "that the run happened as described" in security
+
+
+def test_security_md_describes_the_key_handling_the_code_does():
+    security = (Path(__file__).resolve().parent.parent / "SECURITY.md"
+                ).read_text(encoding="utf-8")
+    assert "O_CREAT|O_EXCL|O_NOFOLLOW" in security
+    assert f"`{PRIVATE_KEY_MODE:o}`".replace("600", "0600") in security
+    assert "--overwrite-public" in security

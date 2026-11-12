@@ -57,6 +57,15 @@ _LOCAL_SCHEMES = {"local"}
 #: bytes behind this receipt were altered. See docs/adr/0002-cassette-writer-strategy.md.
 _MUTABLE_ROLES = frozenset({"cassette"})
 
+#: The most requests this build will keep in flight. It is the in-flight bound in both
+#: senses that matter: that many sockets, and that many response bodies being read at
+#: `--max-response-bytes` each - 512 MiB at the default limit, which is already more
+#: than a CI runner should be asked for. There is no provider that rewards more, and a
+#: typo in a suite file ("concurrency": 1000) would otherwise start a thousand threads.
+#: docs/operations.md records the measured effect of raising it, which for a replay is
+#: none.
+MAX_CONCURRENCY = 64
+
 
 def _bind(role: str, path: str, digest: str, note: str | None = None) -> ArtifactProvenance:
     """One artifact, with the kind its role implies."""
@@ -435,6 +444,12 @@ def run_eval(
         raise ValueError("n_repeats must be >= 1")
     if concurrency < 1:
         raise ValueError("concurrency must be >= 1")
+    if concurrency > MAX_CONCURRENCY:
+        raise ValueError(
+            f"concurrency {concurrency} is above the limit of {MAX_CONCURRENCY}. That "
+            f"many requests in flight is {MAX_CONCURRENCY} response bodies being read "
+            "at once, and no provider rewards it. If you genuinely need more, split "
+            "the suite across runs with their own cassettes.")
 
     session = session_id or uuid.uuid4().hex
     units = [_Unit(case, r) for case in dataset.cases for r in range(n_repeats)]

@@ -335,3 +335,43 @@ def test_the_largest_committed_cassette_response_is_far_under_the_default():
         for entry in entries.values():
             largest = max(largest, len(json.dumps(entry).encode()))
     assert 0 < largest < MAX_RESPONSE_BYTES / 50, largest
+
+
+# --- the in-flight bound -------------------------------------------------------------
+
+def test_concurrency_is_capped_with_the_arithmetic_in_the_message():
+    """64 bodies at the response limit is 512 MiB; a typo should not start 1000 threads."""
+    from evalseal.adapters.dataset import Case, Dataset
+    from evalseal.adapters.scorer import RegexScorer
+    from evalseal.adapters.target import LocalCallableTarget
+    from evalseal.executor import MAX_CONCURRENCY, run_eval
+
+    dataset = Dataset([Case("a", "q")], hash="sha256:t")
+    target = LocalCallableTarget(lambda p: "yes", name="m")
+    with pytest.raises(ValueError) as caught:
+        run_eval(dataset, target, RegexScorer("yes"), n_repeats=1,
+                 concurrency=MAX_CONCURRENCY + 1)
+    assert f"above the limit of {MAX_CONCURRENCY}" in str(caught.value)
+    assert "split the suite across runs" in str(caught.value)
+    # And the limit itself is usable.
+    run_eval(dataset, target, RegexScorer("yes"), n_repeats=1,
+             concurrency=MAX_CONCURRENCY)
+
+
+def test_the_cli_refuses_an_out_of_range_concurrency_as_bad_input(tmp_path):
+    from typer.testing import CliRunner
+
+    from evalseal.cli import app
+    from evalseal.executor import MAX_CONCURRENCY
+
+    (tmp_path / "ds.jsonl").write_text('{"case_id": "a", "prompt": "p"}\n')
+    (tmp_path / "t.json").write_text('{"model": "m"}')
+    (tmp_path / "s.json").write_text('{"type": "regex", "pattern": "yes"}')
+    result = CliRunner().invoke(app, [
+        "run", "--dataset", str(tmp_path / "ds.jsonl"),
+        "--target-config", str(tmp_path / "t.json"),
+        "--scorer-config", str(tmp_path / "s.json"),
+        "--cassette", str(tmp_path / "c.json"), "--n", "1",
+        "--concurrency", str(MAX_CONCURRENCY + 1),
+        "--ledger", str(tmp_path / "l.jsonl")])
+    assert result.exit_code == 2

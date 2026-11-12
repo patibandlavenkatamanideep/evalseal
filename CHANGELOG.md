@@ -9,6 +9,32 @@ older version still verifies.
 
 ### Added
 
+- **Four contract documents**, each one a page a reviewer is told to act on:
+  [docs/statistical-contract.md](docs/statistical-contract.md) (estimands, assumptions,
+  coverage, decision rules), [docs/verification-policy.md](docs/verification-policy.md)
+  (five assurance levels, trust roots, fail-closed rules),
+  [docs/compatibility.md](docs/compatibility.md) (package/schema/fingerprint/cassette
+  matrix and the 2.3 upgrade notes) and
+  [docs/operations.md](docs/operations.md) (limits, key handling, recovery, retention,
+  troubleshooting). Every number in the last of those is measured by
+  `scripts/measure_limits.py` on a machine it names, not asserted as an SLA.
+
+- **`evalseal recover`**: moves an interrupted append aside and keeps the complete
+  history. The partial bytes go to a sidecar and are fsynced before the ledger is
+  truncated, under the ledger lock.
+
+- **Bounded transport** (`src/evalseal/transport.py`): `--max-response-bytes` (8 MiB by
+  default) and `--deadline` on `run`, as suite keys too, for provider and
+  timestamp-authority traffic alike.
+
+- **A packaging lane and a minimum-dependency lane.** `scripts/wheel_smoke.py` installs
+  the built wheel outside the repository and exercises the CLI from a clean environment;
+  CI runs it on Linux, macOS and Windows. A second lane pins every declared dependency
+  to exactly its lower bound and runs the suite, so the bounds are claims rather than
+  guesses.
+
+#### Earlier: scoring, attribution and statistics
+
 - **[docs/metrics.md](docs/metrics.md): what every number means.** One row per
   user-facing metric and verdict, with its unit, denominator, treatment of ties and
   missing observations, the question it answers and whether higher or lower is better -
@@ -42,6 +68,70 @@ older version still verifies.
   than one explanation, and `drift.grounds`, which states what the label rests on.
 
 ### Fixed
+
+- **An unbounded response body.** Against a loopback server returning 200 MB of JSON,
+  and the same body gzipped to about 200 KB on the wire:
+
+  ```
+  a 200 MB JSON body  -> accepted 210 MB of content  (peak traced 630 MB)
+  a gzip bomb         -> accepted 210 MB of content  (peak traced 629 MB)
+  ```
+
+  Neither is a plausible chat completion; both are what a captive portal, a
+  misconfigured `--base-url` or a proxy's error page hands you. Bodies are now read in
+  chunks under a limit on **decoded** bytes, and inflated under `zlib`'s own
+  `max_length`, because httpx decodes a whole raw chunk before yielding any of it and at
+  a 1000:1 ratio one 64 KiB read expands to 64 MB — which left the same bomb peaking at
+  270 MB even with the limit in place. It now peaks at 17 MB. The TSA backend read
+  `response.content` the same way, for a token that is a few kilobytes.
+
+- **A grading pattern could outlast the evaluation.** `RegexScorer('^(a+)+$')` took
+  **25.12 s on 31 characters**, doubling with each one after, from a scorer config file
+  that in a pull-request workflow can come from a fork. Nested unbounded quantifiers are
+  refused before anything runs; `patterns.py` states what that does not cover.
+
+- **A private signing key was created world-readable.** `write_bytes` honours the umask,
+  so the file existed at `0644` until the `chmod(0o600)` landed. It is created with
+  `O_CREAT|O_EXCL|O_NOFOLLOW` and mode `0600` now — which also refuses a symlink at the
+  key's path (a **dangling** one passed the old `exists()` check and the key was created
+  at the link's target) and makes creation the existence check, so check-then-write has
+  no window.
+
+- **The public key destination was replaced silently.** A verifier pinned to the old key
+  would see every signature as untrusted with no record of which key changed.
+  `--overwrite-public` is the explicit way to rotate.
+
+- **An interrupted append made the whole ledger unreadable.** One partial final line and
+  `load_all` raised *"line 2 is not valid JSON"*, so `verify`, `gate`, `report`, `diff`
+  and `sign` all failed and none of the intact history could be read.
+  `IncompleteFinalRecord` names the condition, says how many records are fine, and names
+  `evalseal recover`.
+
+- **`sign_head` did not hold the ledger lock.** An append between reading the head and
+  writing the signature left a valid signature over a head that was no longer the head,
+  while the newest record was unsigned and nothing said so. The signature line is also
+  fsynced inside the lock.
+
+- **CI went green on a failed anchor verification.** `anchor-verify`'s exit code was
+  printed in the step summary as "FAILED" and then ignored. The copied workflow now fails
+  for it, and the anchor is created **before** the gate — a pre-registration can require
+  one, and `gate --prereg` can only check a file that exists, so `require_anchor: true`
+  used to fail for an anchor the job was about to create.
+
+- **A configured-but-missing contract was skipped in silence.** `if [ -f "$PREREG" ]`
+  left the gate running without it, so deleting the pre-registration in a pull request
+  removed the contract and the check stayed green. `REQUIRE_PREREG`, `REQUIRE_BASELINE`
+  and `REQUIRE_ANCHOR` decide what is required, checked before the replay.
+
+- **The release did not depend on lint, audit or packaging.** `build` needed only the
+  cross-platform tests, while ruff, mypy and `pip-audit` lived in a workflow a tag push
+  does not wait for.
+
+- **Concurrency had no ceiling.** `"concurrency": 1000` in a suite file would have
+  started a thousand threads and read a thousand bodies at once. Capped at 64, refused
+  with the arithmetic.
+
+#### Earlier: scoring, attribution and statistics
 
 - **A grader that could not read a reply graded it anyway.** `extract_answer` ended with
   "otherwise, the last number anywhere in the reply", so a refusal that restated the
@@ -116,7 +206,7 @@ older version still verifies.
   mean, the counts, the ungraded share, the origin and the draw count, and prints the
   run's warnings.
 
-#### Earlier in this unreleased cycle
+#### Earlier: sealing the experiment
 
 - **An input was used at the start of a run and hashed at the end.** Anything that
   rewrote the file in between - a `git checkout`, an editor save, another job
@@ -487,7 +577,7 @@ older version still verifies.
   and a rewritten ledger each fail closed with their own message. A requirement the gate
   could not evaluate fails rather than skips.
 
-#### Earlier in this unreleased cycle
+#### Earlier: signing requirements
 
 - **`evalseal preregister --require-signature` and `--trusted-key`**, and
   `gate --trusted-key`. The requirement had no CLI surface at all.

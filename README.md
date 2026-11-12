@@ -647,10 +647,16 @@ happen. Verify what the page claims with `evalseal verify`.
 
 ## Commands
 
-Every number these commands print has a row in
-**[docs/metrics.md](docs/metrics.md)** giving its unit, its denominator, what happens to
-ties and to missing observations, the question it answers, and whether higher or lower is
-better. If you are about to act on one, that is the page to read first.
+Four pages carry the contracts, and they are the ones to read before acting on
+anything this prints:
+
+| | |
+|---|---|
+| [docs/metrics.md](docs/metrics.md) | every number's unit, denominator, treatment of ties and missing observations, the question it answers, and whether higher or lower is better |
+| [docs/statistical-contract.md](docs/statistical-contract.md) | what each test estimates, what it assumes, what its interval covers, and which decision it may drive |
+| [docs/verification-policy.md](docs/verification-policy.md) | the five assurance levels, who must be trusted for each claim, and what every check does when it cannot run |
+| [docs/operations.md](docs/operations.md) | enforced limits, measured costs, filesystem guarantees, key rotation, recovery, retention and troubleshooting |
+| [docs/compatibility.md](docs/compatibility.md) | the package, schema, fingerprint and cassette-format matrix, and what upgrading to 2.3 changes |
 
 | command | what it does | exit code |
 |---|---|---|

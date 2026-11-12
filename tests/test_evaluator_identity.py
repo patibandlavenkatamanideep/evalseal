@@ -17,7 +17,7 @@ import re
 
 import httpx
 import pytest
-from conftest import make_dataset
+from conftest import fake_http, make_dataset
 
 import evalseal.adapters.scorer as scorer_mod
 from evalseal.adapters.dataset import Case, Dataset
@@ -231,7 +231,7 @@ def _answer_every_call(monkeypatch):
         sent.append({"url": url, "headers": headers or {}, "body": json})
         return httpx.Response(200, json=_reply(), request=httpx.Request("POST", url))
 
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    fake_http(monkeypatch, fake_post)
     return sent
 
 
@@ -313,7 +313,7 @@ def test_an_openai_target_transmits_its_system_prompt(tmp_path, monkeypatch):
             "model": "m", "choices": [{"message": {"content": "yes"},
                                        "finish_reason": "stop"}]})
 
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    fake_http(monkeypatch, fake_post)
     from evalseal.adapters.target import OpenAICompatibleTarget
 
     target = OpenAICompatibleTarget(

@@ -9,6 +9,7 @@ import itertools
 import json
 
 import pytest
+from conftest import fake_http
 from typer.testing import CliRunner
 
 from evalseal.adapters.dataset import Case, Dataset
@@ -198,7 +199,7 @@ def test_cli_gives_each_arm_its_own_cassette(tmp_path, monkeypatch):
     answers = itertools.cycle(["yes", "PASS", "no", "FAIL"])
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, request=httpx.Request("POST", url),
         json={"model": "m", "choices": [{"message": {"content": next(answers)}}]}))
 

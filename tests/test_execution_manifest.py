@@ -13,7 +13,7 @@ import json
 
 import httpx
 import pytest
-from conftest import make_dataset
+from conftest import fake_http, make_dataset
 
 from evalseal.adapters.dataset import Case, Dataset
 from evalseal.adapters.recording import Cassette
@@ -44,7 +44,7 @@ def _serve(monkeypatch, replies, *, count=None):
             return item
         return httpx.Response(200, json=item, request=httpx.Request("POST", url))
 
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    fake_http(monkeypatch, fake_post)
     if count is not None:
         assert count  # documentation only
     return sent

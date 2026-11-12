@@ -15,6 +15,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from conftest import fake_tsa_http
 from tsa_fixture import build_token, build_tsa, build_tst_info
 
 from evalseal.anchor import AnchorError, available_backends, get_backend
@@ -168,7 +169,7 @@ def test_submit_refuses_without_an_authority():
 
 def test_submit_stores_the_token_and_the_asserted_time(monkeypatch):
     fake_post, posted = _echoing_post()
-    monkeypatch.setattr(httpx, "post", fake_post)
+    fake_tsa_http(monkeypatch, fake_post)
     proof = Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
     assert posted["nonce"] is not None and posted["nonce"] > 0, (
         "the request must carry a positive nonce for the echo to be checkable")
@@ -184,13 +185,13 @@ def test_submit_stores_the_token_and_the_asserted_time(monkeypatch):
 def test_submit_sends_only_the_digest(monkeypatch):
     """The authority must never see the receipt or anything it hashes."""
     fake_post, captured = _echoing_post()
-    monkeypatch.setattr(httpx, "post", fake_post)
+    fake_tsa_http(monkeypatch, fake_post)
     Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
     assert len(captured["body"]) < 128        # a request is tens of bytes, not a receipt
 
 
 def test_submit_refuses_a_token_for_a_different_digest(monkeypatch):
-    monkeypatch.setattr(httpx, "post", lambda url, **k: httpx.Response(
+    fake_tsa_http(monkeypatch, lambda url, **k: httpx.Response(
         200, content=_response(OTHER), request=httpx.Request("POST", url)))
     with pytest.raises(AnchorError) as e:
         Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
@@ -198,7 +199,7 @@ def test_submit_refuses_a_token_for_a_different_digest(monkeypatch):
 
 
 def test_submit_reports_a_refusal_rather_than_storing_nothing(monkeypatch):
-    monkeypatch.setattr(httpx, "post", lambda url, **k: httpx.Response(
+    fake_tsa_http(monkeypatch, lambda url, **k: httpx.Response(
         200, content=_sequence(_sequence(_integer(2))),
         request=httpx.Request("POST", url)))
     with pytest.raises(AnchorError) as e:
@@ -207,7 +208,7 @@ def test_submit_reports_a_refusal_rather_than_storing_nothing(monkeypatch):
 
 
 def test_submit_refuses_an_unreadable_reply_rather_than_recording_it(monkeypatch):
-    monkeypatch.setattr(httpx, "post", lambda url, **k: httpx.Response(
+    fake_tsa_http(monkeypatch, lambda url, **k: httpx.Response(
         200, content=b"<html>error</html>", request=httpx.Request("POST", url)))
     with pytest.raises(AnchorError) as e:
         Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
@@ -218,7 +219,7 @@ def test_a_network_failure_is_reported_as_one(monkeypatch):
     def boom(url, **kwargs):
         raise httpx.ConnectError("no route to host")
 
-    monkeypatch.setattr(httpx, "post", boom)
+    fake_tsa_http(monkeypatch, boom)
     with pytest.raises(AnchorError) as e:
         Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
     assert "failed" in str(e.value)
@@ -267,7 +268,7 @@ def test_check_makes_no_network_call(monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError("check() must work offline")
 
-    monkeypatch.setattr(httpx, "post", forbidden)
+    fake_tsa_http(monkeypatch, forbidden)
     monkeypatch.setattr(httpx, "get", forbidden)
     assert Rfc3161Backend().check(DIGEST, _proof())[0]
 
@@ -290,7 +291,7 @@ def test_the_local_backend_still_says_it_attests_nothing():
 
 def test_an_anchor_carries_the_proof_and_verifies_offline(tmp_path, monkeypatch):
     """The whole path: seal, anchor --with rfc3161, then anchor-verify with no network."""
-    from conftest import make_dataset, scripted
+    from conftest import fake_tsa_http, make_dataset, scripted
 
     from evalseal.adapters.scorer import RegexScorer
     from evalseal.adapters.target import LocalCallableTarget
@@ -320,7 +321,7 @@ def test_an_anchor_carries_the_proof_and_verifies_offline(tmp_path, monkeypatch)
                               nonce=nonce_of_request(body)),
             request=httpx.Request("POST", url))
 
-    monkeypatch.setattr(httpx, "post", fake_post)
+    fake_tsa_http(monkeypatch, fake_post)
     from evalseal.anchor import register_backend
 
     register_backend(Rfc3161Backend("https://tsa.example/tsr"))
@@ -333,7 +334,7 @@ def test_an_anchor_carries_the_proof_and_verifies_offline(tmp_path, monkeypatch)
     proof = anchor["external_proofs"][0]
     assert proof["subject_digest"] == anchor["subject_digest"]
 
-    monkeypatch.setattr(httpx, "post", lambda *a, **k: pytest.fail("verify hit network"))
+    fake_tsa_http(monkeypatch, lambda *a, **k: pytest.fail("verify hit network"))
     checks = verify_anchor(anchor, record, ledger=ledger)
     assert anchor_passed(checks)
     proof_check = next(c for c in checks if "rfc3161" in c.name)

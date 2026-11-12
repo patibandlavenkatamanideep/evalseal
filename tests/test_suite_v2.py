@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 import typer
+from conftest import fake_http
 
 from evalseal.cli import _load_suite, _suite_section_hashes
 
@@ -201,7 +202,7 @@ def _run(suite: Path, ledger: Path, monkeypatch):
     model = json.loads((suite.parent / "target.json").read_text())["model"]
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, json={"model": model, "choices": [{"message": {"content": "yes"}}]},
         request=httpx.Request("POST", url)))
     result = CliRunner().invoke(

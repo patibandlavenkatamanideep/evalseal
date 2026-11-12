@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 import httpx
+from conftest import fake_http
 from typer.testing import CliRunner
 
 from evalseal.cli import app
@@ -44,7 +45,7 @@ def _provider(monkeypatch, answers=("4", "6")):
         text = answers[0] if "2+2" in q else answers[1]
         return httpx.Response(200, json={"model": "m", "choices": [{"message": {"content": text}}]},
                               request=httpx.Request("POST", url))
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    fake_http(monkeypatch, fake_post)
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
 

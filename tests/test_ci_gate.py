@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from xml.etree.ElementTree import fromstring
 
-from conftest import make_dataset, scripted
+from conftest import fake_http, make_dataset, scripted
 from typer.testing import CliRunner
 
 from evalseal.adapters.scorer import RegexScorer
@@ -88,7 +88,7 @@ def test_fail_on_none_exits_zero_even_when_unstable(tmp_path, monkeypatch):
     answers = iter(["yes", "no"] * 10)
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, json={"model": "m", "choices": [{"message": {"content": next(answers)}}]},
         request=httpx.Request("POST", url)))
 
@@ -107,7 +107,7 @@ def test_default_policy_still_fails_on_unstable(tmp_path, monkeypatch):
     answers = iter(["yes", "no"] * 10)
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, json={"model": "m", "choices": [{"message": {"content": next(answers)}}]},
         request=httpx.Request("POST", url)))
 

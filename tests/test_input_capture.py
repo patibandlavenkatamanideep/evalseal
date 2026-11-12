@@ -27,6 +27,7 @@ import json
 import threading
 
 import pytest
+from conftest import fake_http
 from typer.testing import CliRunner
 
 from evalseal.adapters.dataset import Dataset
@@ -250,7 +251,7 @@ def cli_workspace(tmp_path, monkeypatch):
                               json={"model": "m",
                                     "choices": [{"message": {"content": "yes"}}]})
 
-    monkeypatch.setattr(httpx.Client, "post", post)
+    fake_http(monkeypatch, post)
     return tmp_path, edited
 
 
@@ -290,7 +291,7 @@ def test_an_unedited_run_binds_its_dataset_cleanly(tmp_path, monkeypatch):
     (tmp_path / "ds.jsonl").write_text(_ORIGINAL, encoding="utf-8")
     (tmp_path / "t.json").write_text('{"model": "m"}', encoding="utf-8")
     (tmp_path / "s.json").write_text('{"type": "regex", "pattern": "yes"}', encoding="utf-8")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, request=httpx.Request("POST", url),
         json={"model": "m", "choices": [{"message": {"content": "yes"}}]}))
     result = _invoke(tmp_path)
@@ -346,7 +347,7 @@ def test_the_suite_hash_is_of_the_bytes_the_run_read(tmp_path, monkeypatch):
                               json={"model": "m",
                                     "choices": [{"message": {"content": "yes"}}]})
 
-    monkeypatch.setattr(httpx.Client, "post", post)
+    fake_http(monkeypatch, post)
     # --ledger explicitly: the flag has a default, so a suite's `run.ledger` never
     # wins over it, and the record would land in the default .evalseal/ ledger.
     result = runner.invoke(app, ["run", "--suite", str(suite), "--cassette-mode", "resume",

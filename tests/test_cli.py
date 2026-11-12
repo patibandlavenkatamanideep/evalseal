@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from conftest import fake_http
 from typer.testing import CliRunner
 
 from evalseal.cli import EXIT_UNSTABLE, app, load_dotenv
@@ -56,7 +57,7 @@ def _fake_provider(monkeypatch):
             request=httpx.Request("POST", url),
         )
 
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    fake_http(monkeypatch, fake_post)
     return calls
 
 
@@ -72,7 +73,7 @@ def test_record_then_keyless_replay_reproduces_the_flip(example, monkeypatch):
     # Replay: no key, no recording, and any network call would blow up.
     monkeypatch.delenv("EVALSEAL_RECORD")
     monkeypatch.delenv("EVALSEAL_API_KEY")
-    monkeypatch.setattr(httpx.Client, "post", lambda *a, **k: pytest.fail("network in replay"))
+    fake_http(monkeypatch, lambda *a, **k: pytest.fail("network in replay"))
     # Replayed with 4 workers: slots make the result independent of completion order.
     replayed = runner.invoke(app, _args(example, "--concurrency", "4"))
     assert replayed.exit_code == EXIT_UNSTABLE, replayed.output
@@ -112,7 +113,7 @@ def test_real_environment_wins_over_dotenv(monkeypatch):
 def test_rate_limit_is_reported_and_progress_kept(example, monkeypatch):
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         429, text="quota exceeded", request=httpx.Request("POST", url)))
     result = runner.invoke(app, _args(example, "--max-retries", "0"))
     assert result.exit_code == 1

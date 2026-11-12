@@ -112,6 +112,7 @@ from .signing import (
     signatures_path,
     verify_signatures,
 )
+from .transport import MAX_RESPONSE_BYTES
 from .validation import InvalidInput
 from .verification import (
     DEFAULT_APPROVED_BACKENDS,
@@ -207,6 +208,7 @@ def _main(
 _FLAT_SUITE_KEYS = {
     "dataset", "target", "scorer", "n_repeats", "concurrency", "cassette",
     "fail_on", "max_retries", "timeout", "ledger", "junit_xml", "sign_key",
+    "max_response_bytes", "deadline",
 }
 _PATH_KEYS = ("dataset", "target", "scorer", "cassette", "ledger", "junit_xml", "sign_key")
 
@@ -219,7 +221,7 @@ _V2_KEYS: dict[str, set[str]] = {
     "dataset": {"path"},
     "cases": {"only"},
     "run": {"n_repeats", "concurrency", "cassette", "fail_on", "max_retries", "timeout",
-            "ledger", "junit_xml", "sign_key"},
+            "ledger", "junit_xml", "sign_key", "max_response_bytes", "deadline"},
     "policy": {"file"},
 }
 
@@ -398,7 +400,8 @@ def _check_agent_artifacts(captured: dict[str, InputSnapshot]) -> None:
 
 def _build_target(
     cfg: dict, cassette: Cassette, max_retries: int, timeout: float,
-    prefix: str = "",
+    prefix: str = "", max_bytes: int = MAX_RESPONSE_BYTES,
+    deadline: float | None = None,
 ) -> AnthropicTarget | OpenAICompatibleTarget:
     """Build a target from config, rejecting anything this build would not transmit.
 
@@ -437,6 +440,8 @@ def _build_target(
             api_key_env=validated.api_key_env,
             max_retries=max_retries,
             timeout=timeout,
+            max_response_bytes=max_bytes,
+            deadline=deadline,
         )
     return OpenAICompatibleTarget(
         model=validated.model,
@@ -450,10 +455,13 @@ def _build_target(
         api_key_env=validated.api_key_env,
         max_retries=max_retries,
         timeout=timeout,
+        max_response_bytes=max_bytes,
+        deadline=deadline,
     )
 
 
-def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: float):
+def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: float,
+                  max_bytes: int = MAX_RESPONSE_BYTES, deadline: float | None = None):
     """Build a scorer from config, rejecting keys this build does not read."""
     try:
         validated = load_scorer_config(cfg)
@@ -472,7 +480,8 @@ def _build_scorer(cfg: dict, cassette: Cassette, max_retries: int, timeout: floa
     if validated.type == "llm_judge":
         if validated.rubric is None:
             raise typer.BadParameter("an llm_judge scorer needs a `rubric`")
-        judge = _build_target(cfg, cassette, max_retries, timeout, prefix="judge_")
+        judge = _build_target(cfg, cassette, max_retries, timeout, prefix="judge_",
+                              max_bytes=max_bytes, deadline=deadline)
         return LLMJudgeScorer(judge=judge, rubric=validated.rubric)
     raise typer.BadParameter(f"unknown scorer type {validated.type!r}")
 
@@ -497,6 +506,16 @@ def run(
     ledger: Path = LedgerOpt,
     concurrency: int | None = typer.Option(None, min=1, help="Parallel requests in flight."),
     max_retries: int | None = typer.Option(None, min=0, help="Retries per request on 429/5xx."),
+    max_response_bytes: int | None = typer.Option(
+        None, "--max-response-bytes", min=1024,
+        help="Most bytes read from one provider response, after decompression. "
+             f"Default {MAX_RESPONSE_BYTES // 1024 // 1024} MiB. A larger body is an "
+             "error, never a truncation."),
+    deadline: float | None = typer.Option(
+        None, "--deadline", min=1.0,
+        help="Total seconds for one provider call including its retries and backoff. "
+             "Derived from --timeout and --max-retries when unset, and enforced "
+             "either way."),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress the progress bar."),
     timeout: float | None = typer.Option(None, min=1.0, help="Per-request timeout in seconds."),
     fail_on: FailOn | None = typer.Option(
@@ -563,6 +582,9 @@ def run(
     concurrency = concurrency or cfg.get("concurrency", 4)
     max_retries = max_retries if max_retries is not None else cfg.get("max_retries", 5)
     timeout = timeout or cfg.get("timeout", 60.0)
+    max_response_bytes = (max_response_bytes
+                          or cfg.get("max_response_bytes", MAX_RESPONSE_BYTES))
+    deadline = deadline or cfg.get("deadline")
     fail_on = fail_on or cfg.get("fail_on", "unstable")
     junit_xml = junit_xml or (Path(cfg["junit_xml"]) if "junit_xml" in cfg else None)
     sign_key = sign_key or (Path(cfg["sign_key"]) if "sign_key" in cfg else None)
@@ -611,8 +633,10 @@ def run(
         raise typer.BadParameter(str(e)) from None
     target_cfg = json.loads(target_config.read_text(encoding="utf-8"))
     scorer_cfg = json.loads(scorer_config.read_text(encoding="utf-8"))
-    target = _build_target(target_cfg, cass, max_retries, timeout)
-    scorer = _build_scorer(scorer_cfg, cass, max_retries, timeout)
+    target = _build_target(target_cfg, cass, max_retries, timeout,
+                           max_bytes=max_response_bytes, deadline=deadline)
+    scorer = _build_scorer(scorer_cfg, cass, max_retries, timeout,
+                           max_bytes=max_response_bytes, deadline=deadline)
 
     total = len(ds.cases) * n
     show_progress = not quiet and sys.stderr.isatty()

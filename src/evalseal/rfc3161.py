@@ -43,6 +43,15 @@ from typing import TypeVar
 import httpx
 
 from .anchor import AnchorError
+from .transport import (
+    MAX_TSA_RESPONSE_BYTES,
+    Budget,
+    DeadlineExceeded,
+    ResponseTooLarge,
+    UnsupportedEncoding,
+    _Clock,
+    request_bounded,
+)
 
 _SHA256_OID = "2.16.840.1.101.3.4.2.1"
 _CONTENT_TYPE = "application/timestamp-query"
@@ -1059,9 +1068,14 @@ class Rfc3161Backend:
     name = "rfc3161"
 
     def __init__(self, url: str | None = None, *, timeout: float = 15.0,
-                 ca_pem: bytes | None = None) -> None:
+                 ca_pem: bytes | None = None,
+                 max_bytes: int = MAX_TSA_RESPONSE_BYTES) -> None:
         self.url = url
         self.timeout = timeout
+        # An RFC 3161 token is a few kilobytes. The body was read unbounded, so a
+        # misconfigured URL that answers with a web page - or anything hostile - was
+        # read into memory in full before this parser saw a byte of it.
+        self.max_bytes = max_bytes
         # The trust root is held by whoever is *verifying*, never read from the proof.
         # A root carried inside the anchor would be a root the author chose, which
         # defeats the point of an external attestation.
@@ -1079,15 +1093,21 @@ class Rfc3161Backend:
         # indistinguishable from a fresh one.
         nonce = int.from_bytes(os.urandom(8), "big")
         request = build_timestamp_request(subject_digest, nonce=nonce)
+        budget = Budget(timeout=self.timeout, max_retries=0,
+                        max_bytes=self.max_bytes)
+        clock = _Clock(budget.total_deadline(lambda i: 0.0))
         try:
-            response = httpx.post(
-                self.url, content=request, timeout=self.timeout,
-                headers={"Content-Type": _CONTENT_TYPE, "Accept": _ACCEPT})
+            response, der = request_bounded(
+                method="POST", url=self.url, content=request,
+                headers={"Content-Type": _CONTENT_TYPE, "Accept": _ACCEPT},
+                budget=budget, clock=clock, what=f"the timestamp authority {self.url}")
             response.raise_for_status()
         except httpx.HTTPError as e:
             raise AnchorError(f"timestamp request to {self.url} failed: {e}") from None
-
-        der = response.content
+        except (ResponseTooLarge, UnsupportedEncoding, DeadlineExceeded) as e:
+            # Named separately from an HTTP error: the authority answered, and what it
+            # answered with is the problem. Nothing is recorded either way.
+            raise AnchorError(f"timestamp request to {self.url} failed: {e}") from None
         status, status_text = response_status(der)
         if status is not None and status not in _STATUS_GRANTED:
             raise AnchorError(f"{self.url} refused to timestamp this digest: {status_text}")

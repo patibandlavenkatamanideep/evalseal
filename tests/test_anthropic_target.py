@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from conftest import make_dataset
+from conftest import fake_http, make_dataset
 from typer.testing import CliRunner
 
 from evalseal.adapters.recording import Cassette
@@ -39,7 +39,7 @@ def _capture(monkeypatch, replies):
             return item
         return httpx.Response(200, json=item, request=httpx.Request("POST", url))
 
-    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    fake_http(monkeypatch, fake_post)
     return sent
 
 
@@ -145,7 +145,7 @@ def test_a_reply_cut_off_at_the_token_limit_is_flagged(tmp_path, monkeypatch):
 
 def test_the_openai_shape_reports_truncation_too(tmp_path, monkeypatch):
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, request=httpx.Request("POST", url), json={
             "model": "m",
             "choices": [{"message": {"content": "cut"}, "finish_reason": "length"}]}))
@@ -199,7 +199,7 @@ def test_replay_needs_no_key(tmp_path, monkeypatch):
                     sleep=lambda _: None).generate("hi")
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setattr(httpx.Client, "post", _no_network)
+    fake_http(monkeypatch, _no_network)
     replayed = AnthropicTarget(model="m", cassette=Cassette(path, record=False)).generate("hi")
     assert replayed.text == "recorded answer"
 
@@ -240,7 +240,7 @@ def test_a_config_without_a_provider_still_means_openai(tmp_path, monkeypatch):
     """Every suite file written before this adapter existed must keep working."""
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, request=httpx.Request("POST", url),
         json={"model": "m", "choices": [{"message": {"content": "yes"}}]}))
     result = runner.invoke(app, _cfg(tmp_path, '{"model": "m"}'))

@@ -44,6 +44,7 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import fake_http
 from typer.testing import CliRunner
 
 from evalseal.adapters.dataset import Case, Dataset
@@ -336,7 +337,7 @@ def sealed(tmp_path, monkeypatch):
 
     answers = itertools.cycle(["yes"])
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, request=httpx.Request("POST", url),
         json={"model": "m", "choices": [{"message": {"content": next(answers)}}]}))
     (tmp_path / "ds.jsonl").write_text('{"case_id": "only", "prompt": "p"}\n')

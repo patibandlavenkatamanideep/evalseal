@@ -40,6 +40,7 @@ import subprocess
 
 import httpx
 import pytest
+from conftest import fake_tsa_http
 from tsa_fixture import (
     OID_SHA256,
     OID_SHA512,
@@ -290,15 +291,14 @@ def _post_returning(content: bytes):
 
 def test_a_response_with_no_nonce_is_refused(monkeypatch):
     tsa = build_tsa()
-    monkeypatch.setattr(httpx, "post", _post_returning(build_token(tsa, DIGEST)))
+    fake_tsa_http(monkeypatch, _post_returning(build_token(tsa, DIGEST)))
     with pytest.raises(AnchorError, match="no nonce"):
         Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
 
 
 def test_a_response_echoing_the_wrong_nonce_is_refused(monkeypatch):
     tsa = build_tsa()
-    monkeypatch.setattr(
-        httpx, "post", _post_returning(build_token(tsa, DIGEST, nonce=999999)))
+    fake_tsa_http(monkeypatch, _post_returning(build_token(tsa, DIGEST, nonce=999999)))
     with pytest.raises(AnchorError, match="echoed nonce"):
         Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
 
@@ -311,7 +311,7 @@ def test_a_response_echoing_the_nonce_is_accepted(monkeypatch):
         return httpx.Response(200, content=build_token(tsa, DIGEST, nonce=nonce),
                               request=httpx.Request("POST", url))
 
-    monkeypatch.setattr(httpx, "post", post)
+    fake_tsa_http(monkeypatch, post)
     proof = Rfc3161Backend("https://tsa.example/tsr").submit(DIGEST)
     assert proof["subject_digest"] == DIGEST
 

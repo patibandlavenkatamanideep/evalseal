@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from collections.abc import Callable
@@ -10,6 +11,7 @@ import httpx
 
 from ..models import CallOrigin, ParamsSource
 from ..provenance import text_hash
+from ..transport import MAX_RESPONSE_BYTES, Budget, _Clock, request_bounded
 from .recording import CallOutcome, Cassette, digest
 
 # Transient conditions: the same request may well succeed a moment later.
@@ -145,20 +147,31 @@ def post_with_retries(
     max_retries: int,
     timeout: float,
     sleep: Callable[[float], None],
+    max_bytes: int = MAX_RESPONSE_BYTES,
+    deadline: float | None = None,
 ) -> ProviderCall:
     """One real HTTP call, retrying transient failures with backoff.
 
     Shared by every provider adapter. A second copy of this loop would drift, and the
     copy that drifted would be the provider with the fewest tests pointed at it.
+
+    The response body is read under `max_bytes` and the whole call under a total
+    deadline - see transport.py for what was unbounded and what it cost. A body over
+    the limit is an error, not a truncation: this returns a parsed response or nothing.
     """
+    budget = Budget(timeout=timeout, max_retries=max_retries, max_bytes=max_bytes,
+                    deadline=deadline)
+    clock = _Clock(budget.total_deadline(lambda i: backoff_seconds(i)))
+    what = f"the provider at {url}"
     for attempt in range(max_retries + 1):
         last_response: httpx.Response | None = None
         try:
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(url, headers=headers, json=body)
+            response, raw = request_bounded(
+                method="POST", url=url, headers=headers, json_body=body,
+                budget=budget, clock=clock, what=what)
             if response.status_code not in RETRY_STATUSES:
                 response.raise_for_status()
-                return ProviderCall(response.json(), attempt + 1)
+                return ProviderCall(_parse_json(raw, url, response), attempt + 1)
             last_response = response
         except httpx.TransportError:
             if attempt == max_retries:
@@ -166,8 +179,35 @@ def post_with_retries(
         if attempt == max_retries:
             assert last_response is not None
             last_response.raise_for_status()
-        sleep(backoff_seconds(attempt, last_response))
+        wait = backoff_seconds(attempt, last_response)
+        # Never sleep past the deadline: waiting out the budget and *then* failing
+        # wastes the time the budget exists to bound.
+        clock.check(what)
+        sleep(min(wait, max(0.0, clock.remaining)))
     raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _parse_json(raw: bytes, url: str, response: httpx.Response) -> dict:
+    """Parse a provider response, or say what arrived instead of JSON.
+
+    `response.json()` on an HTML error page from a proxy raised a `JSONDecodeError`
+    pointing at character 0, which tells a reader nothing about which endpoint handed
+    them a login page.
+    """
+    try:
+        parsed = json.loads(raw)
+    except ValueError as e:
+        kind = response.headers.get("content-type", "no content-type")
+        head = raw[:120].decode("utf-8", "replace").replace("\n", " ")
+        raise RuntimeError(
+            f"{url} returned {len(raw)} byte(s) of {kind}, which is not JSON: {e}. "
+            f"It starts: {head!r}"
+        ) from None
+    if not isinstance(parsed, dict):
+        raise RuntimeError(
+            f"{url} returned a JSON {type(parsed).__name__}, not an object. A chat "
+            "completion is an object; check the endpoint.")
+    return parsed
 
 
 def _request_id(raw: dict) -> str | None:
@@ -213,6 +253,11 @@ class OpenAICompatibleTarget:
     api_key_env: str = "EVALSEAL_API_KEY"
     max_retries: int = 5                     # transient failures only; 0 disables
     timeout: float = 60.0
+    #: How much of one response will be read, and how long the whole call may take
+    #: including its retries. See transport.py: an unbounded body peaked at 630 MB
+    #: against a loopback server returning 200 MB of JSON.
+    max_response_bytes: int = MAX_RESPONSE_BYTES
+    deadline: float | None = None
     sleep: Callable[[float], None] = field(default=time.sleep, repr=False)
 
     def generate(self, prompt: str) -> TargetResponse:
@@ -291,6 +336,8 @@ class OpenAICompatibleTarget:
             max_retries=self.max_retries,
             timeout=self.timeout,
             sleep=self.sleep,
+            max_bytes=self.max_response_bytes,
+            deadline=self.deadline,
         )
 
 
@@ -320,6 +367,10 @@ class AnthropicTarget:
     anthropic_version: str = "2023-06-01"
     max_retries: int = 5
     timeout: float = 60.0
+    #: As on the OpenAI-compatible adapter: one bound per adapter, not one per wire
+    #: format, or the limit a reader relies on depends on which provider answered.
+    max_response_bytes: int = MAX_RESPONSE_BYTES
+    deadline: float | None = None
     sleep: Callable[[float], None] = field(default=time.sleep, repr=False)
 
     @property
@@ -402,6 +453,8 @@ class AnthropicTarget:
             max_retries=self.max_retries,
             timeout=self.timeout,
             sleep=self.sleep,
+            max_bytes=self.max_response_bytes,
+            deadline=self.deadline,
         )
 
 

@@ -5,7 +5,7 @@ import re
 from html.parser import HTMLParser
 
 import pytest
-from conftest import make_dataset, scripted
+from conftest import fake_http, make_dataset, scripted
 from typer.testing import CliRunner
 
 from evalseal.adapters.dataset import Case, Dataset
@@ -270,7 +270,7 @@ def test_run_writes_the_html_receipt_alongside_the_other_artifacts(tmp_path, mon
     answers = iter(["yes", "no"] * 10)
     monkeypatch.setenv("EVALSEAL_RECORD", "1")
     monkeypatch.setenv("EVALSEAL_API_KEY", "k")
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **k: httpx.Response(
+    fake_http(monkeypatch, lambda self, url, **k: httpx.Response(
         200, json={"model": "m", "choices": [{"message": {"content": next(answers)}}]},
         request=httpx.Request("POST", url)))
 

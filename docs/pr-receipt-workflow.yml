@@ -9,6 +9,35 @@
 #
 # Nothing here needs a secret or an external service. Every step runs offline.
 #
+# ---------------------------------------------------------------------------------
+# BEFORE YOU ENABLE THIS ON A REPOSITORY THAT TAKES PULL REQUESTS FROM FORKS
+#
+# `on: pull_request` checks out the pull request's head. For a fork, that is the
+# fork's code - including the suite, the dataset, the cassette and **the scorer
+# config**. A scorer config can name a regular expression, and Python's regex engine
+# backtracks with no timeout.
+#
+# EvalSeal refuses the nested-quantifier family (`(a+)+`) before a run starts. It does
+# **not** refuse overlapping alternation, which is exponential too and which no static
+# check can decide in general:
+#
+#     ^(a|a)*$   against 24 characters: 0.72s     each 4 more characters is ~16x
+#
+# So a fork can still make this job spin until the runner's limit. The mitigations
+# here are `timeout-minutes` below - which bounds the damage to wasted minutes, not to
+# anything a reviewer would act on - and the fact that the job holds no secrets and
+# can write nothing. Read that as: a fork can waste your CI minutes, and cannot reach
+# your credentials or your branches.
+#
+# If wasted minutes matter to you, require approval for fork workflow runs
+# (Settings -> Actions -> "Require approval for all outside collaborators"), or run
+# this job only for same-repository pull requests:
+#
+#     if: github.event.pull_request.head.repo.full_name == github.repository
+#
+# docs/pr-receipt-workflow.md#the-fork-trust-boundary has the whole picture.
+# ---------------------------------------------------------------------------------
+#
 # Guide: docs/pr-receipt-workflow.md
 name: EvalSeal receipt
 
@@ -64,6 +93,10 @@ env:
 jobs:
   receipt:
     runs-on: ubuntu-latest
+    # A bound on the damage a fork-supplied suite can do. It is not a fix for a
+    # pathological regex - nothing in a workflow file can be - it is the difference
+    # between wasting ten minutes and wasting six hours. See the note at the top.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

@@ -69,6 +69,9 @@ def run_workflow(ws: Path, _workflow: Path | None = None, **env_overrides: str) 
     """
     wf = yaml.safe_load((_workflow or WORKFLOW).read_text(encoding="utf-8"))
     env = {**os.environ, **{k: str(v) for k, v in wf["env"].items()}, **env_overrides}
+    # A GitHub runner is not an 80-column terminal, and rich wraps an error message to
+    # whatever it is told. Narrow output made a test assert on half a sentence.
+    env["COLUMNS"] = "200"
     # The EvalSeal under test, not whatever is on PyPI.
     env["PATH"] = f"{Path(sys.executable).parent}{os.pathsep}{env['PATH']}"
     env.pop("EVALSEAL_RECORD", None)
@@ -424,3 +427,94 @@ def test_the_anchor_is_created_before_the_gate_that_may_require_it():
         names.index("Gate against the policy and the pre-registration")
     gate = next(s for s in wf["jobs"]["receipt"]["steps"] if s.get("id") == "gate")
     assert "--anchor anchor.json" in gate["run"]
+
+
+# --- the fork trust boundary ---------------------------------------------------------
+#
+# `on: pull_request` checks out the fork's code, so the fork controls the suite, the
+# dataset, the cassette and the scorer config. These assert where that stops, and
+# document in executable form the one place it does not.
+
+def _fork_scorer(ws: Path, config: str) -> None:
+    """What a fork can put in the repository, since the job reads its checkout."""
+    (ws / "examples" / "gsm8k" / "scorer.json").write_text(config, encoding="utf-8")
+
+
+def test_a_fork_supplied_nested_quantifier_is_refused_before_the_run(tmp_path):
+    """The half of the boundary that *is* closed, through the real workflow."""
+    ws = _workspace(tmp_path)
+    _fork_scorer(ws, '{"type": "regex", "pattern": "^(a+)+$"}')
+    result = run_workflow(ws)
+
+    assert result["failed"]
+    assert result["failed_step"] == "Replay the suite from its cassette"
+    assert "unbounded quantifier" in result["log"]
+    # It failed on reading the config, so nothing was scored with it.
+    assert not (ws / "report.json").exists()
+
+
+def test_a_fork_supplied_overlapping_alternation_is_not_refused(tmp_path):
+    """The half that is **not** closed, pinned so the gap cannot be forgotten.
+
+    `^(a|a)*$` is exponential for the same reason `(a+)+` is, and deciding that in
+    general is deciding regular-expression ambiguity. If a future check starts
+    refusing it, this test should be inverted and the blocker note removed from
+    docs/pr-receipt-workflow.{md,yml} in the same change.
+    """
+    from evalseal.patterns import UnsafePattern, check_pattern
+
+    check_pattern(r"^(a|a)*$")          # accepted: no exception
+    with pytest.raises(UnsafePattern):
+        check_pattern(r"^(a+)+$")       # refused, for contrast
+
+
+def test_the_measured_blow_up_the_guide_quotes_is_real():
+    """The guide quotes timings; a doubling-every-few-characters shape is the claim."""
+    import re
+    import time
+
+    pattern = re.compile(r"^(a|a)*$")
+    timings = []
+    for n in (12, 16, 20):
+        text = "a" * n + "!"
+        started = time.perf_counter()
+        pattern.search(text)
+        timings.append(time.perf_counter() - started)
+    # Four more characters, at least eight times the work. The machine decides the
+    # constant; it does not decide the exponent.
+    assert timings[2] > timings[1] * 8 > timings[0] * 8, timings
+
+
+def test_the_blocker_is_documented_where_someone_enabling_this_will_see_it():
+    guide = (REPO / "docs" / "pr-receipt-workflow.md").read_text(encoding="utf-8")
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "The fork trust boundary" in guide
+    assert "^(a|a)*$" in guide and "^(a|a)*$" in workflow
+    # The mitigation is named as a bound, never as a fix.
+    assert "It is not a fix" in guide or "is not a fix" in workflow
+    assert "Require approval" in guide and "outside collaborators" in guide
+    assert "head.repo.full_name == github.repository" in guide
+    # And the thing that would turn it from annoying into dangerous is still forbidden.
+    assert "Never switch this to `pull_request_target`" in guide
+    assert "pull_request_target" in workflow
+
+
+def test_the_job_is_time_bounded():
+    job = _workflow(WORKFLOW)["jobs"]["receipt"]
+    assert job["timeout-minutes"] == 10
+
+
+def test_the_fork_cannot_reach_a_secret_or_write_anything():
+    wf = _workflow(WORKFLOW)
+    assert wf["permissions"] == {"contents": "read"}
+    # PyYAML reads a bare `on:` as the boolean True - YAML 1.1, where `on` is a
+    # boolean literal. The trigger lives under that key.
+    triggers = wf.get("on", wf.get(True))
+    assert set(triggers) == {"pull_request"}, triggers
+    body = WORKFLOW.read_text(encoding="utf-8")
+    assert "secrets." not in body, "this workflow must not read a secret"
+
+
+def _workflow(path: Path) -> dict:
+    return yaml.safe_load(path.read_text(encoding="utf-8"))

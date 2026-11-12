@@ -31,6 +31,65 @@ The workflow file is [pr-receipt-workflow.yml](pr-receipt-workflow.yml). Copy it
 | upload | `actions/upload-artifact` | never (it runs even when an earlier step failed) |
 | final | checks the gate's code and the anchor's | the gate failed, or `anchor-verify` failed and `REQUIRE_ANCHOR` is true |
 
+### The fork trust boundary
+
+`on: pull_request` checks out the pull request's head. When that pull request comes from
+a fork, **the fork controls every input this job reads**: the suite, the dataset, the
+cassette, and the scorer config.
+
+What that does *not* get them:
+
+- **No secrets.** `pull_request` runs with the base repository's `GITHUB_TOKEN` scoped
+  `contents: read` and without access to repository secrets. This workflow needs none —
+  it replays a cassette offline — so there is nothing in the environment to take.
+- **No writes.** `permissions: contents: read`, and nothing in the job pushes, comments
+  or publishes.
+- **No network calls to a provider.** With no API key present the run replays; a
+  cassette miss is an error, not a live call.
+- **No unbounded response reads.** Responses come from a committed cassette, and the
+  8 MiB transport limit applies regardless.
+
+What it *does* get them, and this is the open one:
+
+> **A fork can make this job spin.** A scorer config may name a regular expression, and
+> Python's regex engine backtracks with no timeout. EvalSeal refuses the
+> nested-quantifier family before a run starts — `(a+)+`, `(a*)*`, `([a-z]+)+` — but it
+> does **not** refuse overlapping alternation, which is exponential for the same reason
+> and which no static check can decide in general:
+>
+> ```
+> ^(a|a)*$   against 16 characters: 0.003s
+>            against 20 characters: 0.044s
+>            against 24 characters: 0.722s
+> ```
+>
+> Roughly sixteen times the work for every four characters. At forty characters that is
+> longer than any runner will live.
+
+`src/evalseal/patterns.py` states the limit of the check in the same terms. A
+linear-time regex engine would close it properly, and swapping `re` for one is a change
+this project has not made.
+
+**So: three mitigations, in the order they are worth doing.**
+
+1. **`timeout-minutes: 10`** is set on the job. It bounds the damage to wasted minutes.
+   It is not a fix and is not described as one.
+2. **Require approval for fork workflow runs** — Settings → Actions → *"Require approval
+   for all outside collaborators"*. This is the real control, and it is a repository
+   setting rather than something a workflow file can assert.
+3. **Or run the job only for same-repository pull requests**, and review fork receipts
+   by hand:
+
+   ```yaml
+   jobs:
+     receipt:
+       if: github.event.pull_request.head.repo.full_name == github.repository
+   ```
+
+**Never switch this to `pull_request_target`.** That runs with the base repository's
+secrets *and* checks out the fork's code, which turns "a fork can waste ten minutes"
+into "a fork can read your secrets".
+
 ### What must be present
 
 A contract that is configured and then missing used to be skipped silently. The gate ran

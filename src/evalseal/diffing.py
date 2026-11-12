@@ -382,6 +382,44 @@ def _incomparability_reason(
     )
 
 
+def _imported_reason(before: RunRecord, after: RunRecord) -> str | None:
+    """Why an import cannot be compared, or None when neither side is one.
+
+    The fingerprint would happily produce a value from a manifest full of nulls, and
+    two such values are equal. That is the trap: a shared *inability* to say how a run
+    was graded is not evidence that two runs were graded alike.
+    """
+    sides = [
+        (label, record.manifest.imported)
+        for label, record in (("the earlier", before), ("the later", after))
+        if record.manifest.imported is not None
+    ]
+    if not sides:
+        return None
+    where = " and ".join(f"{label} run" for label, _ in sides)
+    tools = sorted({f"{p.tool} {p.tool_version or 'at an unrecorded version'}"
+                    for _, p in sides})
+    missing = sorted({gap for _, p in sides for gap in p.gaps
+                      if gap.startswith("scorer.impl_hash")})
+    detail = (
+        f"{where} {'were' if len(sides) > 1 else 'was'} imported from "
+        f"{', '.join(tools)}, so the grading code is not EvalSeal's and cannot be "
+        "fingerprinted. "
+    )
+    if missing:
+        detail += f"The field that decides this is missing: {missing[0]} "
+    if len(sides) == 2:
+        detail += (
+            "Both sides are missing it, which does not make them comparable: two "
+            "receipts that cannot say how they were graded agree about nothing. "
+        )
+    return detail + (
+        "The per-case verdicts, the case set and the per-row provider are still worth "
+        "reading, and the paired test below is over the cases present in both. See "
+        "docs/importers/promptfoo.md."
+    )
+
+
 def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
     """Compare two sealed runs across score, stability and evaluator configuration."""
     config = [
@@ -392,8 +430,19 @@ def diff_records(before: RunRecord, after: RunRecord) -> DiffResult:
     ]
     # Comparability is about the grader, not the subject: a different target model is
     # exactly what a benchmark compares.
-    comparable = evaluator_fingerprint(before) == evaluator_fingerprint(after)
-    reason = _incomparability_reason(before, after, config) if not comparable else ""
+    #
+    # An imported receipt is never comparable, whatever the fingerprints say. Its
+    # grading code belongs to another tool, so `scorer.impl_hash` is None - and two
+    # receipts that are both missing it would hash to the *same* fingerprint and read
+    # as a match. Two absences agreeing is not two instruments agreeing.
+    imported = _imported_reason(before, after)
+    comparable = (
+        imported is None
+        and evaluator_fingerprint(before) == evaluator_fingerprint(after))
+    if imported is not None:
+        reason = imported
+    else:
+        reason = _incomparability_reason(before, after, config) if not comparable else ""
 
     paired = compare_runs(before, after)
     ids_b = {c.case_id for c in before.results}

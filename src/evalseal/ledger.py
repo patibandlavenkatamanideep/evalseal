@@ -49,6 +49,9 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
     "1.7": [
         ("manifest", "execution"),
     ],
+    "1.9": [
+        ("manifest", "imported"),
+    ],
     "1.8": [
         ("manifest", "execution", "calls[]", "source_key"),
         ("results[]", "unscorable_count"),
@@ -87,7 +90,7 @@ _FIELDS_ADDED_IN: dict[str, list[tuple[str, ...]]] = {
 #: today's. A version outside this tuple is rejected rather than guessed at: see
 #: `schema_is_supported` for why guessing is unsafe in both directions.
 SUPPORTED_SCHEMAS: tuple[str, ...] = (
-    "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8")
+    "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9")
 
 
 def _schema_tuple(version: str) -> tuple[int, ...] | None:

@@ -58,6 +58,8 @@ from .evidence import (
 from .evidence import render as render_evidence
 from .executor import MAX_CONCURRENCY, run_eval
 from .htmlreport import write_diff_html, write_html
+from .importers.base import ImportRefused
+from .importers.promptfoo import import_export as import_promptfoo
 from .independence import audit_independence
 from .inputs import InputSnapshot, capture_all
 from .ledger import (
@@ -1087,6 +1089,11 @@ def report(
             # How many independent draws are behind the numbers above. `unknown` for a
             # receipt that cannot say, which is every receipt sealed before 1.8.
             "independence": audit_independence(record).to_dict(),
+            # Present only when the numbers were read out of another tool's export.
+            # `gaps` is what this receipt cannot say, named rather than left as nulls
+            # for a reader to notice.
+            "imported": (record.manifest.imported.model_dump(mode="json")
+                         if record.manifest.imported else None),
             "uncertainty": {
                 "label": ev.label,
                 "confidence": ev.confidence,
@@ -1140,6 +1147,14 @@ def report(
         header += (f" · **{agg.n_unscorable} ungraded** "
                    f"({agg.n_unscorable / agg.n_observations:.1%})")
     console.print(Markdown(header))
+    if (provenance := record.manifest.imported) is not None:
+        # First, because it decides what every number below means.
+        console.print(Markdown(
+            f"- Source: **imported from {provenance.tool}"
+            + (f" {provenance.tool_version}" if provenance.tool_version else "")
+            + f"**, not measured here. `{provenance.source_sha256[:27]}...`"))
+        for gap in provenance.gaps:
+            console.print(f"[yellow]  gap - {rich_escape(gap)}[/yellow]")
     if (origin := origin_line(record)) is not None:
         console.print(Markdown(origin))
         console.print(Markdown(independence_line(record)))
@@ -2020,3 +2035,73 @@ def recover(
             "[red]The chain still does not verify, so the damage is not only at the "
             "end. The sidecar holds what was removed; nothing has been lost.[/red]")
     raise typer.Exit(code=0 if ok else 1)
+
+
+@app.command("import")
+def import_results(
+    source: Path = typer.Argument(
+        ..., exists=True, dir_okay=False,
+        help="The export to read. Today: a promptfoo `eval -o export.json` file."),
+    tool: str = typer.Option(
+        "promptfoo", "--tool",
+        help="Which tool wrote it. One adapter exists; naming it keeps the next one "
+             "from being guessed at."),
+    ledger: Path = LedgerOpt,
+    out: Path | None = typer.Option(
+        None, "--out", help="Where to write the receipt. Default: ./report.json"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Only the summary line."),
+):
+    """Turn another tool's results into a sealed, verifiable receipt.
+
+    The receipt says: **these are the numbers that tool reported, and this is the file
+    they came from.** It binds the export's digest, so `evalseal verify --artifacts`
+    can later show the retained file still matches what was sealed.
+
+    That is all it can show. It does not establish that the other tool ran what its
+    export describes, that the repeats were independent draws, or that no other run was
+    made and discarded. An imported receipt has no evaluator fingerprint - the grading
+    code belongs to the other tool - so two imports are reported as not comparable,
+    and two imports missing the same field are not thereby comparable.
+
+    See docs/importers/promptfoo.md for the field-by-field mapping, including a column
+    for what each field does not support.
+    """
+    if tool != "promptfoo":
+        console.print(
+            f"[red]No importer for {rich_escape(tool)!r}. One adapter exists: "
+            "`--tool promptfoo`. A second one is deliberately not guessed at before "
+            "an export exists to read.[/red]")
+        raise typer.Exit(code=EXIT_BAD_INPUT)
+
+    try:
+        record = import_promptfoo(source, prev_hash=last_hash(ledger))
+    except ImportRefused as e:
+        # An actionable message naming the field at fault, with a documented exit code.
+        console.print(f"[red]{rich_escape(str(e))}[/red]")
+        raise typer.Exit(code=EXIT_BAD_INPUT) from None
+
+    record = seal_and_append(record, ledger, relink=True)
+    destination = out or Path("report.json")
+    write_json(record, destination)
+    write_markdown(record, destination.with_suffix(".md"))
+
+    provenance = record.manifest.imported
+    assert provenance is not None          # an importer always sets it
+    if not quiet:
+        console.print(Markdown(to_case_table(record)))
+        for warning in record.aggregate.warnings:
+            console.print(f"[yellow]{rich_escape(warning)}[/yellow]")
+    console.print(
+        f"[green]Imported {provenance.tool}"
+        + (f" {provenance.tool_version}" if provenance.tool_version else "")
+        + f": {record.aggregate.n_cases} case(s), "
+        f"{record.aggregate.n_observations} observation(s), mean "
+        f"{record.aggregate.mean_score:.3f}[/green]")
+    console.print(
+        f"[dim]source {rich_escape(provenance.source_sha256[:27])}... "
+        f"({provenance.source_bytes} bytes) -> {rich_escape(str(destination))}[/dim]")
+    if provenance.gaps:
+        console.print(
+            f"[yellow]{len(provenance.gaps)} field(s) this export could not fill; "
+            "`evalseal report` lists them.[/yellow]")
+    raise typer.Exit(code=0)

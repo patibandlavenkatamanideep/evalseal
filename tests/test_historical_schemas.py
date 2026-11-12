@@ -202,7 +202,10 @@ def test_the_fields_added_since_1_5_are_unsealed_for_every_earlier_schema():
     paths_17 = {".".join(p) for p in unsealed_paths("1.7")}
     assert "manifest.execution.calls[].source_key" in paths_17
     assert "manifest.execution" not in paths_17
-    assert unsealed_paths("1.8") == ()
+    # 1.9 adds `manifest.imported`, so a 1.8 receipt must not grow one when it is
+    # loaded into today's models.
+    assert {".".join(p) for p in unsealed_paths("1.8")} == {"manifest.imported"}
+    assert unsealed_paths("1.9") == ()
 
 
 def test_the_injection_is_still_reported_as_verifying_under_its_own_schema():
@@ -246,7 +249,7 @@ def test_nothing_is_stripped_for_an_unsupported_version():
 
 # --- A3-3: a future schema is not today's schema --------------------------------------
 
-@pytest.mark.parametrize("version", ["9.9", "2.0", "1.9"])
+@pytest.mark.parametrize("version", ["9.9", "2.0", "1.10"])
 def test_a_future_schema_version_is_rejected(tmp_path, version):
     """On the baseline `9.9` came back as ("ok", "1.5")."""
     record = _sealed_under(version, strip=False)

@@ -1,0 +1,70 @@
+{
+  "metadata": {
+    "promptfooVersion": "0.125.1"
+  },
+  "results": {
+    "version": 3,
+    "results": [
+      {
+        "id": "a",
+        "success": true,
+        "failureReason": 0,
+        "repeatGroupId": "test-0-vars-0",
+        "repeatIndex": 0,
+        "testCase": {
+          "description": "a case"
+        },
+        "vars": {
+          "q": "x"
+        },
+        "provider": {
+          "id": "p"
+        },
+        "response": {
+          "output": "y"
+        },
+        "gradingResult": {
+          "pass": true,
+          "componentResults": [
+            {
+              "pass": true,
+              "assertion": {
+                "type": "equals"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "b",
+        "success": true,
+        "failureReason": 0,
+        "repeatGroupId": "test-0-vars-0",
+        "repeatIndex": 0,
+        "testCase": {
+          "description": "a case"
+        },
+        "vars": {
+          "q": "x"
+        },
+        "provider": {
+          "id": "p"
+        },
+        "response": {
+          "output": "y"
+        },
+        "gradingResult": {
+          "pass": true,
+          "componentResults": [
+            {
+              "pass": true,
+              "assertion": {
+                "type": "equals"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

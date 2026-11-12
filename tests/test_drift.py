@@ -26,6 +26,7 @@ from evalseal.drift import (
 )
 from evalseal.executor import run_eval
 from evalseal.ledger import seal_and_append
+from evalseal.models import SCHEMA_VERSION
 
 runner = CliRunner()
 
@@ -162,7 +163,7 @@ def test_a_cross_schema_comparison_is_flagged():
     before.manifest.schema_version = "1.3"
     note = analyze_drift(before, after).schema_note
     assert "sealed before schema 1.6" in note
-    assert "(Sealed under 1.3 and 1.8.)" in note
+    assert f"(Sealed under 1.3 and {SCHEMA_VERSION}.)" in note
 
 
 def test_render_leads_with_the_cause_not_with_a_number():

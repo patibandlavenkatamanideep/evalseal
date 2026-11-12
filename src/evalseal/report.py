@@ -106,6 +106,16 @@ def to_markdown(record: RunRecord) -> str:
         f"({record.manifest.dataset.n_cases} cases)",
         f"- Sealed hash: `{record.hash[:20]}...`",
     ]
+    if (provenance := record.manifest.imported) is not None:
+        lines.append(
+            f"- Source: **imported from {provenance.tool}"
+            + (f" {provenance.tool_version}" if provenance.tool_version else "")
+            + "**, not measured here")
+        lines.append(f"- Export digest: `{provenance.source_sha256[:27]}...` "
+                     f"({provenance.source_bytes} bytes)")
+        if provenance.gaps:
+            lines.append(f"- Fields this export could not fill: "
+                         f"{len(provenance.gaps)} (listed below)")
     if (origin := origin_line(record)) is not None:
         lines.append(origin)
         lines.append(independence_line(record))

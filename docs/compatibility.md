@@ -6,7 +6,7 @@ something nobody expected:
 | | current | this build reads | this build writes |
 |---|---|---|---|
 | **package** | 2.2.0 (unreleased work toward 2.3) | — | — |
-| **record schema** | `1.8` | 1.0 … 1.8 | 1.8 |
+| **record schema** | `1.9` | 1.0 … 1.9 | 1.9 |
 | **evaluator fingerprint scheme** | `evalseal-fp/3` | scheme 3; an older pin fails with an explanation | scheme 3 |
 | **cassette format** | `3` | 2 and 3 | 3 |
 
@@ -48,6 +48,7 @@ Two consequences worth knowing:
 | 1.6 | scorer `impl_hash`, judge API version and system prompt hash, per-parameter absence reasons (7 paths) | **evaluator fingerprint gained inputs.** 1.6 is the first version recording everything scheme 3 hashes |
 | 1.7 | the execution manifest: per-call origin, digests, attempts, truncation | none — it describes what ran, not how it was graded |
 | 1.8 | `results[].unscorable_count` / `unscorable_reason`, `aggregate.n_unscorable` / `n_observations`, `execution.calls[].source_key` (5 paths) | none |
+| 1.9 | `manifest.imported`: the tool, its version, the export's digest and the list of fields that export could not fill | none — but a receipt **carrying** it is never comparable, because its grading code is another tool's. See [importers/promptfoo.md](importers/promptfoo.md) |
 
 A pair of records sealed before 1.6 cannot be compared field-for-field against one sealed
 after it; `drift` says so by name rather than reporting a fingerprint difference as a
@@ -153,7 +154,7 @@ Read in this order; the first two will affect you.
    deflate. Raise `--max-response-bytes` if you genuinely need more.
 9. **`runs/<id>/` appears** in the working directory. `./report.json` and `./report.md`
    are still written, as aliases for the latest run.
-10. **New commands:** `evalseal evidence` and `evalseal recover`.
+10. **New commands:** `evalseal evidence`, `evalseal recover` and `evalseal import`.
 
 Nothing in that list requires a file to be rewritten. The only *action* is step 2, and
 only if you pin an evaluator fingerprint.

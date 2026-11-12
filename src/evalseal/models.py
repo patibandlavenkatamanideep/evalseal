@@ -12,10 +12,13 @@ ParamsSource = Literal["explicit", "provider_default"]
 #:   local   - an in-process callable produced it; there is no provider at all
 #:   unknown - a custom Target did not say. Never assume "live" from a silence: it is
 #:             the strongest claim a receipt makes.
-CallOrigin = Literal["live", "replay", "local", "unknown"]
+#:   imported - the number came from another tool's export, read by an importer. No
+#:              provider was contacted by EvalSeal and none of this run's timing
+#:              describes a measurement.
+CallOrigin = Literal["live", "replay", "local", "unknown", "imported"]
 #: The origins of a whole run's calls, collapsed. `mixed` when they disagree - a run
 #: that replayed half its calls is not a live run, and saying so is the point.
-ExecutionOrigin = Literal["live", "replay", "local", "unknown", "mixed"]
+ExecutionOrigin = Literal["live", "replay", "local", "unknown", "mixed", "imported"]
 #: Which side of a judged measurement a call belongs to.
 CallRole = Literal["target", "judge"]
 #: How a call ended. `truncated` means the reply hit the token limit, so the answer is
@@ -64,7 +67,13 @@ FailOn = Literal["none", "unstable", "borderline"]
 # independently recorded draws that happened to agree from one recorded draw counted
 # twice. It changes no fingerprint: it describes what was measured and how well, not
 # how the grading was configured.
-SCHEMA_VERSION = "1.8"
+# 1.9 adds `manifest.imported`: where a receipt's numbers came from when they were read
+# out of another tool's export rather than measured here. It carries the producing tool
+# and its version, the export's digest and size, and - the field that does the work -
+# the list of EvalSeal fields the export could not fill. A receipt that cannot say how
+# it was graded must not be mistaken for one that can, and two receipts missing the same
+# field are not thereby comparable.
+SCHEMA_VERSION = "1.9"
 
 Stability = Literal["stable_pass", "stable_fail", "unstable", "insufficient_runs"]
 
@@ -200,6 +209,38 @@ class ArtifactProvenance(BaseModel):
     note: str | None = None
 
 
+class ImportProvenance(BaseModel):
+    """A receipt whose numbers were read from another tool's export. From 1.9.
+
+    Its presence is the claim: **nothing here was measured by EvalSeal.** No provider
+    was contacted, no cassette was replayed, and the timings in `execution` are when
+    the import ran. `origin` is `imported` on every call for the same reason.
+
+    `gaps` is the load-bearing field. It names every EvalSeal field the export could not
+    fill, so a reader can see what the receipt does not know rather than inferring it
+    from a null. Two receipts with the same gaps are two receipts that both cannot
+    answer the same questions - which is not the same as agreeing on the answers.
+    """
+    #: The producing tool, lowercase: `promptfoo`.
+    tool: str
+    #: The version the export says produced it, read from the export itself. None when
+    #: the export does not record one - which is a gap, not a default.
+    tool_version: str | None = None
+    #: The export's own schema version, where it has one.
+    export_schema: str | None = None
+    source_path: str | None = None
+    #: The digest of the exact bytes that were read. This is what `verify --artifacts`
+    #: re-checks, and all it establishes is that the retained file still matches.
+    source_sha256: str
+    source_bytes: int
+    imported_at: str
+    #: EvalSeal fields this export could not fill, by name, each with why.
+    gaps: list[str] = Field(default_factory=list)
+    #: Timestamps the export asserts, kept as the claims they are. Never used as
+    #: measurement time: a string in a file the author controls is not a clock.
+    claimed_times: dict[str, str] = Field(default_factory=dict)
+
+
 class DatasetProvenance(BaseModel):
     hash: str
     n_cases: int
@@ -300,6 +341,9 @@ class ProvenanceManifest(BaseModel):
     #: receipt sealed before 1.7 looks like, and is why it is nullable rather than
     #: defaulted to an empty manifest that would read as "nothing happened".
     execution: ExecutionProvenance | None = None
+    #: From 1.9. Present only on a receipt built by an importer; None means this run was
+    #: measured here. See ImportProvenance.
+    imported: ImportProvenance | None = None
 
 
 class CaseResult(BaseModel):

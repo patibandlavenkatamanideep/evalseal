@@ -186,7 +186,8 @@ def test_the_smoke_script_refuses_to_pass_on_the_source_tree():
 
 def test_the_smoke_script_is_syntactically_valid_and_self_describing():
     proc = subprocess.run([sys.executable, str(SMOKE), "--help"],
-                          capture_output=True, text=True, timeout=60)
+                          capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", timeout=60)
     assert proc.returncode == 0, proc.stderr
     assert "--wheel" in proc.stdout and "--keep" in proc.stdout
 
@@ -197,7 +198,8 @@ def test_the_smoke_script_is_syntactically_valid_and_self_describing():
 def test_the_wheel_really_works_from_a_clean_environment():
     """The slow lane, run in CI on every platform and opt-in locally."""
     proc = subprocess.run([sys.executable, str(SMOKE)], cwd=REPO,
-                          capture_output=True, text=True, timeout=1800)
+                          capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", timeout=1800)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "the wheel is usable from a clean environment" in proc.stdout
 
@@ -214,7 +216,8 @@ def test_running_the_package_as_a_module_works(module):
     something.
     """
     proc = subprocess.run([sys.executable, "-m", module, "--version"],
-                          cwd=REPO, capture_output=True, text=True, timeout=120)
+                          cwd=REPO, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", timeout=120)
     assert proc.returncode == 0, proc.stderr
     assert "evalseal" in proc.stdout
     assert "record schema" in proc.stdout
@@ -239,3 +242,29 @@ def test_the_smoke_script_invokes_a_resolved_path():
     assert "resolved = shutil.which" in text
     assert 'evalseal = [resolved] if resolved else' in text
     assert '["evalseal"] if shutil.which' not in text
+
+
+def test_the_typer_bound_is_the_version_that_actually_works():
+    """`typer>=0.12` was declared and never worked.
+
+    Typer before 0.19 raises `RuntimeError: Type not yet supported` on this CLI's
+    `Literal` option types, so the command tree could not be built at all. Found by
+    the minimum-dependency lane on its first run.
+    """
+    import tomllib
+
+    project = tomllib.loads(
+        (REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    typer_spec = next(s for s in project["dependencies"] if s.startswith("typer"))
+    major, minor = (int(part) for part in typer_spec.partition(">=")[2].split(".")[:2])
+    assert (major, minor) >= (0, 19), typer_spec
+
+
+def test_the_cli_command_tree_builds():
+    """What the old bound broke: not a runtime edge case, the whole command tree."""
+    import typer.main
+
+    from evalseal.cli import app
+
+    command = typer.main.get_command(app)
+    assert len(command.commands) >= 10

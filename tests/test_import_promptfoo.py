@@ -40,8 +40,12 @@ runner = CliRunner()
 
 
 def _wide() -> CliRunner:
-    """Rich wraps to the terminal width, and these assert on messages."""
-    return CliRunner(env={"COLUMNS": "200"})
+    """A plain runner. The width is pinned in conftest, before `cli` is imported.
+
+    `CliRunner(env={"COLUMNS": ...})` looks like it would do this and does not: rich
+    reads COLUMNS when the console is constructed, which is at import time.
+    """
+    return CliRunner()
 
 
 # --- the fixture is what PROVENANCE.md says it is ------------------------------------

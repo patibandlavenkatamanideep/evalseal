@@ -600,3 +600,37 @@ def test_decompose_reports_a_busy_cassette(decompose_workspace, monkeypatch):
         result = runner.invoke(app, argv)
     assert result.exit_code == 1
     assert "one writer at a time" in " ".join(result.output.split())
+
+
+def test_a_snapshot_is_written_as_the_bytes_its_digest_was_taken_from(tmp_path):
+    """The digest is of the string; the file has to be exactly that, byte for byte.
+
+    `open(..., "w")` translates `\\n` to `\\r\\n` on Windows, so every
+    `cassette_snapshot` artifact came back `changed` there the moment it was checked -
+    against a file nobody had touched. Found by the cross-platform wheel lane on its
+    first run; asserted on every platform, because a check that only fails on the
+    platform nobody develops on is a check that fails after release.
+    """
+    import hashlib
+
+    cassette = Cassette(tmp_path / "c.json", record=True, mode="fresh")
+    _run(cassette, ["yes"] * 3, n=3, snapshot_dir=tmp_path / "snaps")
+    cassette.close()
+
+    snapshot = next((tmp_path / "snaps").glob("*.json"))
+    raw = snapshot.read_bytes()
+    assert b"\r\n" not in raw, "the writer translated newlines; the digest will not match"
+    # And the digest in the name is the digest of what is on disk.
+    assert hashlib.sha256(raw).hexdigest()[:16] in snapshot.name
+
+
+def test_the_snapshot_artifact_verifies_immediately_after_the_run(tmp_path):
+    """The end-to-end form of the same thing: seal, then check, with nothing between."""
+    from evalseal.anchor import check_artifacts
+
+    cassette = Cassette(tmp_path / "c.json", record=True, mode="fresh")
+    record = _run(cassette, ["yes"] * 3, n=3, snapshot_dir=tmp_path / "snaps")
+    cassette.close()
+
+    checks = {c.role: c.status for c in check_artifacts(record)}
+    assert checks["cassette_snapshot"] == "ok", checks

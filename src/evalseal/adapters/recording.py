@@ -200,12 +200,18 @@ def _write_atomically(path: Path, text: str) -> None:
     left a partial file - and a partial JSON file loses every response in it, not just
     the latest. Writing a sibling temp file and renaming it over the original closes
     that window: os.replace is atomic on POSIX and Windows.
+
+    `newline=""` because the bytes have to be exactly `text.encode()`. In text mode
+    Windows translates every `\n` to `\r\n`, and a snapshot's digest is taken from the
+    string before it is written - so on Windows every `cassette_snapshot` artifact
+    came back `changed` the moment it was checked, against a file nobody had touched.
+    Found by the cross-platform wheel lane on its first run.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     # Same directory, so the rename never crosses a filesystem boundary.
     tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
-        with open(tmp, "w", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())

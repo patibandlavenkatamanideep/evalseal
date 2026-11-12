@@ -42,7 +42,8 @@ def replayed(tmp_path_factory):
         proc = subprocess.run(
             ["evalseal", "run", "--suite", f"examples/gsm8k_compare/suite-{arm}.json",
              "--ledger", str(ledger), "--quiet", "--fail-on", "none"],
-            cwd=ws, env=env, capture_output=True, text=True, timeout=600)
+            cwd=ws, env=env, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=600)
         assert proc.returncode == 0, f"{arm} replay failed: {proc.stdout}{proc.stderr}"
     return load_all(ledger)
 
@@ -114,7 +115,7 @@ def test_the_analysis_script_runs_and_reports_the_verdict(replayed, tmp_path):
         "\n".join(r.model_dump_json() for r in replayed) + "\n", encoding="utf-8")
     proc = subprocess.run(
         [sys.executable, str(REPO / "examples" / "gsm8k_compare" / "analyze.py"), str(ledger)],
-        capture_output=True, text=True, timeout=300)
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
     assert proc.returncode == 0, proc.stderr
     assert "verdict:         inconclusive" in proc.stdout
     assert "items whose majority verdict differs (1)" in proc.stdout

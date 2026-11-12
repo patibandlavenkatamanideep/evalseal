@@ -1,8 +1,21 @@
 from __future__ import annotations
 
 import itertools
+import os
 
 import pytest
+
+# Set before `evalseal.cli` is imported anywhere, which is why it is here at module
+# level and not in a fixture: `rich.Console` reads COLUMNS **once, at construction**,
+# and `cli.py` builds its console at import time. A fixture - or `CliRunner(env=...)` -
+# runs long after that and changes nothing.
+#
+# Without this, every assertion on a CLI message is an assertion about the terminal
+# that ran the tests. `assert "does not exist" in output` passed locally at 120
+# columns and failed on an 80-column runner, where the string arrived as
+# "does \nnot exist". A suite whose results depend on the window size is flaky by
+# construction.
+os.environ["COLUMNS"] = "200"
 
 from evalseal.adapters.dataset import Case, Dataset
 
@@ -25,7 +38,11 @@ _CI_MARKERS = (
 
 @pytest.fixture(autouse=True)
 def _offline(monkeypatch, tmp_path):
-    """Tests never record, never touch the real ledger, and never inherit a CI claim."""
+    """Tests never record, never touch the real ledger, and never inherit a CI claim.
+
+    The rendering width is pinned at the top of this module, not here: see the comment
+    there for why a fixture is too late.
+    """
     monkeypatch.delenv("EVALSEAL_RECORD", raising=False)
     monkeypatch.delenv("EVALSEAL_API_KEY", raising=False)
     for marker in _CI_MARKERS:

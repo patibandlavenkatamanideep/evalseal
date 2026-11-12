@@ -122,10 +122,17 @@ carries the same numbers, which are a 95% interval only when `alpha` is 0.05.
 ## Python and dependencies
 
 Python 3.11, 3.12 and 3.13, tested on all three plus macOS and Windows. Dependencies
-carry **lower bounds only** — `pydantic>=2.6`, `typer>=0.12`, `httpx>=0.27`,
+carry **lower bounds only** — `pydantic>=2.6`, `typer>=0.19`, `httpx>=0.27`,
 `rich>=13.7`, `cryptography>=42` — and a CI lane installs each at exactly its lower bound
 and runs the suite, so the bounds are claims rather than guesses. Nothing transitive is
 pinned: a library that pins its tree cannot be installed beside anything else.
+
+> **`typer` moved from `>=0.12` to `>=0.19`, and the old bound was wrong.** Typer
+> before 0.19 raises `RuntimeError: Type not yet supported` on this CLI's `Literal`
+> option types, so `pip install evalseal` resolving to typer 0.12–0.18 produced a
+> package whose commands could not be constructed at all. The lane found it on its
+> first run, which is the entire argument for having one. If you pinned `typer` below
+> 0.19 alongside EvalSeal, that combination never worked.
 
 ## Upgrading to 2.3 from 2.2.0
 

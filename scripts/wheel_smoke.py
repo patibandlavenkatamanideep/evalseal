@@ -53,8 +53,11 @@ class SmokeFailure(RuntimeError):
 
 def run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None,
         expect: tuple[int, ...] = (0,), what: str = "") -> subprocess.CompletedProcess:
+    # `text=True` alone decodes with the *locale* codec, which on a Windows runner is
+    # cp1252: the first `·` in EvalSeal's own output raised UnicodeDecodeError and the
+    # smoke check failed for the encoding of its own transcript.
     proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True,
-                          timeout=900)
+                          encoding="utf-8", errors="replace", timeout=900)
     if proc.returncode not in expect:
         raise SmokeFailure(
             f"{what or ' '.join(cmd)} exited {proc.returncode}, expected "
@@ -163,7 +166,8 @@ def exercise(python: Path, work: Path, env: dict[str, str]) -> None:
     broken = []
     for name in names:
         proc = subprocess.run([*evalseal, name, "--help"], cwd=work, env=env,
-                              capture_output=True, text=True, timeout=120)
+                              capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=120)
         if proc.returncode != 0:
             broken.append((name, proc.stdout + proc.stderr))
     if broken:

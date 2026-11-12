@@ -35,21 +35,75 @@ def signatures_path(ledger: Path = LEDGER_PATH) -> Path:
     return ledger.with_suffix(ledger.suffix + SIGNATURES_SUFFIX)
 
 
-def generate_keypair(private_path: Path, public_path: Path) -> str:
-    """Write a new keypair. The private key is written readable only by its owner."""
-    if private_path.exists():
-        raise FileExistsError(f"{private_path} exists; refusing to overwrite a private key")
+#: `O_NOFOLLOW` is POSIX. On Windows there is nothing to pass, and `O_EXCL` is still
+#: honoured, so exclusive creation works there even though the symlink refusal does not.
+_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+#: Owner read/write at creation. Not applied afterwards: see `write_private_key`.
+PRIVATE_KEY_MODE = 0o600
+
+
+def write_private_key(path: Path, pem: bytes) -> None:
+    """Create `path` exclusively, owner-only, without following a symlink.
+
+    Three things were wrong with `exists()` then `write_bytes()` then `chmod(0o600)`,
+    and all three are reproduced in tests/test_key_handling.py:
+
+    * **The key was created world-readable.** `write_bytes` honours the umask, so the
+      file existed at 0644 until the chmod landed - a window in which any local user
+      could read a signing key. `os.open` takes the mode at creation instead.
+    * **A dangling symlink passed the check.** `Path.exists()` follows links and is
+      False for one pointing at nothing, so the key was created at the link's target,
+      somewhere the user never named. `O_NOFOLLOW` refuses the link itself.
+    * **Check-then-write is not exclusive.** Anything could appear in between.
+      `O_CREAT | O_EXCL` makes the creation the check.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | _NOFOLLOW
+    try:
+        fd = os.open(path, flags, PRIVATE_KEY_MODE)
+    except FileExistsError:
+        raise FileExistsError(
+            f"{path} exists; refusing to overwrite a private key. Delete it on purpose "
+            "or choose another path - a signing key that is replaced by accident "
+            "invalidates every signature made with it.") from None
+    except OSError as e:
+        # ELOOP on a symlink, ENOTDIR on a path component that is not a directory.
+        raise OSError(
+            f"cannot create the private key at {path}: {e}. It must be a path this "
+            "process creates itself, not an existing file and not a symbolic link."
+        ) from None
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(pem)
+    except BaseException:
+        # A half-written key is worse than none: it would be loaded and fail to parse
+        # at signing time, after a run has already happened.
+        path.unlink(missing_ok=True)
+        raise
+
+
+def generate_keypair(private_path: Path, public_path: Path, *,
+                     overwrite_public: bool = False) -> str:
+    """Write a new keypair. The private key is created readable only by its owner.
+
+    Neither destination is overwritten. The public key used to be replaced silently,
+    which is the quieter half of the same mistake: a verifier pinned to the old key
+    reports every signature as untrusted, and the file that would have told them which
+    key it was is gone. `overwrite_public=True` is the explicit way to replace it,
+    which key rotation needs - see docs/operations.md.
+    """
+    if public_path.exists() and not overwrite_public:
+        raise FileExistsError(
+            f"{public_path} exists; refusing to overwrite a public key. Anyone "
+            "verifying against it would start seeing untrusted signatures with no "
+            "record of which key changed. Pass --overwrite-public to replace it, or "
+            "choose another path.")
     private = Ed25519PrivateKey.generate()
-    private_path.parent.mkdir(parents=True, exist_ok=True)
-    private_path.write_bytes(private.private_bytes(
+    write_private_key(private_path, private.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     ))
-    if os.name != "nt":
-        # POSIX modes do not exist on Windows; NTFS inherits the parent directory's ACL
-        # instead. Callers on Windows should keep keys somewhere already restricted.
-        private_path.chmod(0o600)
     pub_b64 = public_key_b64(private.public_key())
     public_path.parent.mkdir(parents=True, exist_ok=True)
     public_path.write_text(pub_b64 + "\n", encoding="utf-8")

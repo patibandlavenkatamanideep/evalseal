@@ -802,14 +802,31 @@ def verify(
 def keygen(
     private_key: Path = typer.Option(Path("evalseal.key"), help="Where to write the private key."),
     public_key: Path = typer.Option(Path("evalseal.pub"), help="Where to write the public key."),
+    overwrite_public: bool = typer.Option(
+        False, "--overwrite-public",
+        help="Replace an existing public key file. Needed when rotating: the private "
+             "key path must still be new, and anyone verifying against the old public "
+             "key has to be told. See docs/operations.md."),
 ):
-    """Generate an Ed25519 keypair for signing ledgers."""
+    """Generate an Ed25519 keypair for signing ledgers.
+
+    Neither file is overwritten by accident. The private key is created with
+    owner-only permissions and without following a symbolic link, so it cannot be
+    created world-readable for an instant or written somewhere other than the path
+    you named.
+    """
     try:
-        pub = generate_keypair(private_key, public_key)
-    except FileExistsError as e:
-        console.print(f"[red]{e}[/red]")
+        pub = generate_keypair(private_key, public_key,
+                               overwrite_public=overwrite_public)
+    except (FileExistsError, OSError) as e:
+        console.print(f"[red]{rich_escape(str(e))}[/red]")
         raise typer.Exit(code=1) from e
-    console.print(f"[green]private key: {private_key} (mode 600 — keep it secret)[/green]")
+    mode = "" if os.name == "nt" else " (mode 600 — keep it secret)"
+    console.print(f"[green]private key: {private_key}{mode}[/green]")
+    if os.name == "nt":
+        console.print(
+            "[yellow]Windows inherits the parent directory's ACL; this file is only as "
+            "private as the directory it is in.[/yellow]")
     console.print(f"[green]public key:  {public_key}[/green]\n{pub}")
 
 

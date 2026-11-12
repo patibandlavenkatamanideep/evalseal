@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from ..models import ScorerKind
+from ..patterns import check_pattern
 from .target import Target, TargetResponse
 
 _VERDICT_RE = re.compile(r"\b(PASS|FAIL)\b")
@@ -187,6 +188,11 @@ class ExactMatchScorer:
 class RegexScorer:
     pattern: str
     kind: ScorerKind = "regex"
+
+    def __post_init__(self) -> None:
+        # Checked at construction, not on the first case scored: by then a cassette is
+        # open and a run is in flight. `^(a+)+$` took 25 seconds on 31 characters.
+        check_pattern(self.pattern)
 
     def config(self) -> dict:
         return {"pattern": self.pattern}

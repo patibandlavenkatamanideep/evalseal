@@ -36,9 +36,10 @@ from __future__ import annotations
 import difflib
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from .models import ScorerKind
+from .patterns import UnsafePattern, check_pattern
 
 
 class ConfigError(ValueError):
@@ -100,6 +101,24 @@ class ScorerConfig(_Strict):
 
     type: ScorerKind
     pattern: str | None = None
+
+    @field_validator("pattern")
+    @classmethod
+    def _bounded_pattern(cls, value: str | None) -> str | None:
+        """Refuse a pattern whose matching time is not bounded by the input length.
+
+        Here rather than only in `RegexScorer`, so a scorer file is rejected while it
+        is being read - before a key is required, a cassette is opened or a provider is
+        contacted. In a pull-request workflow this file can come from a fork, and
+        Python's regex engine has no timeout. See patterns.py.
+        """
+        if value is None:
+            return None
+        try:
+            check_pattern(value, what="the scorer's `pattern`")
+        except UnsafePattern as e:
+            raise ValueError(str(e)) from None
+        return value
     tolerance: float | None = Field(default=None, ge=0.0)
     rubric: str | None = None
 

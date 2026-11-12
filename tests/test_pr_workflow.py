@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,9 @@ yaml = pytest.importorskip("yaml")
 
 REPO = Path(__file__).resolve().parent.parent
 WORKFLOW = REPO / "docs" / "pr-receipt-workflow.yml"
+#: `${{ steps.gate.outputs.code }}` and friends.
+_STEP_OUTPUT = re.compile(
+    r"\$\{\{\s*steps\.(?P<step>[\w-]+)\.outputs\.(?P<name>[\w-]+)\s*\}\}")
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="the workflow's run steps are bash; runners are Linux")
@@ -57,8 +61,13 @@ def _condition(expr: str | None, ws: Path, env: dict[str, str], outputs: dict) -
     raise AssertionError(f"the workflow uses an `if:` this harness does not model: {expr}")
 
 
-def run_workflow(ws: Path, **env_overrides: str) -> dict:
-    wf = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+def run_workflow(ws: Path, _workflow: Path | None = None, **env_overrides: str) -> dict:
+    """Execute the workflow against `ws`. `_workflow` runs a patched copy of it.
+
+    A patched copy is how a fault is injected into one step without pretending the
+    rest of the file is different: everything else is the committed workflow.
+    """
+    wf = yaml.safe_load((_workflow or WORKFLOW).read_text(encoding="utf-8"))
     env = {**os.environ, **{k: str(v) for k, v in wf["env"].items()}, **env_overrides}
     # The EvalSeal under test, not whatever is on PyPI.
     env["PATH"] = f"{Path(sys.executable).parent}{os.pathsep}{env['PATH']}"
@@ -77,8 +86,14 @@ def run_workflow(ws: Path, **env_overrides: str) -> dict:
         if not _condition(step.get("if"), ws, env, outputs):
             continue
         step_env = {**env, **{k: str(v) for k, v in step.get("env", {}).items()}}
-        if "GATE_CODE" in step_env and "${{" in step_env["GATE_CODE"]:
-            step_env["GATE_CODE"] = outputs.get("gate", {}).get("code", "")
+        # Resolve every `${{ steps.<id>.outputs.<name> }}` the way a runner does, not
+        # just GATE_CODE by name. One step's expression being substituted while
+        # another's was passed through literally is a harness that tests the step it
+        # happens to know about.
+        for key, value in list(step_env.items()):
+            match = _STEP_OUTPUT.fullmatch(value.strip())
+            if match:
+                step_env[key] = outputs.get(match["step"], {}).get(match["name"], "")
         out_file = ws / f".out-{len(ran)}"
         out_file.write_text("", encoding="utf-8")
         step_env["GITHUB_OUTPUT"] = str(out_file)
@@ -95,8 +110,11 @@ def run_workflow(ws: Path, **env_overrides: str) -> dict:
                 line.split("=", 1) for line in out_file.read_text().splitlines() if "=" in line)
         if proc.returncode != 0:
             outputs["_failed"] = True
-            outputs["_failed_step"] = name
-            outputs["_stderr"] = proc.stderr + proc.stdout
+            # The *first* failure is the cause; a runner marks the job with that one and
+            # only `if: always()` steps run afterwards. Overwriting it meant a test
+            # asking which check failed was told about the final catch-all step.
+            outputs.setdefault("_failed_step", name)
+            outputs["_stderr"] = outputs.get("_stderr", "") + proc.stderr + proc.stdout
 
     return {"summary": summary.read_text(encoding="utf-8"), "ran": ran,
             "failed": outputs["_failed"], "failed_step": outputs.get("_failed_step"),
@@ -213,7 +231,7 @@ def test_a_failing_gate_fails_the_job_but_still_writes_the_summary(tmp_path):
     result = run_workflow(ws, POLICY="strict.yml")
 
     assert result["failed"]
-    assert result["failed_step"] == "Fail the check if the gate failed"
+    assert result["failed_step"] == "Fail the check if any required check failed"
     s = result["summary"]
     assert "**Gate FAILED**" in s
     assert "| `run.min_score` | **FAIL** |" in s
@@ -247,9 +265,10 @@ def test_the_pre_registration_is_applied_and_named(tmp_path):
 
 
 def test_without_a_pre_registration_the_summary_says_so(tmp_path):
+    """Opting out deliberately, which is the only way to run without one now."""
     ws = _workspace(tmp_path)
     (ws / "examples" / "prereg.json").unlink()
-    result = run_workflow(ws)
+    result = run_workflow(ws, REQUIRE_PREREG="false")
     assert not result["failed"], (result["failed_step"], result["log"])
 
     s = result["summary"]
@@ -293,3 +312,115 @@ def test_judge_drift_is_reported_when_a_baseline_exists(tmp_path):
     assert "Judge drift:" in s
     assert (ws / "judge-drift.json").exists()
     assert (ws / "judge-drift.md").exists()
+
+
+# --- fault injection: every required check has to fail the job ----------------------
+#
+# The acceptance criterion for this phase. Each of these makes one required check fail
+# and asserts three things: the job fails, the step that failed is named, and the
+# diagnostics are still uploaded - a red check with nothing attached is a red check
+# nobody can act on.
+
+def _uploaded(ws: Path) -> set[str]:
+    """The files the upload step would collect, of those it names."""
+    wf = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    upload = next(s for s in wf["jobs"]["receipt"]["steps"]
+                  if "upload-artifact" in str(s.get("uses", "")))
+    named = [line.strip() for line in upload["with"]["path"].splitlines() if line.strip()]
+    env = {k: str(v) for k, v in wf["env"].items()}
+    present = set()
+    for entry in named:
+        for key, value in env.items():
+            entry = entry.replace(f"${{{{ env.{key} }}}}", value)
+        if (ws / entry).exists():
+            present.add(entry)
+    return present
+
+
+def test_a_missing_pre_registration_fails_before_anything_runs(tmp_path):
+    """Deleting the contract in a pull request used to remove it silently."""
+    ws = _workspace(tmp_path)
+    (ws / "examples" / "prereg.json").unlink()
+    result = run_workflow(ws)
+    assert result["failed"]
+    assert result["failed_step"] == "Required contracts are present"
+    assert "examples/prereg.json is required by REQUIRE_PREREG=true" in result["log"]
+    assert "set REQUIRE_PREREG=false" in result["log"]
+    # It failed in one second rather than after a replay.
+    assert "Replay the suite from its cassette" not in result["ran"]
+
+
+def test_a_missing_policy_fails_before_anything_runs(tmp_path):
+    ws = _workspace(tmp_path)
+    (ws / "examples" / "evalseal.yml").unlink()
+    result = run_workflow(ws)
+    assert result["failed"]
+    assert result["failed_step"] == "Required contracts are present"
+    assert "is required by POLICY=true" in result["log"]
+
+
+def test_a_missing_baseline_fails_only_when_it_is_required(tmp_path):
+    """False by default: the first pull request on a repository has no history."""
+    ws = _workspace(tmp_path)
+    assert not (ws / "evals" / "baseline-receipt.json").exists()
+    assert not run_workflow(ws)["failed"]
+
+    required = run_workflow(_workspace(tmp_path / "again"), REQUIRE_BASELINE="true")
+    assert required["failed"]
+    assert required["failed_step"] == "Required contracts are present"
+    assert "is required by REQUIRE_BASELINE=true" in required["log"]
+
+
+def test_a_failed_anchor_verification_fails_the_job(tmp_path):
+    """It printed FAILED in the summary and left the check green."""
+    ws = _workspace(tmp_path)
+    # Corrupt the anchor between its creation and its verification by making the
+    # receipt it binds change underneath it.
+    wf = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    for step in wf["jobs"]["receipt"]["steps"]:
+        if step.get("id") == "anchor":
+            step["run"] = step["run"].replace(
+                "evalseal anchor-verify",
+                "python -c \"import json,pathlib;"
+                "p=pathlib.Path('report.json');d=json.loads(p.read_text());"
+                "d['aggregate']['mean_score']=0.123;"
+                "p.write_text(json.dumps(d))\"\n          evalseal anchor-verify")
+    patched = tmp_path / "patched.yml"
+    patched.write_text(yaml.safe_dump(wf, sort_keys=False), encoding="utf-8")
+
+    result = run_workflow(ws, _workflow=patched)
+    assert result["failed"]
+    assert result["failed_step"] == "Fail the check if any required check failed"
+    assert "anchor-verify failed with exit code" in result["log"]
+    assert "REQUIRE_ANCHOR=false" in result["log"]
+    # The diagnostics are still there.
+    assert "anchor-verify.txt" in _uploaded(result["ws"])
+    assert result["summary"]
+
+
+def test_a_failed_anchor_verification_can_be_downgraded_to_a_report(tmp_path):
+    """So a repository that does not want to gate on it still gets the finding."""
+    ws = _workspace(tmp_path)
+    result = run_workflow(ws, REQUIRE_ANCHOR="false")
+    assert not result["failed"], (result["failed_step"], result["log"])
+
+
+def test_a_failing_gate_still_uploads_its_diagnostics(tmp_path):
+    ws = _workspace(tmp_path)
+    (ws / "strict.yml").write_text("version: 1\nrun:\n  min_score: 0.999\n",
+                                   encoding="utf-8")
+    result = run_workflow(ws, POLICY="strict.yml")
+    assert result["failed"]
+    collected = _uploaded(result["ws"])
+    for name in ("gate.json", "report.json", "verify.txt", "anchor.json"):
+        assert name in collected, (name, collected)
+
+
+def test_the_anchor_is_created_before_the_gate_that_may_require_it():
+    """Order, not behaviour: `gate --prereg` can only check an anchor that exists."""
+    wf = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    names = [s.get("name", "") for s in wf["jobs"]["receipt"]["steps"]]
+    assert names.index("Anchor the receipt and re-check the anchor") < \
+        names.index("Gate against the policy and the pre-registration")
+    gate = next(s for s in wf["jobs"]["receipt"]["steps"] if s.get("id") == "gate")
+    assert "--anchor anchor.json" in gate["run"]

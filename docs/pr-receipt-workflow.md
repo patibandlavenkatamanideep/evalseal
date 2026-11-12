@@ -20,15 +20,34 @@ The workflow file is [pr-receipt-workflow.yml](pr-receipt-workflow.yml). Copy it
 
 | step | command | fails the job when |
 |---|---|---|
+| required contracts | a few `test -f` checks | a file the workflow says is required is not there |
 | replay the suite | `evalseal run --suite … --html receipt.html --fail-on none` | the replay breaks, e.g. the cassette no longer matches the dataset |
 | verify record and artifacts | `evalseal verify --artifacts` | the record's hash does not match its content, or the cassette changed since it was sealed |
-| gate | `evalseal gate --policy … --prereg … --json` | a policy rule or a pre-registration clause fails (recorded here, acted on last) |
+| anchor and re-check it | `evalseal anchor …` then `evalseal anchor-verify …` | recorded here, acted on last - and it runs **before** the gate, because a pre-registration may require an anchor and the gate can only check one that exists |
+| gate | `evalseal gate --policy … --prereg … --anchor anchor.json --json` | a policy rule or a pre-registration clause fails (recorded here, acted on last) |
 | diff, if a baseline exists | `evalseal diff baseline report.json --json` and `--html` | never: `diff` reports, it does not gate |
 | judge drift, if a baseline exists | `evalseal drift baseline report.json --json` | never: it reports what moved underneath the score |
-| anchor and re-check it | `evalseal anchor …` then `evalseal anchor-verify …` | the receipt does not verify against its ledger |
 | step summary | a short Python block | never (it runs even when an earlier step failed) |
 | upload | `actions/upload-artifact` | never (it runs even when an earlier step failed) |
-| final | exit with the gate's code | the gate failed |
+| final | checks the gate's code and the anchor's | the gate failed, or `anchor-verify` failed and `REQUIRE_ANCHOR` is true |
+
+### What must be present
+
+A contract that is configured and then missing used to be skipped silently. The gate ran
+without `--prereg`, the check went green, and deleting the pre-registration in a pull
+request removed the contract with nothing to show it. Three switches decide what is
+required:
+
+| variable | default | what it means |
+|---|---|---|
+| `REQUIRE_PREREG` | `"true"` | the file named by `PREREG` must exist. A pre-registration whose absence is tolerated is not a contract |
+| `REQUIRE_BASELINE` | `"false"` | the file named by `BASELINE_RECEIPT` must exist. False by default because the first pull request on a repository has no history, and failing for that is failing for being new |
+| `REQUIRE_ANCHOR` | `"true"` | `anchor-verify` must pass. The anchor is created in this job, so a failure here is this job's own output not round-tripping |
+
+`POLICY` is always required: a gate with no policy is not a gate.
+
+Opt out in the workflow file, where a reviewer sees it in the diff, rather than by
+deleting a path. Each failure message names the switch that would make it optional.
 
 Every step runs offline. Nothing here needs a secret, a token or an external service.
 
@@ -50,8 +69,10 @@ cassette then shows reviewers exactly which responses changed.
 ## The pre-registration
 
 A policy asks *is this number good enough*. A pre-registration asks *is this the
-evaluation you said you would run*. The workflow applies one when `PREREG` names a file
-that exists, and says plainly in the summary when it does not:
+evaluation you said you would run*. The workflow **requires** one by default: if
+`PREREG` names a file that is not there, the job fails before the replay with a message
+naming `REQUIRE_PREREG`. Set `REQUIRE_PREREG: "false"` to run without one, and the
+summary then says plainly that nothing checked the contract:
 
 > No pre-registration was applied, so nothing checked that this is the evaluation that
 > was declared beforehand.
@@ -130,7 +151,8 @@ items it would take to decide.
 
 ## The baseline
 
-The drift step runs only when `BASELINE_RECEIPT` exists. The simplest way to keep one is to
+The drift step runs only when `BASELINE_RECEIPT` exists, and `REQUIRE_BASELINE: "true"`
+turns a missing one into a failure once you have committed a baseline to compare with. The simplest way to keep one is to
 commit it from the default branch:
 
 ```bash

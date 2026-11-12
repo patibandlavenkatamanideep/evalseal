@@ -65,8 +65,10 @@ from .ledger import (
     config_fingerprint,
     evaluator_fingerprint,
     explain_fingerprint_mismatch,
+    incomplete_tail,
     last_hash,
     load_all,
+    recover_incomplete_tail,
     seal_and_append,
     verify_chain,
 )
@@ -1959,3 +1961,58 @@ def evidence(
         console.print(f"[green]Evidence report -> {rich_escape(str(out))}[/green]")
     console.print(Markdown(text))
     raise typer.Exit(code=0)
+
+
+@app.command()
+def recover(
+    ledger: Path = LedgerOpt,
+    yes: bool = typer.Option(
+        False, "--yes", "-y",
+        help="Do not ask. For CI, where there is nobody to ask."),
+):
+    """Move an interrupted append aside and keep the complete history.
+
+    A process killed between one record's newline and the next leaves a partial line
+    at the end of the ledger. Every record before it is intact, and until this command
+    existed nothing could read any of them: the whole file came back as "line N is not
+    valid JSON".
+
+    This is a separate command rather than automatic behaviour because truncating a
+    ledger is a change to tamper-evidence, and a tool that quietly drops a trailing
+    line is a tool that can be made to drop a real one. Nothing is deleted either way:
+    the partial bytes are written to a sidecar before the ledger is touched.
+    """
+    if not ledger.exists():
+        console.print(f"[red]{rich_escape(str(ledger))} does not exist.[/red]")
+        raise typer.Exit(code=EXIT_BAD_INPUT)
+    partial = incomplete_tail(ledger)
+    if partial is None:
+        console.print(
+            f"[green]{rich_escape(str(ledger))} does not end with an incomplete "
+            "record; there is nothing to recover.[/green]")
+        ok, message = verify_chain(ledger)
+        console.print(f"{'ok  ' if ok else 'FAIL'} {rich_escape(message)}")
+        raise typer.Exit(code=0 if ok else 1)
+
+    complete, tail = partial
+    console.print(
+        f"[yellow]{rich_escape(str(ledger))} ends with {len(tail)} byte(s) that are "
+        f"not a whole record, after {complete} complete record(s).[/yellow]")
+    console.print(f"[dim]The partial tail begins: {rich_escape(tail[:120])!r}[/dim]")
+    if not yes and not typer.confirm(
+            "Move the partial tail to a sidecar and truncate the ledger to the last "
+            "complete record?"):
+        console.print("[yellow]Nothing changed.[/yellow]")
+        raise typer.Exit(code=1)
+
+    sidecar, kept, moved = recover_incomplete_tail(ledger)
+    console.print(f"[green]{moved} byte(s) -> {rich_escape(str(sidecar))}[/green]")
+    console.print(f"[green]{kept} complete record(s) kept in "
+                  f"{rich_escape(str(ledger))}.[/green]")
+    ok, message = verify_chain(ledger)
+    console.print(f"{'ok  ' if ok else 'FAIL'} {rich_escape(message)}")
+    if not ok:
+        console.print(
+            "[red]The chain still does not verify, so the damage is not only at the "
+            "end. The sidecar holds what was removed; nothing has been lost.[/red]")
+    raise typer.Exit(code=0 if ok else 1)

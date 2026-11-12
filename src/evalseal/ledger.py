@@ -4,12 +4,18 @@ import hashlib
 import json
 import os
 from collections import Counter
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import ValidationError
 
 from .locking import ledger_lock
 from .models import SCHEMA_VERSION, ProvenanceManifest, RunRecord
+
+# `validation` imports nothing from this module at import time, so this is safe and
+# lets `IncompleteFinalRecord` be an `InvalidInput`: every command that already
+# handles a malformed ledger as an input error handles an interrupted append too.
+from .validation import InvalidInput
 
 LEDGER_PATH = Path(".evalseal/ledger.jsonl")
 GENESIS = "GENESIS"
@@ -218,6 +224,67 @@ def _content_hash(record: RunRecord, as_schema: str | None = None) -> str:
     return "sha256:" + hashlib.sha256(blob.encode()).hexdigest()
 
 
+class IncompleteFinalRecord(InvalidInput):
+    """The ledger's last line is a partial record: a write that did not finish.
+
+    Separate from "line N is corrupt" because the two call for different responses and
+    only one of them is recoverable. A process killed between the newline of record N
+    and the newline of record N+1 leaves exactly this, and every record before it is
+    intact - so the history is all there, and refusing to read any of it throws away
+    the thing the ledger exists to keep.
+
+    `evalseal recover` is the way out. It is a separate command rather than automatic
+    behaviour because truncating a ledger is a change to tamper-evidence, and a tool
+    that quietly drops a trailing line is a tool that can be made to drop a real one.
+    """
+
+    def __init__(self, path: Path, complete: int, tail: str) -> None:
+        self.path = path
+        self.complete = complete
+        self.tail = tail
+        super().__init__(
+            f"{path} ends with an incomplete record: {complete} complete record(s) "
+            f"followed by {len(tail)} byte(s) that are not a whole line. That is what "
+            f"an interrupted append looks like - a kill, a full disk, a lost "
+            f"connection - and the {complete} record(s) before it are intact.\n"
+            f"Run `evalseal recover --ledger {path}` to move the partial tail aside "
+            f"and keep the complete history. Nothing is deleted: the bytes are written "
+            f"to a sidecar first."
+        )
+
+
+def incomplete_tail(path: Path) -> tuple[int, str] | None:
+    """`(complete_records, tail)` when the file ends mid-record, else None.
+
+    A ledger is one JSON object per line, so a complete file ends with a newline and
+    every line parses. "Incomplete" here means specifically: every line but the last
+    parses, the file does not end in a newline, and the last line does not parse. Any
+    other combination is corruption somewhere in the middle, which this does not
+    claim to recover.
+    """
+    from .validation import InvalidInput, strict_json_loads
+
+    raw = path.read_text(encoding="utf-8")
+    if not raw or raw.endswith("\n"):
+        return None
+    lines = raw.splitlines()
+    tail = lines[-1]
+    try:
+        strict_json_loads(tail, what=str(path))
+    except InvalidInput:
+        pass
+    else:
+        return None          # the last line is whole, it just lacks a trailing newline
+    for number, line in enumerate(lines[:-1], 1):
+        if not line.strip():
+            continue
+        try:
+            strict_json_loads(line, what=f"{path} line {number}")
+        except InvalidInput:
+            return None      # damage before the end; not an interrupted append
+    return (len([x for x in lines[:-1] if x.strip()]), tail)
+
+
 def load_all(path: Path = LEDGER_PATH) -> list[RunRecord]:
     """Every record in a ledger, parsed strictly.
 
@@ -235,6 +302,12 @@ def load_all(path: Path = LEDGER_PATH) -> list[RunRecord]:
 
     if not path.exists():
         return []
+    # Checked before parsing, so an interrupted append is reported as one instead of
+    # as "line 2 is not valid JSON", which is true and tells a reader nothing about
+    # what to do or that the rest of their history is fine.
+    partial = incomplete_tail(path)
+    if partial is not None:
+        raise IncompleteFinalRecord(path, partial[0], partial[1])
     records = []
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
@@ -252,6 +325,40 @@ def load_all(path: Path = LEDGER_PATH) -> list[RunRecord]:
 def last_hash(path: Path = LEDGER_PATH) -> str:
     recs = load_all(path)
     return recs[-1].hash if recs else GENESIS
+
+
+def recover_incomplete_tail(path: Path) -> tuple[Path, int, int]:
+    """Move an interrupted append aside and keep the complete history.
+
+    Returns `(sidecar, complete_records, bytes_moved)`. The partial bytes are written
+    to a sidecar **before** the ledger is truncated, so nothing is destroyed even if
+    the truncation fails: the sequence is write, fsync, truncate.
+
+    Held under the ledger lock, so a concurrent `evalseal run` cannot be appending
+    while the file is rewritten - which would be the one way to turn an interrupted
+    append into real corruption.
+    """
+    path = Path(path)
+    with ledger_lock(path):
+        partial = incomplete_tail(path)
+        if partial is None:
+            raise ValueError(
+                f"{path} does not end with an incomplete record; there is nothing to "
+                "recover. Run `evalseal verify` to see what it does say.")
+        complete, tail = partial
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        sidecar = path.with_name(f"{path.name}.incomplete-{stamp}")
+        with sidecar.open("x", encoding="utf-8") as handle:
+            handle.write(tail)
+            handle.flush()
+            os.fsync(handle.fileno())
+        raw = path.read_text(encoding="utf-8")
+        keep = raw[:len(raw) - len(tail)]
+        with path.open("w", encoding="utf-8") as handle:
+            handle.write(keep)
+            handle.flush()
+            os.fsync(handle.fileno())
+    return (sidecar, complete, len(tail))
 
 
 def seal_and_append(

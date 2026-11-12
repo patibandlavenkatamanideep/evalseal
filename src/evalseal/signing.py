@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
-from .ledger import LEDGER_PATH, load_all, verify_chain
+from .ledger import LEDGER_PATH, ledger_lock, load_all, verify_chain
 
 ALGORITHM = "ed25519"
 SIGNATURES_SUFFIX = ".sig.jsonl"
@@ -142,27 +142,43 @@ def load_public_key(value: str) -> Ed25519PublicKey:
 
 
 def sign_head(ledger: Path = LEDGER_PATH, key_path: Path = Path("evalseal.key")) -> dict:
-    """Sign the current head of the ledger and append the signature."""
-    records = load_all(ledger)
-    if not records:
-        raise ValueError(f"{ledger} has no records to sign")
-    ok, message = verify_chain(ledger)
-    if not ok:
-        raise ValueError(f"refusing to sign a ledger that does not verify: {message}")
+    """Sign the current head of the ledger and append the signature.
 
+    **The whole read-verify-sign-append runs under the ledger lock.** Without it a
+    concurrent `evalseal run` could append between the head being read and the
+    signature being written, and the entry would claim `record_index` N for a ledger
+    whose last record is N+1: a signature that is perfectly valid, over a head that is
+    no longer the head, while the newest record is unsigned. The lock is the same one
+    `seal_and_append` takes, so the two serialise against each other.
+    """
+    # The key is loaded before the lock: it is a read of an unrelated file, and a
+    # missing or malformed key should fail without making an appender wait.
     private = load_private_key(key_path)
-    head = records[-1].hash
-    entry = {
-        "record_index": len(records) - 1,
-        "hash": head,
-        "algorithm": ALGORITHM,
-        "public_key": public_key_b64(private.public_key()),
-        "signature": base64.b64encode(private.sign(head.encode())).decode(),
-        "signed_at": datetime.now(UTC).isoformat(),
-    }
-    path = signatures_path(ledger)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, sort_keys=True) + "\n")
+    with ledger_lock(ledger):
+        records = load_all(ledger)
+        if not records:
+            raise ValueError(f"{ledger} has no records to sign")
+        ok, message = verify_chain(ledger)
+        if not ok:
+            raise ValueError(f"refusing to sign a ledger that does not verify: {message}")
+
+        head = records[-1].hash
+        entry = {
+            "record_index": len(records) - 1,
+            "hash": head,
+            "algorithm": ALGORITHM,
+            "public_key": public_key_b64(private.public_key()),
+            "signature": base64.b64encode(private.sign(head.encode())).decode(),
+            "signed_at": datetime.now(UTC).isoformat(),
+        }
+        path = signatures_path(ledger)
+        line = json.dumps(entry, sort_keys=True) + "\n"
+        # One write of one line, flushed and fsynced inside the lock, so a reader
+        # never sees half an entry and a crash cannot leave one.
+        with path.open("a", encoding="utf-8") as f:
+            f.write(line)
+            f.flush()
+            os.fsync(f.fileno())
     return entry
 
 

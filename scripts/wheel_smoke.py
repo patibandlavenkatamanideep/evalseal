@@ -140,8 +140,13 @@ def check_it_is_the_installed_package(python: Path, work: Path,
 
 def exercise(python: Path, work: Path, env: dict[str, str]) -> None:
     """Run what a README reader runs, in a directory with no source tree above it."""
-    evalseal = ["evalseal"] if shutil.which("evalseal", path=env["PATH"]) else [
-        str(python), "-m", "evalseal.cli"]
+    # The resolved absolute path, not the bare name. On Windows `subprocess` looks an
+    # executable name up in the *parent* process's PATH - the `env` handed to the
+    # child has no say in it - so `["evalseal", ...]` raised FileNotFoundError on a
+    # runner where the venv was only ever on the child's PATH.
+    resolved = shutil.which("evalseal", path=env["PATH"])
+    evalseal = [resolved] if resolved else [str(python), "-m", "evalseal"]
+    print(f"  invoking {evalseal[0]}")
 
     print("  --version and every --help")
     run([*evalseal, "--version"], cwd=work, env=env, what="evalseal --version")

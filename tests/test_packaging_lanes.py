@@ -200,3 +200,42 @@ def test_the_wheel_really_works_from_a_clean_environment():
                           capture_output=True, text=True, timeout=1800)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "the wheel is usable from a clean environment" in proc.stdout
+
+
+# --- the documented escape hatch has to work -----------------------------------------
+
+@pytest.mark.parametrize("module", ["evalseal", "evalseal.cli"])
+def test_running_the_package_as_a_module_works(module):
+    """docs/operations.md offers this when the console script is not on PATH.
+
+    It promised `python -m evalseal.cli`, which defined `app` and never called it:
+    the command printed nothing and exited 0. A documented escape hatch that silently
+    does nothing is worse than none, because the person using it believes they ran
+    something.
+    """
+    proc = subprocess.run([sys.executable, "-m", module, "--version"],
+                          cwd=REPO, capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stderr
+    assert "evalseal" in proc.stdout
+    assert "record schema" in proc.stdout
+
+
+def test_the_troubleshooting_row_names_a_spelling_that_works():
+    import tomllib
+
+    operations = (REPO / "docs" / "operations.md").read_text(encoding="utf-8")
+    row = next(line for line in operations.splitlines()
+               if "not found after install" in line)
+    assert "python -m evalseal" in row
+    # And the console script it is a fallback for is actually declared.
+    project = tomllib.loads(
+        (REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert project["scripts"]["evalseal"] == "evalseal.cli:app"
+
+
+def test_the_smoke_script_invokes_a_resolved_path():
+    """Windows resolves an executable name against the parent's PATH, not the child's."""
+    text = SMOKE.read_text(encoding="utf-8")
+    assert "resolved = shutil.which" in text
+    assert 'evalseal = [resolved] if resolved else' in text
+    assert '["evalseal"] if shutil.which' not in text

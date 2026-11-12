@@ -224,7 +224,7 @@ would rewrite the chain.
 | `UNSCORABLE OBSERVATIONS: N of M` | the grader could not read N replies. Not model failures | read `unscorable_reason`; often `max_tokens` or a judge returning errors |
 | `origin: replay … not a fresh measurement` | the numbers came from a cassette | correct for a regression check, useless as a claim about the model today |
 | `Independence unknown` | a receipt sealed before schema 1.8 | nothing to fix; it cannot say whether its repeats were separate draws, and says so |
-| `evalseal` not found after install | the console script is not on `PATH` | `python -m evalseal.cli` works identically |
+| `evalseal` not found after install | the console script is not on `PATH` - an unactivated virtual environment, a `--user` install, a Windows shell that has not picked up the new entry | `python -m evalseal` works identically, as does `python -m evalseal.cli` |
 
 ## What none of this establishes
 

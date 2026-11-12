@@ -2105,3 +2105,10 @@ def import_results(
             f"[yellow]{len(provenance.gaps)} field(s) this export could not fill; "
             "`evalseal report` lists them.[/yellow]")
     raise typer.Exit(code=0)
+
+
+if __name__ == "__main__":  # pragma: no cover - exercised as a subprocess
+    # `python -m evalseal.cli`, the spelling docs/operations.md used to promise. The
+    # module defined `app` and never called it, so this printed nothing and exited 0:
+    # a documented escape hatch that silently did nothing.
+    app()
